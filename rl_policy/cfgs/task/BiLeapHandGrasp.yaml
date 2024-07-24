@@ -39,7 +39,7 @@ env:
 
   # reward -> dictionary
   distRewardScale: 0.5
-  actionPenaltyScale: -0.0002
+  actionPenaltyScale: 0.001
 
   observationType: "full" # can be "full_no_vel", "full", "full_state"
   asymmetric_observations: False

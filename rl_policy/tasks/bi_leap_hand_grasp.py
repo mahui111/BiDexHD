@@ -628,6 +628,7 @@ class BiLeapHandGrasp(VecTask):
             self.success_tolerance,
             self.av_factor,
             self.table_start_pose.p.z*2,
+            self.actions,
         )
 
         self.extras.update(reward_info)
@@ -1235,6 +1236,7 @@ def compute_task_rewards(
     success_tolerance: float,
     av_factor: float,
     table_height: float,
+    actions
 ):
     info = {}
     goal_object_dist = torch.abs(goal_height - object_pos[:, 2])
@@ -1300,17 +1302,22 @@ def compute_task_rewards(
         ),
         right_bonus,
     )
+    # action penalty
+    left_action, right_action = actions.split(2,-1)
+    left_action_penalty = (left_action.abs() - 0.5).clip(min=0) * action_penalty_scale
+    right_action_penalty = (right_action.abs() - 0.5).clip(min=0) * action_penalty_scale
+
 
     left_approach_penalty = dist_reward_scale * left_fingertips_object_dist + 2 * dist_reward_scale * left_palm_object_dist
     right_approach_penalty = dist_reward_scale * right_fingers_tool_dist + 2 * dist_reward_scale * right_palm_object_dist
     left_after_grasp_reward = lift_object_rew + left_hand_up_rew + left_bonus
     right_after_grasp_reward = lift_tool_rew + right_hand_up_rew + right_bonus
-    object_offset_penalty = object_offset * 0.01
-    tool_offset_penalty = tool_offset * 0.01
+    object_offset_penalty = torch.where(object_offset < 0.2, object_offset**2, object_offset*0.25)
+    tool_offset_penalty = torch.where(tool_offset < 0.2, tool_offset**2, tool_offset*0.25)
     
     # total reward
-    left_reward = - left_approach_penalty + left_after_grasp_reward - object_offset_penalty
-    right_reward = - right_approach_penalty + right_after_grasp_reward - tool_offset_penalty
+    left_reward = - left_approach_penalty + left_after_grasp_reward - object_offset_penalty - left_action_penalty
+    right_reward = - right_approach_penalty + right_after_grasp_reward - tool_offset_penalty - right_action_penalty
     reward = left_reward + right_reward
 
     # level 1
@@ -1320,6 +1327,7 @@ def compute_task_rewards(
     info["left/hand_up_rew"] = left_hand_up_rew
     info["left/bonus"] = left_bonus
     info["left/object_offset"] = object_offset
+    info["left/action_penalty"] = left_action_penalty
 
     info["right/fingers_tool_dist"] = right_fingers_tool_dist
     info["right/palm_object_dist"] = right_palm_object_dist
@@ -1327,6 +1335,7 @@ def compute_task_rewards(
     info["right/hand_up_rew"] = right_hand_up_rew
     info["right/bonus"] = right_bonus
     info["right/tool_offset"] = tool_offset
+    info["right/action_penalty"] = right_action_penalty
     # level 2
     info["left/left_approach_penalty"] = left_approach_penalty
     info["left/left_after_grasp_reward"] = left_after_grasp_reward
