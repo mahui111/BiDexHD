@@ -62,7 +62,7 @@ class IPPOAgent(nn.Module):
 
         # PPO components
         self.vec_env = vec_env
-        single_observation_space_shape = (self.observation_space.shape[0],)#//2
+        single_observation_space_shape = (self.observation_space.shape[0]//2,)
         single_action_space_shape = (self.action_space.shape[0]//2,)
         self.actor_critic = actor_critic_class(
             single_observation_space_shape,
@@ -270,8 +270,8 @@ class IPPO(nn.Module):
                     if self.apply_reset:
                         current_obs = self.vec_env.reset()["obs"]
                     # Compute the action
-                    left_actions = self.left_agent.act_inference(current_obs)#[:, self.left_obs_indices]
-                    right_actions = self.right_agent.act_inference(current_obs)#[:, self.right_obs_indices]
+                    left_actions = self.left_agent.act_inference(current_obs[:, self.left_obs_indices])
+                    right_actions = self.right_agent.act_inference(current_obs[:, self.right_obs_indices])
                     left_actions = torch.cat((left_actions, right_actions), dim=1)
                     # Step the vec_environment
                     next_obs_dict, rews, dones, infos = self.vec_env.step(left_actions)
@@ -305,8 +305,8 @@ class IPPO(nn.Module):
                         current_obs = self.vec_env.reset()["obs"]
                         current_states = self.vec_env.get_state()
                     # Compute the action
-                    left_obs = current_obs#[:, self.left_obs_indices]
-                    right_obs = current_obs#[:, self.right_obs_indices]
+                    left_obs = current_obs[:, self.left_obs_indices]
+                    right_obs = current_obs[:, self.right_obs_indices]
                     left_actions, left_actions_log_prob, left_values, left_mu, left_sigma = self.left_agent.actor_critic.act(left_obs, current_states)
                     right_actions, right_actions_log_prob, right_values, right_mu, right_sigma = self.right_agent.actor_critic.act(right_obs, current_states)
                     actions = torch.cat((left_actions, right_actions), dim=1)

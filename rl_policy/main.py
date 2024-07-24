@@ -24,7 +24,7 @@ def build_runner(cfg, env):
 
     if not is_testing:
         time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        log_dir = os.path.join(train_param.log_dir, f"{cfg.task_name}_{time_str}_s{cfg.seed}")
+        log_dir = os.path.join(train_param.log_dir, f"{cfg.algo}_{time_str}_s{cfg.seed}")
         os.makedirs(log_dir, exist_ok=True)
         with open(os.path.join(log_dir, "config.json"), "w") as f:
             json.dump(OmegaConf.to_container(cfg), f, indent=4)

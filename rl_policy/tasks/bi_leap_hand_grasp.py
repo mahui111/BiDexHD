@@ -472,7 +472,7 @@ class BiLeapHandGrasp(VecTask):
     
         arm_dof_indices = [self.gym.find_asset_dof_index(robot_asset, name) for name in self.arm_dof_names]
         hand_dof_indices = [self.gym.find_asset_dof_index(robot_asset, name) for name in self.hand_dof_names]
-        print("fingers dof names: ", self.hand_dof_names, 'indices:', hand_dof_indices)
+        # print("fingers dof names: ", self.hand_dof_names, 'indices:', hand_dof_indices)
         robot_dof_indices = arm_dof_indices + hand_dof_indices
 
         # create fingertip force sensors, if needed
@@ -782,7 +782,6 @@ class BiLeapHandGrasp(VecTask):
         # print(left_pos_err, right_pos_err, left_rot_err, right_rot_err)
         return self.robot_dof_pos[:, self.both_arm_dof_indices] + torch.cat([left_delta_qpos, right_delta_qpos], -1)
 
-
     def compute_full_state(self):
         if self.asymmetric_obs:
             # dof state: pos, vel, force. 3 * 29 = 87
@@ -1019,7 +1018,6 @@ class BiLeapHandGrasp(VecTask):
         both_hand_indices = torch.cat([self.left_robot_indices, self.right_robot_indices])
         self.gym.set_dof_position_target_tensor_indexed(self.sim, gymtorch.unwrap_tensor(self.prev_targets), gymtorch.unwrap_tensor(both_hand_indices.to(torch.int32)), len(both_hand_indices))
 
-
     def post_physics_step(self):
         self.progress_buf += 1
         self.randomize_buf += 1
@@ -1042,7 +1040,6 @@ class BiLeapHandGrasp(VecTask):
                     self._add_debug_lines(self.envs[i],self.left_fingertip_center_pos[i][j],self.left_fingertip_rot[i][j])
                     self._add_debug_lines(self.envs[i],self.right_fingertip_center_pos[i][j],self.right_fingertip_rot[i][j])
 
-                    
     def _add_debug_lines(self, env, pos, rot, line_len=0.2):
         posx = (
             (pos + quat_apply(rot, to_torch([1, 0, 0], device=self.device) * line_len))
@@ -1217,7 +1214,6 @@ def matrix_to_quaternion(matrix: torch.Tensor) -> torch.Tensor:
     out = standardize_quaternion(out)
     return torch.cat([out[..., 3:4], out[..., 0:3]], dim=-1)
 
-
 @torch.jit.script
 def compute_task_rewards(
     reset_buf,
@@ -1303,9 +1299,9 @@ def compute_task_rewards(
         right_bonus,
     )
     # action penalty
-    left_action, right_action = actions.split(2,-1)
-    left_action_penalty = (left_action.abs() - 0.5).clip(min=0) * action_penalty_scale
-    right_action_penalty = (right_action.abs() - 0.5).clip(min=0) * action_penalty_scale
+    left_action, right_action = actions.split(actions.shape[1]//2,-1)
+    left_action_penalty = (left_action.abs() - 0.8).clip(min=0).sum(-1) * action_penalty_scale
+    right_action_penalty = (right_action.abs() - 0.8).clip(min=0).sum(-1) * action_penalty_scale
 
 
     left_approach_penalty = dist_reward_scale * left_fingertips_object_dist + 2 * dist_reward_scale * left_palm_object_dist
