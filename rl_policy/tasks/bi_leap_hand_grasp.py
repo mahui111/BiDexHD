@@ -586,7 +586,7 @@ class BiLeapHandGrasp(VecTask):
         table_start_pose = gymapi.Transform()
         table_start_pose.p = gymapi.Vec3(0.0, 0.0, table_dims.z / 2)
 
-        side_panel_dims = gymapi.Vec3(0.06, 1.5, 1.1)
+        side_panel_dims = gymapi.Vec3(0.06, 1.5, table_dims.z)
         asset_options = gymapi.AssetOptions()
         asset_options.fix_base_link = True
         side_panel_asset = self.gym.create_box(
