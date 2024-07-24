@@ -93,15 +93,9 @@ class IPPOAgent(nn.Module):
 
         batch = self.storage.mini_batch_generator(self.num_mini_batches)
         for epoch in range(self.num_learning_epochs):
-            # for obs_batch, actions_batch, target_values_batch, advantages_batch, returns_batch, old_actions_log_prob_batch \
-            #        in self.storage.mini_batch_generator(self.num_mini_batches):
-
             for indices in batch:
                 obs_batch = self.storage.observations.view(-1, *self.storage.observations.size()[2:])[indices]
-                if self.asymmetric:
-                    states_batch = self.storage.states.view(-1, *self.storage.states.size()[2:])[indices]
-                else:
-                    states_batch = None
+                states_batch = self.storage.states.view(-1, *self.storage.states.size()[2:])[indices] if self.asymmetric else None
                 actions_batch = self.storage.actions.view(-1, self.storage.actions.size(-1))[indices]
                 target_values_batch = self.storage.values.view(-1, 1)[indices]
                 returns_batch = self.storage.returns.view(-1, 1)[indices]
@@ -120,7 +114,6 @@ class IPPOAgent(nn.Module):
 
                 # KL
                 if self.desired_kl != None and self.schedule == "adaptive":
-
                     kl = torch.sum(
                         sigma_batch - old_sigma_batch 
                         + (torch.square(old_sigma_batch.exp())+ torch.square(old_mu_batch - mu_batch)) / (2.0 * torch.square(sigma_batch.exp()))

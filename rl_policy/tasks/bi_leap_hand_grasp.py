@@ -745,9 +745,6 @@ class BiLeapHandGrasp(VecTask):
         self.obs_buf[:, cnt + 20 : cnt + 23] = self.tool_linvel
         self.obs_buf[:, cnt + 23 : cnt + 26] = self.tool_angvel
 
-        cnt += 26
-        assert cnt == self.obs_buf.shape[1]
-
     def calculate_ik(self, target_left_pose, target_right_pose):
         '''
         target_left_pose: (num_envs, 7)
@@ -1308,8 +1305,8 @@ def compute_task_rewards(
     right_approach_penalty = dist_reward_scale * right_fingers_tool_dist + 2 * dist_reward_scale * right_palm_object_dist
     left_after_grasp_reward = lift_object_rew + left_hand_up_rew + left_bonus
     right_after_grasp_reward = lift_tool_rew + right_hand_up_rew + right_bonus
-    object_offset_penalty = object_offset * 0.3
-    tool_offset_penalty = tool_offset * 0.3
+    object_offset_penalty = object_offset * 0.01
+    tool_offset_penalty = tool_offset * 0.01
     
     # total reward
     left_reward = - left_approach_penalty + left_after_grasp_reward - object_offset_penalty
