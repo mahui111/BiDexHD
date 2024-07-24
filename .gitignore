@@ -1,0 +1,6 @@
+rl_policy/runs
+**/__pycache__/
+assets/obj
+assets/TACOobjects
+assets/rm65_shadow_right
+taco_dataset/sampled_data
