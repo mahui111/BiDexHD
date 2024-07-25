@@ -24,6 +24,7 @@ class BiLeapHandGrasp(VecTask):
         force_render,
     ):
         self.cfg = cfg
+        self.mode = self.cfg["mode"]
 
         self.randomize = self.cfg["task"]["randomize"]
         self.randomization_params = self.cfg["task"]["randomization_params"]
@@ -92,7 +93,7 @@ class BiLeapHandGrasp(VecTask):
 
 
         # need to set the names according to the robot
-        self.palm = "palm_lower"
+        self.palm = "palm"#_lower
         self.fingertips = [
             "thumb_tip_head",
             "index_tip_head",
@@ -272,7 +273,20 @@ class BiLeapHandGrasp(VecTask):
         self.both_robot_dof_indices = to_torch(self.left_robot_dof_indices + self.right_robot_dof_indices, dtype=torch.long, device=self.device)
         
         # object
-        self._prepare_dataset()
+        self._prepare_dataset()  # first
+        trans_z_180 = np.array([
+            [-1,  0,  0, 0],
+            [ 0, -1,  0, 0],
+            [ 0,  0,  1, 0],
+            [ 0,  0,  0, 1]
+        ])
+        trans_z_neg90 = np.array([
+            [ 0,  1,  0, 0],
+            [-1,  0,  0, 0],
+            [ 0,  0,  1, 0],
+            [ 0,  0,  0, 1]
+        ])
+        self._prepare_task(i_task=6)
         object_asset, tool_asset = self._prepare_object_tool_pair(asset_root)
         
         # object_asset = self._prepare_object_asset(asset_root, self.cfg["env"]["asset"]["objectAssetFile"])
@@ -287,18 +301,23 @@ class BiLeapHandGrasp(VecTask):
         table_asset, self.table_start_pose, side_panel_asset, side_panel_start_pose = self._prepare_table_asset()
 
         # initialize pose
+        object_center = (self.dataset_object_init_pos + self.dataset_tool_init_pos) / 2
         left_robot_start_pose = gymapi.Transform()
-        left_robot_start_pose.p = gymapi.Vec3(-0.5, 0.3, 0.82)
-        left_robot_start_pose.r = gymapi.Quat.from_euler_zyx(0, -np.pi / 2, np.pi)
+        left_robot_start_pose.p = gymapi.Vec3(object_center[0] + 0.3, object_center[1] - 0.3, self.table_start_pose.p.z*2+0.52)
+        left_robot_start_pose.r = gymapi.Quat(0,1/np.sqrt(2),0,-1/np.sqrt(2))#0.27059805,0.65328148,0.27059805,-0.65328148
         right_robot_start_pose = gymapi.Transform()
-        right_robot_start_pose.p = gymapi.Vec3(-0.5, -0.3, 0.82)
-        right_robot_start_pose.r = gymapi.Quat.from_euler_zyx(0, -np.pi / 2, np.pi)
+        right_robot_start_pose.p = gymapi.Vec3(object_center[0] + 0.3, object_center[1] + 0.34, self.table_start_pose.p.z*2+0.52)
+        right_robot_start_pose.r = gymapi.Quat(0,1/np.sqrt(2),0,-1/np.sqrt(2))#0.27059805,0.65328148,0.27059805,-0.65328148
         object_start_pose = gymapi.Transform()
-        object_start_pose.p = gymapi.Vec3(0, 0.3, 0.3)
-        object_start_pose.r = gymapi.Quat.from_euler_zyx(0.0, 0.0, 0.0)
+        # object_start_pose.p = gymapi.Vec3(0, 0.3, 0.3)
+        # object_start_pose.r = gymapi.Quat.from_euler_zyx(0.0, 0.0, 0.0)
+        object_start_pose.p = gymapi.Vec3(*self.dataset_object_init_pos)
+        object_start_pose.r = gymapi.Quat(*self.dataset_object_init_quat)
         tool_start_pose = gymapi.Transform()
-        tool_start_pose.p = gymapi.Vec3(0, -0.3, 0.3)
-        tool_start_pose.r = gymapi.Quat.from_euler_zyx(0.0, 0.0, 0.0)
+        # tool_start_pose.p = gymapi.Vec3(0, -0.3, 0.3)
+        # tool_start_pose.r = gymapi.Quat.from_euler_zyx(0.0, 0.0, 0.0)
+        tool_start_pose.p = gymapi.Vec3(*self.dataset_tool_init_pos)
+        tool_start_pose.r = gymapi.Quat(*self.dataset_tool_init_quat)
 
 
         self.envs = []
@@ -532,30 +551,61 @@ class BiLeapHandGrasp(VecTask):
 
     def _prepare_dataset(self):
         with open(self.cfg['dataset']['meta_data_path'], 'r') as f:
-            self.sampled_taco_task_data = json.load(f)[1]
+            self.dataset_taco_data = json.load(f)
+        self.len_dataset = len(self.dataset_taco_data)
+
+    def _prepare_task(self, i_task=0, trans=None):
+        assert len(self.dataset_taco_data) > 0 and isinstance(self.dataset_taco_data, list), "Please load the dataset first!"
+        if i_task < 0 or i_task >= len(self.dataset_taco_data):
+            i_task = random.randint(0, len(self.dataset_taco_data)-1)
+        self.sampled_taco_task_data = self.dataset_taco_data[i_task]
+        # timestep
         self.init_timestep = self.sampled_taco_task_data['key_steps']['init']
-        self.dataset_end = self.sampled_taco_task_data['key_steps']['end']
+        self.end_timestep = self.sampled_taco_task_data['key_steps']['end']
         # objects
-        self.dataset_object_pose = np.array(self.sampled_taco_task_data['object']['T'])
+        if trans is None:
+            trans = np.eye(4)
+            if self.mode == "visualize":
+                trans[:3,3] = np.array([1,1,0])*0.1
+        self.dataset_object_pose = trans @ np.array(self.sampled_taco_task_data['object']['T'])
         self.dataset_object_pos = self.dataset_object_pose[:,:3,3]
         self.dataset_object_quat = R.from_matrix(self.dataset_object_pose[:,:3,:3]).as_quat()
+        self.dataset_object_init_pos = self.dataset_object_pos[self.init_timestep]
+        self.dataset_object_init_quat = self.dataset_object_quat[self.init_timestep]
         self.dataset_object_pos = to_torch(self.dataset_object_pos, device=self.device, dtype=torch.float)
         self.dataset_object_quat = to_torch(self.dataset_object_quat, device=self.device, dtype=torch.float)
-        self.dataset_tool_pose = np.array(self.sampled_taco_task_data['tool']['T'])
+        self.dataset_tool_pose = trans @ np.array(self.sampled_taco_task_data['tool']['T'])
         self.dataset_tool_pos = self.dataset_tool_pose[:,:3,3]
         self.dataset_tool_quat = R.from_matrix(self.dataset_tool_pose[:,:3,:3]).as_quat()
+        self.dataset_tool_init_pos = self.dataset_tool_pos[self.init_timestep]
+        self.dataset_tool_init_quat = self.dataset_tool_quat[self.init_timestep]
         self.dataset_tool_pos = to_torch(self.dataset_tool_pos, device=self.device, dtype=torch.float)  # just put here
         self.dataset_tool_quat = to_torch(self.dataset_tool_quat, device=self.device, dtype=torch.float)
         # hand poses and finger joints
         dataset_left_dof = self.sampled_taco_task_data['left']
         dataset_left_finger_dof = dataset_left_dof['qpos']
-        dataset_left_quat = dataset_left_dof['q']
-        dataset_left_pos = dataset_left_dof['p']
         dataset_right_dof = self.sampled_taco_task_data['right']
         dataset_right_finger_dof = dataset_right_dof['qpos']
-        dataset_right_quat = dataset_right_dof['q']
-        dataset_right_pos = dataset_right_dof['p']
-        self.both_finger_dof = torch.from_numpy(np.concatenate([
+        if np.allclose(trans, np.eye(4)):
+            dataset_left_quat = dataset_left_dof['q']
+            dataset_left_pos = dataset_left_dof['p']
+            dataset_right_quat = dataset_right_dof['q']
+            dataset_right_pos = dataset_right_dof['p']
+        else:
+            dataset_left_pose = np.repeat(np.eye(4)[np.newaxis, ...], len(dataset_left_finger_dof), axis=0)
+            dataset_left_pose[:,:3,:3] = R.from_quat(dataset_left_dof['q']).as_matrix()
+            dataset_left_pose[:,:3,3] = dataset_left_dof['p']
+            dataset_left_pose = trans @ dataset_left_pose
+            dataset_left_pos = dataset_left_pose[:,:3,3]
+            dataset_left_quat = R.from_matrix(dataset_left_pose[:,:3,:3]).as_quat()
+            dataset_right_pose = np.repeat(np.eye(4)[np.newaxis, ...], len(dataset_right_finger_dof), axis=0)
+            dataset_right_pose[:,:3,:3] = R.from_quat(dataset_right_dof['q']).as_matrix()
+            dataset_right_pose[:,:3,3] = dataset_right_dof['p']
+            dataset_right_pose = trans @ dataset_right_pose
+            dataset_right_pos = dataset_right_pose[:,:3,3]
+            dataset_right_quat = R.from_matrix(dataset_right_pose[:,:3,:3]).as_quat()
+
+        self.both_fingers_dof = torch.from_numpy(np.concatenate([
             dataset_left_finger_dof,
             dataset_right_finger_dof,
         ], axis=-1)).to(self.device).float()
@@ -578,7 +628,8 @@ class BiLeapHandGrasp(VecTask):
 
     def _prepare_table_asset(self):
         # create table asset
-        table_dims = gymapi.Vec3(1, 1.5, 0.3)
+        keep_dis = 0.3 if self.mode == "visualize" else 0.01
+        table_dims = gymapi.Vec3(1.5, 1.5, min(self.dataset_object_init_pos[2],self.dataset_tool_init_pos[2])-keep_dis)  # objects above table
         asset_options = gymapi.AssetOptions()
         asset_options.fix_base_link = True
         table_asset = self.gym.create_box(
@@ -767,7 +818,7 @@ class BiLeapHandGrasp(VecTask):
         target_right_rot = target_right_pose[:, 3:7]
         
         cur_left_pose = self.rigid_body_states.view(self.num_envs, -1, 13)[:,self.left_eef_index, 0:7]
-        cur_right_pose = self.rigid_body_states.view(self.num_envs, -1, 13)[:,self.right_eef_index, 0:7]
+        cur_right_pose = self.rigid_body_states.view(self.num_envs, -1, 13)[:,self.right_eef_index + self.num_robot_bodies//2, 0:7]
         # print('target_left_pos:', target_left_pos[0], 'target_right_pos:', target_right_pos[0])
         # print('target_left_rot:', target_left_rot[0], 'target_right_rot:', target_left_rot[0])
         # print('cur_left_pos:', cur_left_pose[0,:3], 'cur_right_pos:', cur_right_pose[0,:3])
@@ -776,10 +827,10 @@ class BiLeapHandGrasp(VecTask):
 
         left_pos_err = target_left_pos - cur_left_pose[:,:3]
         left_rot_err = orientation_error(target_left_rot,cur_left_pose[:,3:7])
-        left_delta_qpos = self._control_ik(torch.cat([left_pos_err, left_rot_err], -1).unsqueeze(-1), self.left_j_eef, self.num_envs)
+        left_delta_qpos = self._control_ik(torch.cat([left_pos_err, left_rot_err], -1).unsqueeze(-1), self.left_j_eef)
         right_pos_err = target_right_pos - cur_right_pose[:,:3]
         right_rot_err = orientation_error(target_right_rot,cur_right_pose[:,3:7])
-        right_delta_qpos = self._control_ik(torch.cat([right_pos_err, right_rot_err], -1).unsqueeze(-1), self.right_j_eef, self.num_envs)
+        right_delta_qpos = self._control_ik(torch.cat([right_pos_err, right_rot_err], -1).unsqueeze(-1), self.right_j_eef)
 
         # print(left_pos_err, right_pos_err, left_rot_err, right_rot_err)
         return self.robot_dof_pos[:, self.both_arm_dof_indices] + torch.cat([left_delta_qpos, right_delta_qpos], -1)
@@ -1082,15 +1133,36 @@ class BiLeapHandGrasp(VecTask):
             [0.1, 0.1, 0.85],
         )
 
-    def _control_ik(self, dpose):
+    def _control_ik(self, dpose, j_eef):
         damping = 0.1
         # solve damped least squares
-        j_eef_T = torch.transpose(self.j_eef, 1, 2)
+        j_eef_T = torch.transpose(j_eef, 1, 2)
         lmbda = torch.eye(6, device=self.device) * (damping**2)
-        u = (j_eef_T @ torch.inverse(self.j_eef @ j_eef_T + lmbda) @ dpose).view(self.num_envs, 6)
+        u = (j_eef_T @ torch.inverse(j_eef @ j_eef_T + lmbda) @ dpose).view(self.num_envs, 6)
         return u
 
-
+    def visualize(self):
+        for replay_times in range(1,1+1000):
+            self._prepare_task(i_task=(replay_times//4)%self.len_dataset)
+            for i in range(self.init_timestep, self.end_timestep+1):
+                self.actions = torch.zeros_like(self.robot_dof_pos)
+                self.actions[:, self.both_fingers_dof_indices] = self.both_fingers_dof[i:i+1]
+                self.actions[:, self.both_arm_dof_indices] = self.calculate_ik(self.target_left_pose[i:i+1], self.target_right_pose[i:i+1])
+                # step dataset in the environment
+                # 1.set dof state
+                self.robot_dof_pos[:] = self.actions
+                self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(self.robot_dof_state))
+                # 2.step object
+                self.root_state_tensor[self.tool_indices, 0:3] = self.dataset_tool_pos[i]
+                self.root_state_tensor[self.tool_indices, 3:7] = self.dataset_tool_quat[i]
+                self.root_state_tensor[self.object_indices, 0:3] = self.dataset_object_pos[i]
+                self.root_state_tensor[self.object_indices, 3:7] = self.dataset_object_quat[i]
+                self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_state_tensor))
+                # 3.step simulation
+                self.render()
+                self.gym.simulate(self.sim)
+                self.gym.fetch_results(self.sim, True)
+                self.compute_observations()
 
 
 @torch.jit.script

@@ -97,20 +97,22 @@ def main(cfg: DictConfig) -> None:
 
     env = create_isaacgym_env()
     
-    # action = torch.zeros((env.num_envs, 22*2))
-    # i = 0
-    # while True:
-        # action[:, [10,11,12,13,10+22,11+22,12+22,13+22]] = 1-2*((i//10)%2)*torch.tensor([1,1,1,1,1,1,1,1,], dtype=torch.float32)
-        # action[:, [10,11, 10+22,11+22]] = (1-2*((i//10)%2))*torch.tensor([-1,-1,1,1,], dtype=torch.float32)
-        # action[:, [10,10+22]] = (1-2*((i//10)%2))*torch.tensor([-1,1,], dtype=torch.float32)
-        # action[:, [10]] = 1-2*((i//10)%2)*torch.tensor([1,], dtype=torch.float32)
-        # _, _, _, _ = env.step(action)
-        # i+=1
+    if cfg.task['mode'] == "debug":
+        action = torch.zeros((env.num_envs, 22*2))
+        i = 0
+        while True:
+            # action[:, [10,11,12,13,10+22,11+22,12+22,13+22]] = 1-2*((i//10)%2)*torch.tensor([1,1,1,1,1,1,1,1,], dtype=torch.float32)
+            # action[:, [10,11, 10+22,11+22]] = (1-2*((i//10)%2))*torch.tensor([-1,-1,1,1,], dtype=torch.float32)
+            # action[:, [10,10+22]] = (1-2*((i//10)%2))*torch.tensor([-1,1,], dtype=torch.float32)
+            # action[:, [10]] = 1-2*((i//10)%2)*torch.tensor([1,], dtype=torch.float32)
+            _, _, _, _ = env.step(action)
+            i+=1
 
-
-    runner = build_runner(cfg, env)
-    runner.run()
-
+    elif cfg.task['mode'] == "train":
+        runner = build_runner(cfg, env)
+        runner.run()
+    elif cfg.task['mode'] == "visualize":
+        env.visualize()
 
 if __name__ == "__main__":
     main()

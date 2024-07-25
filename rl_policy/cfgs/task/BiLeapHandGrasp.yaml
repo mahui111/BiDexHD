@@ -1,13 +1,13 @@
 # used to create the object
 name: BiLeapHandGrasp
-
+mode: train  # visualize debug
 physics_engine: ${..physics_engine}
 
 # if given, will override the device setting in gym.
 env: 
   numEnvs: ${resolve_default:16384,${...num_envs}}
-  envSpacing: 1.2
-  episodeLength: 400
+  envSpacing: 1.5
+  episodeLength: 600
   enableDebugVis: ${debug}
   aggregateMode: 1
 
@@ -50,8 +50,8 @@ env:
   multiTask: False
   asset:
     assetRoot: "../assets"
-    leftAssetFile: "rm65_leap_right/rm65_leap_left.urdf"
-    rightAssetFile: "rm65_leap_right/rm65_leap_right.urdf"
+    leftAssetFile: "rm65_leap_right/rm65_leap_left_m1.urdf"
+    rightAssetFile: "rm65_leap_right/rm65_leap_right_m1.urdf"
     objectAssetFile: "obj/urdf/cup.urdf"
     toolAssetFile: "obj/urdf/cup.urdf"
     objectAssetDir: "obj/urdf"
