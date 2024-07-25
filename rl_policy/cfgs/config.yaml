@@ -61,3 +61,5 @@ hydra:
   run:
     dir: .
 
+debug: False
+triplet: (smear, eraser, plate)

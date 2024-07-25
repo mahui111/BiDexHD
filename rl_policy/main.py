@@ -97,7 +97,7 @@ def main(cfg: DictConfig) -> None:
 
     env = create_isaacgym_env()
     
-    # action = torch.zeros((4, 22*2))
+    # action = torch.zeros((env.num_envs, 22*2))
     # i = 0
     # while True:
         # action[:, [10,11,12,13,10+22,11+22,12+22,13+22]] = 1-2*((i//10)%2)*torch.tensor([1,1,1,1,1,1,1,1,], dtype=torch.float32)
