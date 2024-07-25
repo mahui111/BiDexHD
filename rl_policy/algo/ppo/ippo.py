@@ -270,8 +270,8 @@ class IPPO(nn.Module):
                     if self.apply_reset:
                         current_obs = self.vec_env.reset()["obs"]
                     # Compute the action
-                    left_actions = self.left_agent.act_inference(current_obs[:, self.left_obs_indices])
-                    right_actions = self.right_agent.act_inference(current_obs[:, self.right_obs_indices])
+                    left_actions = self.left_agent.actor_critic.act_inference(current_obs[:, self.left_obs_indices])
+                    right_actions = self.right_agent.actor_critic.act_inference(current_obs[:, self.right_obs_indices])
                     left_actions = torch.cat((left_actions, right_actions), dim=1)
                     # Step the vec_environment
                     next_obs_dict, rews, dones, infos = self.vec_env.step(left_actions)

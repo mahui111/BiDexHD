@@ -4,11 +4,11 @@ mode=$1
 case $mode in
   train)
     # Train
-    python main.py task=BiLeapHandGrasp train=LeapHandGraspPPO num_envs=10000 headless=True algo=ppo checkpoint="runs/ppo_2024-07-25_21-00-45_s42/model_1500.pt"
+    python main.py task=BiLeapHandGrasp train=LeapHandGraspPPO num_envs=10000 headless=True algo=ppo 
     ;;
   evaluate)
     # Evaluate
-    python main.py task=BiLeapHandGrasp train=LeapHandGraspPPO algo=ppo num_envs=100 test=True checkpoint="runs/ppo_2024-07-25_21-00-45_s42/model_1500.pt"
+    python main.py task=BiLeapHandGrasp train=LeapHandGraspPPO algo=ippo num_envs=1 test=True checkpoint="runs/ippo_2024-07-25_21-10-11_s42/model_2000.pt"
     ;;
   debug)
     # Debug
