@@ -194,7 +194,7 @@ class IPPO(nn.Module):
             train_param,
             is_vision,
         )
-        self.left_obs_indices = list(range(0,22))+list(range(44,66))+list(range(88,140))+list(range(192,214))+list(range(236,249))  
+        self.left_obs_indices = list(range(0,22))+list(range(44,66))+list(range(88,140))+list(range(192,214))+list(range(236,249)) + list(range(262,275)) + list(range(288,303))
         self.left_act_indices = list(range(0,22)) 
         self.right_agent = IPPOAgent(
             vec_env,
@@ -202,7 +202,7 @@ class IPPO(nn.Module):
             train_param,
             is_vision,
         )
-        self.right_obs_indices = list(range(22,44))+list(range(66,88))+list(range(140,192))+list(range(214,236))+list(range(249,262))
+        self.right_obs_indices = list(range(22,44))+list(range(66,88))+list(range(140,192))+list(range(214,236))+list(range(249,262)) + list(range(275,288)) + list(range(303,318))
         self.right_act_indices = list(range(22,44))
 
         # training params

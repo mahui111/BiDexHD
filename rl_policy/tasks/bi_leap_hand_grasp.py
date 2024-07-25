@@ -75,7 +75,7 @@ class BiLeapHandGrasp(VecTask):
 
         # need to set the number of observations according to the robot
         self.num_obs_dict = {
-            "full": 262,
+            "full": 318,
         }
 
         self.use_vel_obs = False
@@ -788,7 +788,6 @@ class BiLeapHandGrasp(VecTask):
         cnt += 2 * num_ft_states
         self.obs_buf[:, cnt : cnt + self.num_actions] = self.actions
 
-
         # object state, pose, linvel, angvel. 13 
         # tool state, pose, linvel, angvel. 13
         cnt += self.num_actions
@@ -798,6 +797,19 @@ class BiLeapHandGrasp(VecTask):
         self.obs_buf[:, cnt + 13 : cnt + 20] = self.tool_pose
         self.obs_buf[:, cnt + 20 : cnt + 23] = self.tool_linvel
         self.obs_buf[:, cnt + 23 : cnt + 26] = self.tool_angvel
+
+        # wrist state, 13 * 2
+        cnt += 2 * 13
+        self.obs_buf[:, cnt : cnt + 13] = self.left_palm_state
+        self.obs_buf[:, cnt + 13 : cnt + 26] = self.right_palm_state
+
+        # relative pos to object center, 15 * 2
+        cnt += 2 * 13
+        self.obs_buf[:, cnt : cnt + 3] = self.object_pos - self.left_palm_center_pos
+        self.obs_buf[:, cnt + 3 : cnt + 15] = (self.object_pos.unsqueeze(1) - self.left_fingertip_center_pos).reshape(-1,12)
+        self.obs_buf[:, cnt + 15: cnt + 18] = self.tool_pos - self.right_palm_center_pos
+        self.obs_buf[:, cnt + 18 : cnt + 30] = (self.tool_pos.unsqueeze(1) - self.right_fingertip_center_pos).reshape(-1,12)
+
 
     def calculate_ik(self, target_left_pose, target_right_pose):
         '''

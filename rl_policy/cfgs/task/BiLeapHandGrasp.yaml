@@ -1,6 +1,6 @@
 # used to create the object
 name: BiLeapHandGrasp
-mode: train  # visualize debug
+mode: train  # debug visualize
 physics_engine: ${..physics_engine}
 
 # if given, will override the device setting in gym.
