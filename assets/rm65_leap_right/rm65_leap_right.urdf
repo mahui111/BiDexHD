@@ -812,4 +812,28 @@
     <joint_properties friction="0.0" />
   </joint>
 
+  <link name="thumb_tip_head"/>
+  <link name="index_tip_head"/>
+  <link name="middle_tip_head"/>
+  <link name="ring_tip_head"/>
+  <joint name="thumb_tip" type="floating">
+    <parent link="thumb_fingertip"/>
+    <child link="thumb_tip_head"/>
+    <origin rpy="0 0 0" xyz="0 -0.06 -0.015"/>
+  </joint>
+  <joint name="index_tip" type="floating">
+    <parent link="fingertip"/>
+    <child link="index_tip_head"/>
+    <origin rpy="0 0 0" xyz="0 -0.048 0.015"/>
+  </joint>
+  <joint name="middle_tip" type="floating">
+    <parent link="fingertip_2"/>
+    <child link="middle_tip_head"/>
+    <origin rpy="0 0 0" xyz="0 -0.048 0.015"/>
+  </joint>
+  <joint name="ring_tip" type="floating">
+    <parent link="fingertip_3"/>
+    <child link="ring_tip_head"/>
+    <origin rpy="0 0 0" xyz="0 -0.048 0.015"/>
+  </joint>
 </robot>
