@@ -61,7 +61,7 @@ class BiLeapHandGrasp(VecTask):
         self.print_success_stat = self.cfg["env"]["printNumSuccesses"]
         self.max_consecutive_successes = self.cfg["env"]["maxConsecutiveSuccesses"]
         self.av_factor = self.cfg["env"].get("averFactor", 0.1)
-        self.goal_height = self.cfg["env"].get("goalHeight", 0.6)
+        
 
         # self.palm_offset = self.cfg["env"]["palm_offset"]
         # self.fingertip_offset = self.cfg["env"]["finger_offset"]
@@ -299,14 +299,16 @@ class BiLeapHandGrasp(VecTask):
 
         # table
         table_asset, self.table_start_pose, side_panel_asset, side_panel_start_pose = self._prepare_table_asset()
+        self.table_height = self.table_start_pose.p.z*2
+        self.goal_height = self.table_height + 0.3
 
         # initialize pose
         object_center = (self.dataset_object_init_pos + self.dataset_tool_init_pos) / 2
         left_robot_start_pose = gymapi.Transform()
-        left_robot_start_pose.p = gymapi.Vec3(object_center[0] + 0.3, object_center[1] - 0.3, self.table_start_pose.p.z*2+0.52)
+        left_robot_start_pose.p = gymapi.Vec3(object_center[0] + 0.3, object_center[1] - 0.3, self.table_height+0.52)
         left_robot_start_pose.r = gymapi.Quat(0,1/np.sqrt(2),0,-1/np.sqrt(2))#0.27059805,0.65328148,0.27059805,-0.65328148
         right_robot_start_pose = gymapi.Transform()
-        right_robot_start_pose.p = gymapi.Vec3(object_center[0] + 0.3, object_center[1] + 0.34, self.table_start_pose.p.z*2+0.52)
+        right_robot_start_pose.p = gymapi.Vec3(object_center[0] + 0.3, object_center[1] + 0.34, self.table_height+0.52)
         right_robot_start_pose.r = gymapi.Quat(0,1/np.sqrt(2),0,-1/np.sqrt(2))#0.27059805,0.65328148,0.27059805,-0.65328148
         object_start_pose = gymapi.Transform()
         # object_start_pose.p = gymapi.Vec3(0, 0.3, 0.3)
@@ -629,7 +631,7 @@ class BiLeapHandGrasp(VecTask):
     def _prepare_table_asset(self):
         # create table asset
         keep_dis = 0.3 if self.mode == "visualize" else 0.01
-        table_dims = gymapi.Vec3(1.5, 1.5, min(self.dataset_object_init_pos[2],self.dataset_tool_init_pos[2])-keep_dis)  # objects above table
+        table_dims = gymapi.Vec3(1.5, 1.5, min(self.dataset_object_init_pos[2],self.dataset_tool_init_pos[2]) - keep_dis)  # objects above table
         asset_options = gymapi.AssetOptions()
         asset_options.fix_base_link = True
         table_asset = self.gym.create_box(
@@ -680,7 +682,7 @@ class BiLeapHandGrasp(VecTask):
             self.action_penalty_scale,
             self.success_tolerance,
             self.av_factor,
-            self.table_start_pose.p.z*2,
+            self.table_height,
             self.actions,
         )
 

@@ -105,7 +105,7 @@ class PPO:
         self.apply_reset = apply_reset
 
     def test(self, path):
-        self.actor_critic.load_state_dict(torch.load(path, map_location=self.device))
+        self.load(path)
         self.actor_critic.eval()
 
     def load(self, path):
