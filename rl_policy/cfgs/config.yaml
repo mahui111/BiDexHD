@@ -63,3 +63,4 @@ hydra:
 
 debug: False
 triplet: "(stir, spatula, pan)" #(stir, spatula, pan) (smear, eraser, plate) (stir-fry, spatula, pan) (empty, bowl, bowl) (pour in some, bowl, bowl)
+exp_name: ""

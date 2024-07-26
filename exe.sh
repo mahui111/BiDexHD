@@ -7,19 +7,15 @@ mode=$1
 case $mode in
   train)
     # Train
-    python main.py task=BiLeapHandGrasp train=LeapHandGraspPPO num_envs=10000 headless=True algo=ppo 
+    python main.py task=BiLeapHandGrasp train=LeapHandGraspPPO num_envs=10000 headless=True algo=ppo exp_name=init_grasp-video_reward
     ;;
   evaluate)
     # Evaluate
-    python main.py task=BiLeapHandGrasp train=LeapHandGraspPPO algo=ppo num_envs=1 test=True checkpoint="runs/ppo_2024-07-25_22-11-15_s42/model_42500.pt" 
+    python main.py task=BiLeapHandGrasp train=LeapHandGraspPPO algo=ppo num_envs=1 test=True checkpoint="runs/ppo_2024-07-25_22-11-15_s42/model_42500.pt"
     ;;
   debug)
     # Debug
     python -m pdb main.py task=BiLeapHandGrasp train=LeapHandGraspPPO algo=ppo num_envs=1 #debug=True
-    ;;
-  visualize)
-    # Visualize
-    tensorboard --logdir rl_policy/runs/
     ;;
   *)
     echo "Usage: $0 {train|evaluate|debug|visualize}"
