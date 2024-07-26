@@ -7,7 +7,7 @@ mode=$1
 case $mode in
   train)
     # Train
-    python main.py task=BiLeapHandGrasp train=LeapHandGraspPPO num_envs=10000 headless=True algo=ppo exp_name=init_grasp-video_reward
+    python main.py task=BiLeapHandGrasp train=LeapHandGraspPPO num_envs=10000 headless=True algo=ppo exp_name=init_video-grasp_reward-1.2
     ;;
   evaluate)
     # Evaluate

@@ -28,6 +28,7 @@ class BiLeapHandGrasp(VecTask):
     ):
         self.cfg = cfg
         self.mode = self.cfg["mode"]
+        self.frequency, self.horizon = self.cfg["task"]['frequency'], self.cfg["task"]['horizon']
 
         self.randomize = self.cfg["task"]["randomize"]
         self.randomization_params = self.cfg["task"]["randomization_params"]
@@ -711,9 +712,10 @@ class BiLeapHandGrasp(VecTask):
             self.av_factor,
             self.table_height,
             self.actions,
-            self.timestep,
+            self.timestep + self.init_timestep,
             self.dataset_object_pose,self.dataset_tool_pose, 
             self.target_left_pose, self.target_right_pose,
+            self.frequency, self.horizon,
         )
 
         self.extras.update(reward_info)
@@ -1639,14 +1641,15 @@ def compute_bvdex_rewards(
     timestep,
     dataset_object_pose, dataset_tool_pose,
     dataset_left_palm_pose, dataset_right_palm_pose,
+    frequency: float=3, horizon: int=5,
 ):
     
     info = compute_task_metrics(object_pose, tool_pose, left_palm_pose, right_palm_pose, left_fingertip_pose, right_fingertip_pose)
     left_approach_penalty = dist_reward_scale * info['left_fingertips_object_dist'] + 2 * dist_reward_scale * info['left_palm_object_dist']
     right_approach_penalty = dist_reward_scale * info['right_fingertips_tool_dist'] + 2 * dist_reward_scale * info['right_palm_tool_dist']
 
-    left_object_pos_rew, left_palm_pos_rew, left_object_rot_rew, left_palm_rot_rew = compute_imi_rewards(dataset_object_pose, dataset_left_palm_pose, object_pose, left_palm_pose, timestep)
-    right_tool_pos_rew, right_palm_pos_rew, right_tool_rot_rew, right_palm_rot_rew = compute_imi_rewards(dataset_tool_pose, dataset_right_palm_pose, tool_pose, right_palm_pose, timestep)
+    left_object_pos_rew, left_palm_pos_rew, left_object_rot_rew, left_palm_rot_rew = compute_imi_rewards(dataset_object_pose, dataset_left_palm_pose, object_pose, left_palm_pose, timestep, frequency, horizon)
+    right_tool_pos_rew, right_palm_pos_rew, right_tool_rot_rew, right_palm_rot_rew = compute_imi_rewards(dataset_tool_pose, dataset_right_palm_pose, tool_pose, right_palm_pose, timestep, frequency, horizon)
 
     left_imitation_reward = left_object_pos_rew + left_object_rot_rew + 0.1 * (left_palm_pos_rew + left_palm_rot_rew)
     right_imitation_reward = right_tool_pos_rew + right_tool_rot_rew + 0.1 * (right_palm_pos_rew + right_palm_rot_rew)
