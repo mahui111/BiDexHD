@@ -1,13 +1,13 @@
 # used to create the object
 name: BiLeapHandGrasp
-mode: train  # debug visualize
+mode:  train # debug visualize 
 physics_engine: ${..physics_engine}
 
 # if given, will override the device setting in gym.
 env: 
   numEnvs: ${resolve_default:16384,${...num_envs}}
   envSpacing: 1.5
-  episodeLength: 600
+  episodeLength: 400
   enableDebugVis: ${debug}
   aggregateMode: 1
 

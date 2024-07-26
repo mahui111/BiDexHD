@@ -9,7 +9,7 @@ conda activate bvdex
 pip install ipdb addict yapf h5py sorcery pynvml seaborn numpy==1.21 einops tensorboard accelerate open3d anytree chumpy pytransform3d nlopt natsort hydra omegaconf gym git+https://github.com/isaac-sim/IsaacGymEnvs.git
 
 ```bash
-python taco_dataset/TACOdataset.py --mode make_dataset --triplet "(stir-fry, spatula, pan)"
+python taco_dataset/TACOdataset.py --mode make_dataset --triplet "(stir, spatula, pan)"
 ```
 triplet can be:
 - "(empty, bowl, bowl)"

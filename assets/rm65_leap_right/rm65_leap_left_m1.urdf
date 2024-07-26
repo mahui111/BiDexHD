@@ -208,14 +208,14 @@
   <joint name="arm_hand_joint" type="floating">
     <parent link="arm_link6" />
     <child link="palm" />
-    <origin xyz="0 0 0.025" rpy="-1.5708 0 -1.5708" />
+    <origin xyz="0 0 0.045" rpy="-1.5708 0 -1.5708" />
   </joint>
   
   <link name="palm"/>
   <joint name="palm_joint" type="floating">
     <parent link="palm" />
     <child link="palm_lower" />
-    <origin xyz="0 0 0" rpy="-1.5708 0 0" />
+    <origin xyz="0 0.02 0" rpy="-1.5708 0 0" />
   </joint>
   
   <link name="palm_lower">

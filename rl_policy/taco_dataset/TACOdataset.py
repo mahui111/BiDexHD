@@ -6,6 +6,8 @@ from pathlib import Path
 import tempfile
 import time
 import numpy as np
+from scipy.signal import butter, filtfilt
+from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import trimesh
 import torch
@@ -192,7 +194,7 @@ class TACODataset:
     def make_dataset(self, triplet="(empty, bowl, bowl)", save_dir="taco_dataset/sampled_data"):
         total_dataset = []
         seqname_list = os.listdir(join(self.dataset_root, "Object_Poses", triplet))
-        for sequence_name in tqdm(seqname_list, total=len(seqname_list)):
+        for k, sequence_name in tqdm(enumerate(seqname_list), total=len(seqname_list)):
             object_pose_dir = join(self.dataset_root, "Object_Poses", triplet, sequence_name)
             hand_pose_dir = join(self.dataset_root, "Hand_Poses", triplet, sequence_name)
             for file_name in os.listdir(object_pose_dir):
@@ -225,11 +227,57 @@ class TACODataset:
             load_tool_poses = np.load(join(object_pose_dir, "tool_" + tool_name + ".npy"))
             load_target_poses = np.load(join(object_pose_dir, "target_" + target_name + ".npy"))
         
+            # TODO: smooth trajectory
+            def low_pass_filter(data, cutoff=2.0, fs=20, order=5):
+                nyquist = 0.5 * fs
+                normal_cutoff = cutoff / nyquist
+                b, a = butter(order, normal_cutoff, btype='low', analog=False)
+                y = filtfilt(b, a, data, axis=0)
+                return y
+
+            def visualize_smoothed_trajectory(trajectory, smoothed_trajectory):
+                # Plot the original and smoothed trajectories in 3D
+                fig = plt.figure(figsize=(14, 7))
+
+                ax1 = fig.add_subplot(121, projection='3d')
+                ax1.plot(trajectory[:, 0], trajectory[:, 1], trajectory[:, 2], label='Original')
+                ax1.set_title('Original Trajectory')
+                ax1.set_xlabel('X')
+                ax1.set_ylabel('Y')
+                ax1.set_zlabel('Z')
+                ax1.legend()
+
+                ax2 = fig.add_subplot(122, projection='3d')
+                ax2.plot(smoothed_trajectory[:, 0], smoothed_trajectory[:, 1], smoothed_trajectory[:, 2], label='Smoothed', color='r')
+                ax2.set_title('Smoothed Trajectory')
+                ax2.set_xlabel('X')
+                ax2.set_ylabel('Y')
+                ax2.set_zlabel('Z')
+                ax2.legend()
+
+                plt.show()
+
+                return smoothed_trajectory
+            
+            smoothed_object_pos = low_pass_filter(load_target_poses[:, :3, 3])
+            smoothed_tool_pos = low_pass_filter(load_tool_poses[:, :3, 3])
+            smoothed_left_pos = low_pass_filter(all_left_trans)
+            smoothed_right_pos = low_pass_filter(all_right_trans)
+
+            load_target_poses[:, :3, 3] = smoothed_object_pos
+            load_tool_poses[:, :3, 3] = smoothed_tool_pos
+            all_left_trans = smoothed_left_pos
+            all_right_trans = smoothed_right_pos
+            # visualize_smoothed_trajectory(load_target_poses[:, :3, 3], smoothed_object_pos)
+            # visualize_smoothed_trajectory(load_tool_poses[:, :3, 3], smoothed_tool_pos)
+            # visualize_smoothed_trajectory(all_left_trans, smoothed_left_pos)
+            # visualize_smoothed_trajectory(all_right_trans, smoothed_right_pos)
+
             # return all data
-            init_timestep, grasp_timestep, end_timestep = 1, -1, len(load_tool_poses)-1
+            init_timestep, end_timestep = int(len(load_tool_poses)*0.1), int(len(load_tool_poses)*0.8)
             total_data = dict(
                 save_name=os.path.join(save_dir, f'{triplet}-{sequence_name}.json'),
-                key_steps=dict(init=init_timestep, grasp=grasp_timestep, end=end_timestep),
+                key_steps=dict(init=init_timestep, end=end_timestep),
                 tool=dict(id=tool_name, T=load_tool_poses.tolist()),
                 object=dict(id=target_name, T=load_target_poses.tolist()),
                 left=dict(p=all_left_trans.tolist(), q=all_left_quat.tolist(), qpos=all_left_finger_qpos.tolist()),
@@ -555,7 +603,6 @@ class TACODataset:
         # Close viewer
         viewer.close()
         
-
 
 class BiRetargetor:
     def __init__(self, robot_name:RobotName, retarget_type:RetargetingType):

@@ -1,6 +1,9 @@
-cd rl_policy
-mode=$1
+export HYDRA_FULL_ERROR=1
 
+cd rl_policy
+# python taco_dataset/TACOdataset.py --mode make_dataset --triplet "(stir, spatula, pan)"
+
+mode=$1
 case $mode in
   train)
     # Train
@@ -8,7 +11,7 @@ case $mode in
     ;;
   evaluate)
     # Evaluate
-    python main.py task=BiLeapHandGrasp train=LeapHandGraspPPO algo=ippo num_envs=1 test=True checkpoint="runs/ippo_2024-07-25_21-10-11_s42/model_2000.pt"
+    python main.py task=BiLeapHandGrasp train=LeapHandGraspPPO algo=ppo num_envs=1 test=True checkpoint="runs/ppo_2024-07-25_22-11-15_s42/model_42500.pt" 
     ;;
   debug)
     # Debug
