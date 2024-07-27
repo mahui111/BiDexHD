@@ -274,7 +274,7 @@ class TACODataset:
             # visualize_smoothed_trajectory(all_right_trans, smoothed_right_pos)
 
             # return all data
-            init_timestep, end_timestep = int(len(load_tool_poses)*0.1), int(len(load_tool_poses)*0.8)
+            init_timestep, end_timestep = int(len(load_tool_poses)*0.2), int(len(load_tool_poses)*0.8)
             total_data = dict(
                 save_name=os.path.join(save_dir, f'{triplet}-{sequence_name}.json'),
                 key_steps=dict(init=init_timestep, end=end_timestep),

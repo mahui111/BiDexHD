@@ -3,5 +3,5 @@ assets/obj
 assets/TACOobjects
 assets/rm65_shadow_right
 rl_policy/runs
-rl_policy/taco_dataset/sampled_data/*-*
+# rl_policy/taco_dataset/sampled_data/*-*
 *runs
