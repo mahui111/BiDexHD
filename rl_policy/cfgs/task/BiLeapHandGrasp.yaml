@@ -1,6 +1,6 @@
 # used to create the object
 name: BiLeapHandGrasp
-mode:  train # debug visualize 
+mode:  train  # debug  visualize
 physics_engine: ${..physics_engine}
 
 # if given, will override the device setting in gym.
@@ -64,8 +64,9 @@ env:
   enableCameraSensors: False
 
 task:
-  frequency: 1.2
-  horizon: 5
+  frequency: 5
+  horizon: 2
+  onlyObjectReward: 1
   randomize: False
   randomization_params:
     frequency: 720   # Define how many simulation steps between generating new randomizations
