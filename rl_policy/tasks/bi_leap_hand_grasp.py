@@ -267,17 +267,18 @@ class BiLeapHandGrasp(VecTask):
         self.num_robot_bodies = self.gym.get_asset_rigid_body_count(left_asset) + self.gym.get_asset_rigid_body_count(right_asset)
         self.num_robot_shapes = self.gym.get_asset_rigid_shape_count(left_asset) + self.gym.get_asset_rigid_shape_count(right_asset)
         self.num_robot_dofs = self.gym.get_asset_dof_count(left_asset) + self.gym.get_asset_dof_count(right_asset)
-        self.robot_dof_default_pos = to_torch(
-            [ 2.6396e-01,  2.5209e-01,  2.1412e+00,  7.3334e-01, -1.3495e+00,
-         -1.2485e+00,  1.4559e-02, -2.9828e-01,  9.1046e-01,  8.6533e-01,
-         -1.1081e+00,  1.5081e-02,  1.3430e+00, -5.7619e-03,  4.8028e-01,
-          1.0533e-01,  1.1771e-02,  2.3770e-03,  5.2847e-01,  2.7517e-01,
-          9.2905e-03,  1.1253e-03,  8.7288e-01,  2.2177e+00, -1.1985e+00,
-         -1.6249e+00,  6.2858e-01, -8.3031e-01,  3.1325e-01,  6.1444e-02,
-          2.2033e-02, -5.7871e-03,  5.2441e-01,  3.1776e-03,  1.3648e+00,
-          4.5659e-03,  4.3381e-01,  2.8884e-02,  3.6321e-02,  9.6377e-04,
-          3.9599e-01, -1.1753e-01,  2.0954e-01,  1.3920e-01], 
-        device=self.device)
+        self.robot_dof_default_pos = torch.zeros(self.num_robot_dofs, dtype=torch.float, device=self.device)  
+        # self.robot_dof_default_pos = to_torch(
+        #     [ 2.6396e-01,  2.5209e-01,  2.1412e+00,  7.3334e-01, -1.3495e+00,
+        #  -1.2485e+00,  1.4559e-02, -2.9828e-01,  9.1046e-01,  8.6533e-01,
+        #  -1.1081e+00,  1.5081e-02,  1.3430e+00, -5.7619e-03,  4.8028e-01,
+        #   1.0533e-01,  1.1771e-02,  2.3770e-03,  5.2847e-01,  2.7517e-01,
+        #   9.2905e-03,  1.1253e-03,  8.7288e-01,  2.2177e+00, -1.1985e+00,
+        #  -1.6249e+00,  6.2858e-01, -8.3031e-01,  3.1325e-01,  6.1444e-02,
+        #   2.2033e-02, -5.7871e-03,  5.2441e-01,  3.1776e-03,  1.3648e+00,
+        #   4.5659e-03,  4.3381e-01,  2.8884e-02,  3.6321e-02,  9.6377e-04,
+        #   3.9599e-01, -1.1753e-01,  2.0954e-01,  1.3920e-01], 
+        # device=self.device)
         self.robot_dof_default_vel = torch.zeros(self.num_robot_dofs, dtype=torch.float, device=self.device)  
         # update right handles & dof_indices
         self.right_palm_handle += self.num_robot_bodies//2
@@ -678,7 +679,73 @@ class BiLeapHandGrasp(VecTask):
 
         return table_asset, table_start_pose, side_panel_asset, side_panel_start_pose
 
-    def compute_reward(self):
+    def compute_reward(self, mode='v1'):
+        if mode == 'grasp':
+            returns = compute_grasp_rewards(
+                self.reset_buf,
+                self.progress_buf,
+                self.successes,
+                self.current_successes,
+                self.consecutive_successes,
+                self.max_episode_length,
+                self.object_pos, self.tool_pos,
+                self.goal_height,
+                self.left_palm_pos, self.right_palm_pos,
+                self.left_fingertip_pos, self.right_fingertip_pos,
+                self.dist_reward_scale,
+                self.object_init_states, self.tool_init_states,
+                self.action_penalty_scale,
+                self.success_tolerance,
+                self.av_factor,
+                self.table_height,
+                self.actions,
+            )
+        elif mode == 'v0':
+            returns = compute_bvdex_rewards_v0(
+                self.reset_buf,
+                self.progress_buf,
+                self.successes,
+                self.current_successes,
+                self.consecutive_successes,
+                self.max_episode_length,
+                self.object_pose, self.tool_pose,
+                self.left_palm_pose, self.right_palm_pose,
+                self.left_fingertip_pose, self.right_fingertip_pose,
+                self.dist_reward_scale,
+                self.av_factor,
+                self.table_height,
+                self.actions,
+                self.timestep, self.init_timestep,
+                self.dataset_object_pose,self.dataset_tool_pose, 
+                self.target_left_pose, self.target_right_pose,
+                self.frequency, self.horizon,
+                self.only_object_reward,
+            )
+        elif mode == 'v1':
+            returns = compute_bvdex_rewards_v1(
+                self.reset_buf,
+                self.progress_buf,
+                self.successes,
+                self.current_successes,
+                self.consecutive_successes,
+                self.max_episode_length,
+                self.object_pos, self.tool_pos,
+                self.goal_height,
+                self.left_palm_pos, self.right_palm_pos,
+                self.left_fingertip_pos, self.right_fingertip_pos,
+                self.dist_reward_scale,
+                self.object_init_states, self.tool_init_states,
+                self.action_penalty_scale,
+                self.success_tolerance,
+                self.av_factor,
+                self.table_height,
+                self.actions,
+                self.timestep, self.init_timestep,
+                self.dataset_object_pose,self.dataset_tool_pose, 
+                self.object_pose, self.tool_pose,
+                self.frequency, self.horizon,
+            )
+
         (
             self.rew_buf[:],
             self.reset_buf[:],
@@ -686,47 +753,8 @@ class BiLeapHandGrasp(VecTask):
             self.successes[:],
             self.current_successes[:],
             self.consecutive_successes[:],
-            reward_info,
-        # ) = compute_grasp_rewards(
-        #     self.reset_buf,
-        #     self.progress_buf,
-        #     self.successes,
-        #     self.current_successes,
-        #     self.consecutive_successes,
-        #     self.max_episode_length,
-        #     self.object_pos, self.tool_pos,
-        #     self.goal_height,
-        #     self.left_palm_center_pos, self.right_palm_center_pos,
-        #     self.left_fingertip_center_pos, self.right_fingertip_center_pos,
-        #     self.dist_reward_scale,
-        #     self.object_init_states, self.tool_init_states,
-        #     self.action_penalty_scale,
-        #     self.success_tolerance,
-        #     self.av_factor,
-        #     self.table_height,
-        #     self.actions,
-        # )
-
-        ) = compute_bvdex_rewards(
-            self.reset_buf,
-            self.progress_buf,
-            self.successes,
-            self.current_successes,
-            self.consecutive_successes,
-            self.max_episode_length,
-            self.object_pose, self.tool_pose,
-            self.left_palm_pose, self.right_palm_pose,
-            self.left_fingertip_pose, self.right_fingertip_pose,
-            self.dist_reward_scale,
-            self.av_factor,
-            self.table_height,
-            self.actions,
-            self.timestep, self.init_timestep,
-            self.dataset_object_pose,self.dataset_tool_pose, 
-            self.target_left_pose, self.target_right_pose,
-            self.frequency, self.horizon,
-            self.only_object_reward,
-        )
+            reward_info
+        ) = returns
 
         self.extras.update(reward_info)
         self.extras["successes"] = self.successes
@@ -1124,7 +1152,7 @@ class BiLeapHandGrasp(VecTask):
         self.randomize_buf += 1
 
         self.compute_observations()
-        self.compute_reward()
+        self.compute_reward(mode='v1')
 
         if self.viewer and self.debug_vis:
             # draw axes to debug
@@ -1320,7 +1348,17 @@ def rotation_6d_to_matrix(d6):
     b3 = torch.cross(b1, b2, dim=-1)
     return torch.stack((b1, b2, b3), dim=-2)
 
-
+def rotation_matrix_z(angles):
+    cos_theta = torch.cos(angles)
+    sin_theta = torch.sin(angles)
+    
+    R_z = torch.stack([
+        torch.stack([cos_theta, -sin_theta, torch.zeros_like(angles)], dim=1),
+        torch.stack([sin_theta, cos_theta, torch.zeros_like(angles)], dim=1),
+        torch.stack([torch.zeros_like(angles), torch.zeros_like(angles), torch.ones_like(angles)], dim=1)
+    ], dim=2)
+        
+    return R_z
 
 @torch.jit.script
 def _sqrt_positive_part(x: torch.Tensor) -> torch.Tensor:
@@ -1452,17 +1490,17 @@ def compute_grasp_rewards(
     # stage 1: after hand approach object, lift_object
     lift_object_rew = torch.zeros_like(goal_object_dist)
     lift_object_rew = torch.where(
-        is_grasp_left == True, 2 * (goal_height - table_height - goal_object_dist), lift_object_rew
+        is_grasp_left == True, 3 * (goal_height - table_height) - 2 * goal_object_dist, lift_object_rew
     )
     lift_tool_rew = torch.zeros_like(gool_tool_dist)
     lift_tool_rew = torch.where(
-        is_grasp_right == True, 2 * (goal_height - table_height - gool_tool_dist), lift_tool_rew
+        is_grasp_right == True, 3 * (goal_height - table_height) - 2 * gool_tool_dist, lift_tool_rew
     )
     # stage 2: lift up reward
     left_hand_up_rew = torch.zeros_like(goal_object_dist)
-    left_hand_up_rew = torch.where(is_grasp_left == True, 1 * (left_palm_pos[:, 2] - goal_height), left_hand_up_rew)
+    left_hand_up_rew = torch.where(is_grasp_left == True, 1 * (object_pos[:, 2] - goal_height), left_hand_up_rew)
     right_hand_up_rew = torch.zeros_like(gool_tool_dist)
-    right_hand_up_rew = torch.where(is_grasp_right == True, 1 * (right_palm_pos[:, 2] - goal_height), right_hand_up_rew)
+    right_hand_up_rew = torch.where(is_grasp_right == True, 1 * (tool_pos[:, 2] - goal_height), right_hand_up_rew)
 
     # stage 3: lift near goal bonus
     left_bonus = torch.zeros_like(goal_object_dist)
@@ -1559,6 +1597,175 @@ def compute_grasp_rewards(
     )
 
 @torch.jit.script
+def compute_grasp_rewards_onlyrise(
+    reset_buf,
+    progress_buf,
+    successes,
+    current_successes,
+    consecutive_successes,
+    max_episode_length: float,
+    object_pos, tool_pos,
+    goal_height: float,
+    left_palm_pos, right_palm_pos,
+    left_fingertip_pos, right_fingertip_pos,
+    dist_reward_scale: float,
+    object_init_states, tool_init_states,
+    action_penalty_scale: float,
+    success_tolerance: float,
+    av_factor: float,
+    table_height: float,
+    actions,
+):
+    info = {}
+    goal_object_dist = torch.abs(goal_height - object_pos[:, 2])
+    gool_tool_dist = torch.abs(goal_height - tool_pos[:, 2])
+    left_palm_object_dist = torch.norm(object_pos - left_palm_pos, dim=-1)
+    left_palm_object_dist = torch.where(left_palm_object_dist >= 0.5, 0.5, left_palm_object_dist)
+    right_palm_tool_dist = torch.norm(tool_pos - right_palm_pos, dim=-1)
+    right_palm_tool_dist = torch.where(right_palm_tool_dist >= 0.5, 0.5, right_palm_tool_dist)
+    object_offset = torch.norm(object_pos[:, 0:2] - object_init_states[:, 0:2], dim=-1)
+    tool_offset = torch.norm(tool_pos[:, 0:2] - tool_init_states[:, 0:2], dim=-1)
+
+    num_fingers = left_fingertip_pos.shape[1]
+    left_fingertips_object_dist = torch.zeros_like(goal_object_dist)
+    for i in range(num_fingers):
+        left_fingertips_object_dist += torch.norm(
+            left_fingertip_pos[:, i, :] - object_pos, dim=-1
+        )
+    left_fingertips_object_dist = torch.where(
+        left_fingertips_object_dist >= 3.0, 3.0, left_fingertips_object_dist
+    )
+
+    right_fingers_tool_dist = torch.zeros_like(gool_tool_dist)
+    for i in range(num_fingers):
+        right_fingers_tool_dist += torch.norm(
+            right_fingertip_pos[:, i, :] - tool_pos, dim=-1
+        )
+    right_fingers_tool_dist = torch.where(
+        right_fingers_tool_dist >= 3.0, 3.0, right_fingers_tool_dist
+    )
+
+    is_grasp_left = ((left_fingertips_object_dist <= 0.12 * num_fingers) + (left_palm_object_dist <= 0.12)).float()
+    is_grasp_right = ((right_fingers_tool_dist <= 0.12 * num_fingers) + (right_palm_tool_dist <= 0.12)).float()
+
+    # stage 1: after hand approach object, lift_object
+    lift_object_rew = torch.zeros_like(goal_object_dist)
+    lift_object_rew = torch.where(
+        is_grasp_left == True, 2 * (goal_height - table_height - goal_object_dist), lift_object_rew
+    )
+    lift_tool_rew = torch.zeros_like(gool_tool_dist)
+    lift_tool_rew = torch.where(
+        is_grasp_right == True, 2 * (goal_height - table_height - gool_tool_dist), lift_tool_rew
+    )
+    # stage 2: lift up reward
+    left_hand_up_rew = torch.zeros_like(goal_object_dist)
+    left_hand_up_rew = torch.where(is_grasp_left == True, 1 * (left_palm_pos[:, 2] - goal_height), left_hand_up_rew)
+    right_hand_up_rew = torch.zeros_like(gool_tool_dist)
+    right_hand_up_rew = torch.where(is_grasp_right == True, 1 * (right_palm_pos[:, 2] - goal_height), right_hand_up_rew)
+    # ----modify----
+    left_rise_rew = torch.zeros_like(goal_object_dist)
+    left_rise_rew = torch.where(is_grasp_left == True, 5 * (object_pos[:, 2] - table_height), left_hand_up_rew).clip(max=1)
+    right_rise_rew = torch.zeros_like(goal_object_dist)
+    right_rise_rew = torch.where(is_grasp_right == True, 5 * (tool_pos[:, 2] - table_height), right_hand_up_rew).clip(max=1)
+
+    # stage 3: lift near goal bonus
+    left_bonus = torch.zeros_like(goal_object_dist)
+    left_bonus = torch.where(
+        is_grasp_left == True,
+        torch.where(goal_object_dist <= success_tolerance, 1.0 / (0.5 + goal_object_dist), left_bonus),
+        left_bonus,
+    )
+    right_bonus = torch.zeros_like(gool_tool_dist)
+    right_bonus = torch.where(
+        is_grasp_right == True,
+        torch.where(gool_tool_dist <= success_tolerance, 1.0 / (0.5 + gool_tool_dist), right_bonus),
+        right_bonus,
+    )
+    # action penalty
+    left_action, right_action = actions.split(actions.shape[1]//2,-1)
+    left_action_penalty = (left_action.abs() - 0.8).clip(min=0).sum(-1) * action_penalty_scale
+    right_action_penalty = (right_action.abs() - 0.8).clip(min=0).sum(-1) * action_penalty_scale
+
+    left_approach_penalty = dist_reward_scale * left_fingertips_object_dist + 2 * dist_reward_scale * left_palm_object_dist
+    right_approach_penalty = dist_reward_scale * right_fingers_tool_dist + 2 * dist_reward_scale * right_palm_tool_dist
+    # ----modify----
+    # left_after_grasp_reward = lift_object_rew + left_hand_up_rew + left_bonus
+    # right_after_grasp_reward = lift_tool_rew + right_hand_up_rew + right_bonus
+    left_after_grasp_reward = left_rise_rew
+    right_after_grasp_reward = right_rise_rew
+
+    object_offset_penalty = object_offset*0.3
+    tool_offset_penalty = tool_offset*0.3
+    
+    # total reward
+    left_reward = - left_approach_penalty + left_after_grasp_reward - object_offset_penalty# - left_action_penalty
+    right_reward = - right_approach_penalty + right_after_grasp_reward - tool_offset_penalty# - right_action_penalty
+    reward = left_reward + right_reward
+
+    # level 1
+    info["left/is_grasp"] = is_grasp_left
+    info["left/fingertips_object_dist"] = left_fingertips_object_dist
+    info["left/palm_object_dist"] = left_palm_object_dist
+    info["left/lift_object_rew"] = lift_object_rew
+    info["left/hand_up_rew"] = left_hand_up_rew
+    info["left/bonus"] = left_bonus
+    info["left/object_offset"] = object_offset
+    info["left/action_penalty"] = left_action_penalty
+    info["left/left_rise_rew"] = left_rise_rew
+
+    info["right/is_grasp"] = is_grasp_right
+    info["right/fingers_tool_dist"] = right_fingers_tool_dist
+    info["right/palm_tool_dist"] = right_palm_tool_dist
+    info["right/lift_tool_rew"] = lift_tool_rew
+    info["right/hand_up_rew"] = right_hand_up_rew
+    info["right/bonus"] = right_bonus
+    info["right/tool_offset"] = tool_offset
+    info["right/action_penalty"] = right_action_penalty
+    info["right/right_rise_rew"] = right_rise_rew
+    # level 2
+    info["left/left_approach_penalty"] = left_approach_penalty
+    info["left/left_after_grasp_reward"] = left_after_grasp_reward
+    info["left/object_offset_penalty"] = object_offset_penalty
+
+    info["right/right_approach_penalty"] = right_approach_penalty
+    info["right/right_after_grasp_reward"] = right_after_grasp_reward
+    info["right/tool_offset_penalty"] = tool_offset_penalty
+    # level 3
+    info["left/reward"] = left_reward
+    info["right/reward"] = right_reward
+    info["reward"] = reward
+
+    resets = reset_buf.clone()
+    resets = torch.where(progress_buf >= max_episode_length, torch.ones_like(resets), resets)
+    resets = torch.where(torch.logical_or(object_pos[:, 2] <= table_height, tool_pos[:, 2] <= table_height), torch.ones_like(resets), resets)
+    left_dones = torch.logical_and(goal_object_dist <= success_tolerance, left_fingertips_object_dist + left_palm_object_dist < 0.12 * (num_fingers + 1))
+    right_dones = torch.logical_and(gool_tool_dist <= success_tolerance, right_fingers_tool_dist + right_palm_tool_dist < 0.12 * (num_fingers + 1))
+    info["left/dones"] = left_dones
+    info["right/dones"] = right_dones
+    successes = torch.logical_and(left_dones, right_dones).float()
+    num_resets = torch.sum(resets)
+    finished_cons_successes = torch.sum(successes * resets.float())
+    current_successes = torch.where(resets, successes, current_successes)
+    cons_successes = torch.where(
+        num_resets > 0,
+        av_factor * finished_cons_successes / num_resets
+        + (1.0 - av_factor) * consecutive_successes,
+        consecutive_successes,
+    )
+
+    return (
+        reward,
+        resets,
+        progress_buf,
+        successes,
+        current_successes,
+        cons_successes,
+        info,
+    )
+
+
+# compute_bvdex_rewards_v0
+@torch.jit.script
 def compute_task_metrics(
     object_pose, tool_pose,
     left_palm_pose, right_palm_pose,
@@ -1612,23 +1819,31 @@ def compute_task_metrics(
 
     return info
 
-@torch.jit.script
+# @torch.jit.script
 def compute_imi_object_rewards(dataset_object_pose, object_pose, timestep, t0:int, frequency:float=3, horizon:int=5):
     '''
     dataset_object_pose: (N, 7)
     object_pose: (N, 7)
     '''
     timestep_ = torch.ceil(timestep / frequency).long()
-    timesteps = timestep_.unsqueeze(1) + torch.arange(horizon, device=timestep_.device, dtype=torch.long) + t0 + torch.randint(-5,5,(1,),dtype=torch.long,device=timestep_.device) # (environment, horizon)
+    timesteps = timestep_.unsqueeze(1) + torch.arange(horizon, device=timestep_.device, dtype=torch.long) + t0 + torch.randint(-2,2,(1,),dtype=torch.long,device=timestep_.device) # (environment, horizon)
     
     target_object_pos = dataset_object_pose[timesteps,:3]                   # (N, horizon, 3)
     target_object_rot = quaternion_to_matrix(dataset_object_pose[timesteps,3:7].view(-1,4))  # (N*horizon, 3, 3)
     object_pos = object_pose[:,:3].unsqueeze(1)                             # (N, 1, 3)
     object_rot = quaternion_to_matrix(object_pose[:,3:7]).repeat(1,horizon,1,1).view(-1,3,3) # (N*horizon, 3, 3)           
-    object_pos_rew = torch.exp(-100*torch.norm(target_object_pos - object_pos, dim=-1).mean(1))   # (N,)
-    object_rot_rew = torch.exp(-100*rot_mat_dist(target_object_rot, object_rot).view(-1,horizon).mean(1))     # (N,)
+    object_pos_rew = torch.exp(-15*torch.norm(target_object_pos - object_pos, dim=-1).mean(1))   # (N,)
+    object_rot_rew = torch.exp(-7*rot_mat_dist(target_object_rot, object_rot).view(-1,horizon).mean(1))     # (N,)
 
-    return object_pos_rew, object_rot_rew
+
+    # if random.randint(0,100)<10:
+    #     angles_radians = torch.deg2rad(torch.tensor([0, 1, 3, 6, 10, 15, 21, 30, 45, 65, 90, 135], dtype=torch.float32)).cuda()
+    #     R_z = rotation_matrix_z(angles_radians)
+    #     R_z_ = torch.roll(R_z,shifts=1,dims=0)        
+    #     print(torch.exp(-20*rot_mat_dist(R_z, R_z_)))
+    #     breakpoint()
+
+    return object_pos_rew, object_rot_rew  # TODO
 
 
 @torch.jit.script
@@ -1654,8 +1869,8 @@ def compute_imi_hand_rewards(dataset_palm_pose, palm_pose, timestep, t0:int, fre
     return palm_height_rew, torch.zeros_like(palm_height_rew)
 
 
-@torch.jit.script
-def compute_bvdex_rewards(
+# @torch.jit.script
+def compute_bvdex_rewards_v0(
     reset_buf,
     progress_buf,
     successes,
@@ -1695,19 +1910,19 @@ def compute_bvdex_rewards(
     left_is_grasp, right_is_grasp = info['left_is_grasp'], info['right_is_grasp']
     # stage 1: after hand approach object, lift_object
     left_lift_object_rew = torch.zeros_like(left_approach_penalty)
-    left_lift_object_rew = torch.where(left_is_grasp == True, 2 * (object_pose[:,2] - table_height).clip(max=0.3), left_lift_object_rew)
+    left_lift_object_rew = torch.where(left_is_grasp == True, 2 * (object_pose[:,2] - table_height), left_lift_object_rew)
     right_lift_tool_rew = torch.zeros_like(right_approach_penalty)
-    right_lift_tool_rew = torch.where(right_is_grasp == True, 2 * (tool_pose[:,2] - table_height).clip(max=0.3), right_lift_tool_rew)
+    right_lift_tool_rew = torch.where(right_is_grasp == True, 2 * (tool_pose[:,2] - table_height), right_lift_tool_rew)
 
     # stage 2: lift up reward
     left_hand_up_rew = torch.zeros_like(left_approach_penalty)
-    left_hand_up_rew = torch.where(left_is_grasp == True, 1 * (left_palm_pose[:, 2] - table_height).clip(max=0.3), left_hand_up_rew)
+    left_hand_up_rew = torch.where(left_is_grasp == True, 1 * (left_palm_pose[:, 2] - table_height), left_hand_up_rew)
     right_hand_up_rew = torch.zeros_like(right_approach_penalty)
-    right_hand_up_rew = torch.where(right_is_grasp == True, 1 * (right_palm_pose[:, 2] - table_height).clip(max=0.3), right_hand_up_rew)
+    right_hand_up_rew = torch.where(right_is_grasp == True, 1 * (right_palm_pose[:, 2] - table_height), right_hand_up_rew)
 
     # stage 3: encourage tool above object
     right_bonus = torch.zeros_like(right_approach_penalty)
-    right_bonus = torch.where(right_is_grasp == True, 1 * tool_pose[:, 2] - object_pose[:,2], right_bonus)
+    right_bonus = torch.where(right_is_grasp == True, 1 * (tool_pose[:, 2] - object_pose[:,2]), right_bonus)
     right_bonus = torch.where(torch.logical_and(right_is_grasp == True, info['right_bonus']),1.0+right_bonus, right_bonus)
 
     # stage 4: motion imitation after grasp
@@ -1772,3 +1987,180 @@ def compute_bvdex_rewards(
     )
 
 
+# compute_bvdex_rewards_v1
+# @torch.jit.script
+def compute_bvdex_rewards_v1(
+    reset_buf,
+    progress_buf,
+    successes,
+    current_successes,
+    consecutive_successes,
+    max_episode_length: float,
+    object_pos, tool_pos,
+    goal_height: float,
+    left_palm_pos, right_palm_pos,
+    left_fingertip_pos, right_fingertip_pos,
+    dist_reward_scale: float,
+    object_init_states, tool_init_states,
+    action_penalty_scale: float,
+    success_tolerance: float,
+    av_factor: float,
+    table_height: float,
+    actions,
+    timestep, t0:int,
+    dataset_object_pose, dataset_tool_pose,
+    object_pose, tool_pose,
+    frequency: float=3, horizon: int=5, 
+):
+    info = {}
+    goal_object_dist = torch.abs(goal_height - object_pos[:, 2])
+    gool_tool_dist = torch.abs(goal_height - tool_pos[:, 2])
+    left_palm_object_dist = torch.norm(object_pos - left_palm_pos, dim=-1)
+    left_palm_object_dist = torch.where(left_palm_object_dist >= 0.5, 0.5, left_palm_object_dist)
+    right_palm_tool_dist = torch.norm(tool_pos - right_palm_pos, dim=-1)
+    right_palm_tool_dist = torch.where(right_palm_tool_dist >= 0.5, 0.5, right_palm_tool_dist)
+    object_offset = torch.norm(object_pos[:, 0:2] - object_init_states[:, 0:2], dim=-1)
+    tool_offset = torch.norm(tool_pos[:, 0:2] - tool_init_states[:, 0:2], dim=-1)
+
+    num_fingers = left_fingertip_pos.shape[1]
+    left_fingertips_object_dist = torch.zeros_like(goal_object_dist)
+    for i in range(num_fingers):
+        left_fingertips_object_dist += torch.norm(
+            left_fingertip_pos[:, i, :] - object_pos, dim=-1
+        )
+    left_fingertips_object_dist = torch.where(
+        left_fingertips_object_dist >= 3.0, 3.0, left_fingertips_object_dist
+    )
+
+    right_fingers_tool_dist = torch.zeros_like(gool_tool_dist)
+    for i in range(num_fingers):
+        right_fingers_tool_dist += torch.norm(
+            right_fingertip_pos[:, i, :] - tool_pos, dim=-1
+        )
+    right_fingers_tool_dist = torch.where(
+        right_fingers_tool_dist >= 3.0, 3.0, right_fingers_tool_dist
+    )
+
+    is_grasp_left = ((left_fingertips_object_dist <= 0.12 * num_fingers) + (left_palm_object_dist <= 0.12)).float()
+    is_grasp_right = ((right_fingers_tool_dist <= 0.12 * num_fingers) + (right_palm_tool_dist <= 0.12)).float()
+
+    # stage 1: after hand approach object, lift_object
+    lift_object_rew = torch.zeros_like(goal_object_dist)
+    lift_object_rew = torch.where(
+        is_grasp_left == True, 3 * (goal_height - table_height) - 2 * goal_object_dist, lift_object_rew
+    )
+    lift_tool_rew = torch.zeros_like(gool_tool_dist)
+    lift_tool_rew = torch.where(
+        is_grasp_right == True, 2 * (goal_height - table_height - gool_tool_dist), lift_tool_rew
+    )
+    # stage 2: lift up reward
+    left_hand_up_rew = torch.zeros_like(goal_object_dist)
+    left_hand_up_rew = torch.where(is_grasp_left == True, 1 * (left_palm_pos[:, 2] - goal_height), left_hand_up_rew)
+    right_hand_up_rew = torch.zeros_like(gool_tool_dist)
+    right_hand_up_rew = torch.where(is_grasp_right == True, 1 * (right_palm_pos[:, 2] - goal_height), right_hand_up_rew)
+
+    # stage 3: lift near goal bonus
+    left_bonus = torch.zeros_like(goal_object_dist)
+    left_bonus = torch.where(
+        is_grasp_left == True,
+        torch.where(
+            goal_object_dist <= success_tolerance, 1.0 / (0.5 + goal_object_dist), left_bonus
+        ),
+        left_bonus,
+    )
+    right_bonus = torch.zeros_like(gool_tool_dist)
+    right_bonus = torch.where(
+        is_grasp_right == True,
+        torch.where(
+            gool_tool_dist <= success_tolerance, 1.0 / (0.5 + gool_tool_dist), right_bonus
+        ),
+        right_bonus,
+    )
+    # action penalty
+    left_action, right_action = actions.split(actions.shape[1]//2,-1)
+    left_action_penalty = (left_action.abs() - 0.8).clip(min=0).sum(-1) * action_penalty_scale
+    right_action_penalty = (right_action.abs() - 0.8).clip(min=0).sum(-1) * action_penalty_scale
+    # stage 4: after lifting, dataset object reward
+    left_object_pos_rew, left_object_rot_rew = compute_imi_object_rewards(dataset_object_pose, object_pose, timestep, t0, frequency, horizon)
+    right_tool_pos_rew, right_tool_rot_rew = compute_imi_object_rewards(dataset_tool_pose, tool_pose, timestep, t0, frequency, horizon)
+    left_motion_reward = torch.zeros_like(left_object_pos_rew)
+    left_motion_reward = torch.where(torch.logical_and(is_grasp_left==True, object_pos[:, 2] - object_init_states[:, 2] >= 0.1), left_object_pos_rew, left_motion_reward)
+    right_motion_reward = torch.zeros_like(right_tool_pos_rew)
+    right_motion_reward = torch.where(torch.logical_and(is_grasp_right==True, tool_pos[:, 2] - tool_init_states[:, 2] >= 0.1), right_tool_pos_rew, right_motion_reward)
+
+
+    # action penalty
+    left_action, right_action = actions.split(actions.shape[1]//2,-1)
+    left_action_penalty = (left_action.abs() - 0.8).clip(min=0).sum(-1) * action_penalty_scale
+    right_action_penalty = (right_action.abs() - 0.8).clip(min=0).sum(-1) * action_penalty_scale
+
+    # total reward
+    left_approach_penalty = dist_reward_scale * left_fingertips_object_dist + 2 * dist_reward_scale * left_palm_object_dist
+    right_approach_penalty = dist_reward_scale * right_fingers_tool_dist + 2 * dist_reward_scale * right_palm_tool_dist
+
+    left_lift_reward = lift_object_rew + left_hand_up_rew
+    right_lift_reward = lift_tool_rew + right_hand_up_rew
+
+    object_offset_penalty = object_offset*0.3
+    tool_offset_penalty = tool_offset*0.3
+    
+    left_reward = - left_approach_penalty + left_lift_reward + left_bonus - object_offset_penalty + left_motion_reward             # - left_action_penalty
+    right_reward = - right_approach_penalty + right_lift_reward + right_bonus - tool_offset_penalty + right_motion_reward          # - right_action_penalty
+    reward = left_reward + right_reward
+
+    # level 1
+    info["left/is_grasp"] = is_grasp_left
+    info["left/fingertips_object_dist"] = left_fingertips_object_dist
+    info["left/palm_object_dist"] = left_palm_object_dist
+    info["left/lift_rew"] = left_lift_reward
+    info["left/bonus"] = left_bonus
+    info["left/object_offset"] = object_offset
+    info["left/action_penalty"] = left_action_penalty
+    info["left_motion_reward"] = left_motion_reward
+
+    info["right/is_grasp"] = is_grasp_right
+    info["right/fingers_tool_dist"] = right_fingers_tool_dist
+    info["right/palm_tool_dist"] = right_palm_tool_dist
+    info["right/lift_rew"] = right_lift_reward
+    info["right/bonus"] = right_bonus
+    info["right/tool_offset"] = tool_offset
+    info["right/action_penalty"] = right_action_penalty
+    info["right_motion_reward"] = right_motion_reward
+    # level 2
+    info["left/left_approach_penalty"] = left_approach_penalty
+    info["left/object_offset_penalty"] = object_offset_penalty
+
+    info["right/right_approach_penalty"] = right_approach_penalty
+    info["right/tool_offset_penalty"] = tool_offset_penalty
+    # level 3
+    info["left/reward"] = left_reward
+    info["right/reward"] = right_reward
+    info["reward"] = reward
+
+    resets = reset_buf.clone()
+    resets = torch.where(progress_buf >= max_episode_length, torch.ones_like(resets), resets)
+    resets = torch.where(torch.logical_or(object_pos[:, 2] <= table_height, tool_pos[:, 2] <= table_height), torch.ones_like(resets), resets)
+    left_dones = torch.logical_and(goal_object_dist <= success_tolerance, left_fingertips_object_dist + left_palm_object_dist < 0.12 * (num_fingers + 1))
+    right_dones = torch.logical_and(gool_tool_dist <= success_tolerance, right_fingers_tool_dist + right_palm_tool_dist < 0.12 * (num_fingers + 1))
+    info["left/dones"] = left_dones
+    info["right/dones"] = right_dones
+    successes = torch.logical_and(left_dones, right_dones).float()
+    num_resets = torch.sum(resets)
+    finished_cons_successes = torch.sum(successes * resets.float())
+    current_successes = torch.where(resets==True, successes, current_successes)
+    cons_successes = torch.where(
+        num_resets > 0,
+        av_factor * finished_cons_successes / num_resets
+        + (1.0 - av_factor) * consecutive_successes,
+        consecutive_successes,
+    )
+
+    return (
+        reward,
+        resets,
+        progress_buf,
+        successes,
+        current_successes,
+        cons_successes,
+        info,
+    )

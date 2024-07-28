@@ -7,11 +7,11 @@ mode=$1
 case $mode in
   train)
     # Train
-    python main.py task=BiLeapHandGrasp train=LeapHandGraspPPO num_envs=8192 headless=True algo=ppo exp_name=bvdex_reward-height 
+    python main.py task=BiLeapHandGrasp train=LeapHandGraspPPO num_envs=8192 headless=True algo=ppo exp_name=bvdex_grasp_reward-object
     ;;
   evaluate)
     # Evaluate
-    python main.py task=BiLeapHandGrasp train=LeapHandGraspPPO algo=ppo num_envs=1 test=True checkpoint="'runs/(stir, spatula, pan)/bvdex_grasp_reward-object/model_15000.pt'"
+    python main.py task=BiLeapHandGrasp train=LeapHandGraspPPO algo=ppo num_envs=1 test=True checkpoint="'runs/(stir, spatula, pan)/bvdex_grasp_reward-object/model_5000.pt'"
     ;;
   debug)
     # Debug

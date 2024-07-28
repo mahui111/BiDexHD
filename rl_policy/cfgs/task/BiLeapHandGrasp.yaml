@@ -64,8 +64,8 @@ env:
   enableCameraSensors: False
 
 task:
-  frequency: 3
-  horizon: 5
+  frequency: 1.5
+  horizon: 2
   onlyObjectReward: 1
   randomize: False
   randomization_params:
