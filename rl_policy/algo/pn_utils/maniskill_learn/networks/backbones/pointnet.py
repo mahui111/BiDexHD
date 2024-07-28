@@ -2,11 +2,9 @@ from copy import deepcopy, copy
 import torch
 import torch.nn as nn
 from ..modules.activation import build_activation_layer
-import ipdb
 from ...utils.data import dict_to_seq
 from ...utils.torch import masked_average, masked_max
 from ..builder import BACKBONES, build_backbone
-import ipdb
 
 class PointBackbone(nn.Module):
     def __init__(self):
