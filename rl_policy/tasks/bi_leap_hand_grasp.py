@@ -30,6 +30,7 @@ class BiLeapHandGrasp(VecTask):
         self.mode = self.cfg["mode"]
         self.frequency, self.horizon = self.cfg["task"]['frequency'], self.cfg["task"]['horizon']
         self.only_object_reward = self.cfg["task"]["onlyObjectReward"]
+        self.only_grasp_reward = self.cfg["task"]["onlyGraspReward"]
         if self.only_object_reward:
             print(f'only use object reward')
 
@@ -720,7 +721,8 @@ class BiLeapHandGrasp(VecTask):
                 self.target_left_pose, self.target_right_pose,
                 self.frequency, self.horizon,
                 self.only_object_reward,
-            )
+                self.only_grasp_reward
+        )
         elif mode == 'v1':
             returns = compute_bvdex_rewards_v1(
                 self.reset_buf,
@@ -1889,6 +1891,7 @@ def compute_bvdex_rewards_v0(
     dataset_left_palm_pose, dataset_right_palm_pose,
     frequency: float=3, horizon: int=5, 
     only_object_reward:int=0,
+    only_grasp_reward:int=0,
 ):
     
     info = compute_task_metrics(object_pose, tool_pose, left_palm_pose, right_palm_pose, left_fingertip_pose, right_fingertip_pose)
@@ -1909,10 +1912,12 @@ def compute_bvdex_rewards_v0(
 
     left_is_grasp, right_is_grasp = info['left_is_grasp'], info['right_is_grasp']
     # stage 1: after hand approach object, lift_object
+    goal_tool_dist = torch.abs(0.2 + table_height - tool_pose[:, 2])
+    goal_object_dist = torch.abs(0.2 + table_height - object_pose[:, 2])
     left_lift_object_rew = torch.zeros_like(left_approach_penalty)
-    left_lift_object_rew = torch.where(left_is_grasp == True, 2 * (object_pose[:,2] - table_height), left_lift_object_rew)
+    left_lift_object_rew = torch.where(left_is_grasp == True, 2 * (object_pose[:,2] - table_height).clip(max=0.3), left_lift_object_rew)
     right_lift_tool_rew = torch.zeros_like(right_approach_penalty)
-    right_lift_tool_rew = torch.where(right_is_grasp == True, 2 * (tool_pose[:,2] - table_height), right_lift_tool_rew)
+    right_lift_tool_rew = torch.where(right_is_grasp == True, 2 * (tool_pose[:,2] - table_height).clip(max=0.3), right_lift_tool_rew)
 
     # stage 2: lift up reward
     left_hand_up_rew = torch.zeros_like(left_approach_penalty)
@@ -1922,17 +1927,19 @@ def compute_bvdex_rewards_v0(
 
     # stage 3: encourage tool above object
     right_bonus = torch.zeros_like(right_approach_penalty)
+    right_bonus = torch.where(right_is_grasp == True, 1 * (tool_pose[:, 2] - object_pose[:,2]).clip(min=0), right_bonus)
     right_bonus = torch.where(right_is_grasp == True, 1 * (tool_pose[:, 2] - object_pose[:,2]), right_bonus)
     right_bonus = torch.where(torch.logical_and(right_is_grasp == True, info['right_bonus']),1.0+right_bonus, right_bonus)
 
     # stage 4: motion imitation after grasp
     left_motion_reward = torch.zeros_like(left_imitation_reward)
-    left_motion_reward = torch.where(left_is_grasp==True, left_imitation_reward, left_motion_reward)
     right_motion_reward = torch.zeros_like(right_imitation_reward)
-    right_motion_reward = torch.where(right_is_grasp==True, right_imitation_reward, right_motion_reward)
+    if not only_grasp_reward:
+        left_motion_reward = torch.where(left_is_grasp==True, left_imitation_reward, left_motion_reward)
+        right_motion_reward = torch.where(right_is_grasp==True, right_imitation_reward, right_motion_reward)
 
-    left_reward = - left_approach_penalty + left_motion_reward# + left_lift_object_rew + left_hand_up_rew
-    right_reward = - right_approach_penalty + right_motion_reward# + right_bonus + right_lift_tool_rew + right_hand_up_rew
+    left_reward = - left_approach_penalty + left_lift_object_rew + left_hand_up_rew + left_motion_reward
+    right_reward = - right_approach_penalty + right_bonus + right_lift_tool_rew + right_hand_up_rew + right_motion_reward
     reward = left_reward + right_reward
 
     info['left_is_grasp'] = left_is_grasp
