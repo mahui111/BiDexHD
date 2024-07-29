@@ -1,0 +1,8 @@
+(brush, brush, plate)  4,6
+(pour in some, teapot, cup)  1,0
+(pour in some, teapot, teapot) 
+(smear, eraser, plate)  1,2
+(hit, hammer, toy)   7
+
+# challenging
+(stir, spoon, pan)
