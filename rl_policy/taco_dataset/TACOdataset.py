@@ -80,11 +80,11 @@ class TACODataset:
     ])
     EXTRINSIC = np.linalg.inv(CAMERA_TO_WORLD)
 
-    def __init__(self, dataset_dir, mano_model_path):
+    def __init__(self, dataset_dir, mano_model_path, add_dummy_free_joint):
         self.dataset_root = dataset_dir
         self.mano_model_path = mano_model_path
         self.triplet_list = os.listdir(join(self.dataset_root, "Object_Poses"))
-        self.biretargetor = BiRetargetor(RobotName.leap, RetargetingType.dexpilot)
+        self.biretargetor = BiRetargetor(RobotName.leap, RetargetingType.dexpilot, add_dummy_free_joint)
         random.seed(0)
 
     # main
@@ -220,9 +220,20 @@ class TACODataset:
             all_right_finger_qpos = np.empty((N, right_hand_dof))
             for i, (left_joint_pos, right_joint_pos) in enumerate(zip(all_left_joint_pos, all_right_joint_pos)):
                 left_qpos, right_qpos = self.biretargetor.retarget_to_robot_poses(left_joint_pos, right_joint_pos)
-                all_left_finger_qpos[i] = left_qpos
-                all_right_finger_qpos[i] = right_qpos
-            
+                if len(left_qpos) == left_hand_dof + 6 and len(right_qpos) == right_hand_dof + 6:
+                    print(left_qpos[:6], all_left_trans[i], all_left_theta[i,0:3])
+                    print(right_qpos[:6], all_right_trans[i], all_right_theta[i,0:3])
+                    all_left_finger_qpos[i] = left_qpos[6:]
+                    all_right_finger_qpos[i] = right_qpos[6:]
+                    all_left_theta[i] = left_qpos[:3]
+                    all_right_theta[i] = right_qpos[:3]
+                    all_left_quat[i] = R.from_euler("xyz", left_qpos[3:6]).as_quat()
+                    all_right_quat[i] = R.from_euler("xyz", right_qpos[3:6]).as_quat()
+                    breakpoint()
+                else:
+                    all_left_finger_qpos[i] = left_qpos
+                    all_right_finger_qpos[i] = right_qpos
+
             # get object trajectory
             load_tool_poses = np.load(join(object_pose_dir, "tool_" + tool_name + ".npy"))
             load_target_poses = np.load(join(object_pose_dir, "target_" + target_name + ".npy"))
@@ -605,7 +616,7 @@ class TACODataset:
         
 
 class BiRetargetor:
-    def __init__(self, robot_name:RobotName, retarget_type:RetargetingType):
+    def __init__(self, robot_name:RobotName, retarget_type:RetargetingType, add_dummy_free_joint:bool=False):
         self.side_convernion = dict(
             left=np.array([[0, 0, -1], [1, 0, 0], [0, -1, 0],]),
             right=np.array([[0, 0, -1], [-1, 0, 0], [0, 1, 0],]),
@@ -616,8 +627,8 @@ class BiRetargetor:
         left_config_path = get_default_config_path(robot_name, retarget_type, HandType.left)
         right_config_path = get_default_config_path(robot_name, retarget_type, HandType.right) 
 
-        self.left_retargetor = self.get_retargetor(left_config_path)
-        self.right_retargetor = self.get_retargetor(right_config_path)
+        self.left_retargetor = self.get_retargetor(left_config_path, add_dummy_free_joint=add_dummy_free_joint)
+        self.right_retargetor = self.get_retargetor(right_config_path, add_dummy_free_joint=add_dummy_free_joint)
 
         left_hand_joint_names = ['1', '0', '2', '3', '12', '13', '14', '15', '5', '4', '6', '7', '9', '8', '10', '11']  # self.left_hand.get_active_joints()
         right_hand_joint_names = ['1', '0', '2', '3', '12', '13', '14', '15', '5', '4', '6', '7', '9', '8', '10', '11']  # self.right_hand.get_active_joints()
@@ -627,7 +638,7 @@ class BiRetargetor:
         self.right_hand_dof = len(self.right_retarget_idxs)
 
 
-    def get_retargetor(self, config_path, add_dummy_free_joint=False, return_robot=False):
+    def get_retargetor(self, config_path, add_dummy_free_joint, return_robot=False):
         '''
         return SeqRetargeting
         '''
@@ -639,7 +650,7 @@ class BiRetargetor:
         urdf_path = Path(config.urdf_path)
         if "glb" not in urdf_path.stem:
             urdf_path = str(urdf_path).replace(".urdf", "_glb.urdf")
-        robot_urdf = urdf.URDF.load(str(urdf_path), add_dummy_free_joints=True, build_scene_graph=False)
+        robot_urdf = urdf.URDF.load(str(urdf_path), add_dummy_free_joints=add_dummy_free_joint, build_scene_graph=False)
         urdf_name = urdf_path.split("/")[-1]
         temp_dir = tempfile.mkdtemp(prefix="dex_retargeting-")
         temp_path = f"{temp_dir}/{urdf_name}"
@@ -650,10 +661,10 @@ class BiRetargetor:
     # [Important!] Update poses for robot hands
     def retarget_to_robot_poses(self, left_joint_pos, right_joint_pos):
         # normalize to the wrist
-        left_joint_pos = left_joint_pos - left_joint_pos[0:1, :]
-        right_joint_pos = right_joint_pos - right_joint_pos[0:1, :]
-        left_joint_pos = left_joint_pos @ self.estimate_frame_from_hand_points(left_joint_pos, 'left') @ self.side_convernion['left']
-        right_joint_pos = right_joint_pos @ self.estimate_frame_from_hand_points(right_joint_pos, 'right') @ self.side_convernion['right']
+        # left_joint_pos = left_joint_pos - left_joint_pos[0:1, :]
+        # right_joint_pos = right_joint_pos - right_joint_pos[0:1, :]
+        # left_joint_pos = left_joint_pos @ self.estimate_frame_from_hand_points(left_joint_pos, 'left') @ self.side_convernion['left']
+        # right_joint_pos = right_joint_pos @ self.estimate_frame_from_hand_points(right_joint_pos, 'right') @ self.side_convernion['right']
 
         left_indices = self.left_retargetor.optimizer.target_link_human_indices
         right_indices = self.right_retargetor.optimizer.target_link_human_indices
@@ -663,10 +674,18 @@ class BiRetargetor:
         else:
             left_ref_value = left_joint_pos[left_indices[1, :], :] - left_joint_pos[left_indices[0, :], :]
             right_ref_value = right_joint_pos[right_indices[1, :], :] - right_joint_pos[right_indices[0, :], :]
-        left_qpos = self.left_retargetor.retarget(left_ref_value)[self.left_retarget_idxs]
-        right_qpos = self.right_retargetor.retarget(right_ref_value)[self.right_retarget_idxs] 
-
-        return left_qpos, right_qpos
+        left_qpos = self.left_retargetor.retarget(left_ref_value)
+        right_qpos = self.right_retargetor.retarget(right_ref_value)
+        if len(left_qpos) == len(self.left_retarget_idxs):
+            return left_qpos[self.left_retarget_idxs], right_qpos[self.right_retarget_idxs]
+        else:  # add_dummy_free_joint
+            assert min(self.left_retarget_idxs) == 6 and min(self.right_retarget_idxs) == 6
+            left_fingers_qpos = left_qpos[self.left_retarget_idxs]
+            left_wrist_6Dpose = left_qpos[:6]
+            right_fingers_qpos = right_qpos[self.right_retarget_idxs]
+            right_wrist_6Dpose = right_qpos[:6]
+            return np.concatenate([left_wrist_6Dpose, left_fingers_qpos]), np.concatenate([right_wrist_6Dpose, right_fingers_qpos])
+             
     
     
     def get_joint_keypoints(self, hand_pose_frame, use_camera_frame=False):
@@ -725,10 +744,11 @@ if __name__ == "__main__":
     parser.add_argument("--mano_model_path", type=str, default="/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/taco_dataset/manopth/mano/models")
     parser.add_argument("--triplet", type=str, default='(smear, eraser, plate)')
     parser.add_argument("--viz_sapien", action="store_true")
+    parser.add_argument("--add_dummy_free_joint", action="store_true")
     parser.add_argument("--mode", type=str, default="make_dataset")  # make_task / make_dataset
     args = parser.parse_args()
     
-    taco_dataset = TACODataset(args.dataset_dir, args.mano_model_path) 
+    taco_dataset = TACODataset(args.dataset_dir, args.mano_model_path, args.add_dummy_free_joint) 
     if args.viz_sapien:  # useless
         taco_dataset.visualize_robot_and_mano(args.triplet,'right')
     if args.mode == "make_dataset":

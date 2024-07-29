@@ -568,6 +568,7 @@ class BiLeapHandGraspV1(VecTask):
     def _prepare_task(self, task_id=0, trans=None):
         assert len(self.dataset_taco_data) > 0 and isinstance(self.dataset_taco_data, list), "Please load the dataset first!"
         if task_id < 0 or task_id >= len(self.dataset_taco_data):
+            print(f'Invalid task id {task_id}, using random task instead')
             task_id = random.randint(0, len(self.dataset_taco_data)-1)
         self.sampled_taco_task_data = self.dataset_taco_data[task_id]
         # timestep
@@ -1143,7 +1144,7 @@ class BiLeapHandGraspV1(VecTask):
         self.randomize_buf += 1
 
         self.compute_observations()
-        self.compute_reward(mode='v1')
+        self.compute_reward(mode='grasp')
 
         if self.viewer and self.debug_vis:
             # draw axes to debug
@@ -1208,7 +1209,7 @@ class BiLeapHandGraspV1(VecTask):
         u = (j_eef_T @ torch.inverse(j_eef @ j_eef_T + lmbda) @ dpose).view(self.num_envs, 6)
         return u
 
-    def visualize(self, debug=True):
+    def visualize(self, debug=False, replay_times=3):
         def visualize_curves(data_dict):
             """
             Visualize each list in the dictionary as a curve in a 2xM matrix of subplots.
@@ -1230,7 +1231,7 @@ class BiLeapHandGraspV1(VecTask):
             plt.tight_layout()
             plt.show()
 
-        for replay_times in range(1,1+1000):
+        for replay_times in range(1,1+replay_times):
             self._prepare_task(task_id=self.task_id)
             metric_collector = defaultdict(list)
             for i in range(self.init_timestep-1, self.end_timestep+1):
