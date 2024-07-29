@@ -101,7 +101,7 @@ class TACODataset:
             
         object_pose_dir = join(self.dataset_root, "Object_Poses", triplet, sequence_name)
         hand_pose_dir = join(self.dataset_root, "Hand_Poses", triplet, sequence_name)
-        for file_name in os.listdir(object_pose_dir):
+        for file_name in sorted(os.listdir(object_pose_dir)):
             if file_name.startswith("tool_"):
                 tool_name = file_name.split(".")[0].split("_")[-1]
             elif file_name.startswith("target_"):
@@ -193,7 +193,7 @@ class TACODataset:
 
     def make_dataset(self, triplet="(empty, bowl, bowl)", save_dir="taco_dataset/sampled_data"):
         total_dataset = []
-        seqname_list = os.listdir(join(self.dataset_root, "Object_Poses", triplet))
+        seqname_list = sorted(os.listdir(join(self.dataset_root, "Object_Poses", triplet)))
         for k, sequence_name in tqdm(enumerate(seqname_list), total=len(seqname_list)):
             object_pose_dir = join(self.dataset_root, "Object_Poses", triplet, sequence_name)
             hand_pose_dir = join(self.dataset_root, "Hand_Poses", triplet, sequence_name)
@@ -274,7 +274,7 @@ class TACODataset:
             # visualize_smoothed_trajectory(all_right_trans, smoothed_right_pos)
 
             # return all data
-            init_timestep, end_timestep = int(len(load_tool_poses)*0.2), int(len(load_tool_poses)*0.8)
+            init_timestep, end_timestep = int(len(load_tool_poses)*0.1), int(len(load_tool_poses)*0.8)
             total_data = dict(
                 save_name=os.path.join(save_dir, f'{triplet}-{sequence_name}.json'),
                 key_steps=dict(init=init_timestep, end=end_timestep),

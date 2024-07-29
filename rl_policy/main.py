@@ -25,7 +25,7 @@ def build_runner(cfg, env):
     if not is_testing:
         time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         exp_name = f"{cfg.algo}_{time_str}_s{cfg.seed}" if not cfg.exp_name else cfg.exp_name
-        log_dir = os.path.join(train_param.log_dir, cfg.triplet,exp_name)
+        log_dir = os.path.join(train_param.log_dir, cfg.triplet, f"task{cfg['task']['task']['task_id']}", exp_name)
         os.makedirs(log_dir, exist_ok=True)
         with open(os.path.join(log_dir, "config.json"), "w") as f:
             json.dump(OmegaConf.to_container(cfg), f, indent=4)
@@ -104,7 +104,7 @@ def main(cfg: DictConfig) -> None:
         while True:
             # action[:, [10,11,12,13,10+22,11+22,12+22,13+22]] = 1-2*((i//10)%2)*torch.tensor([1,1,1,1,1,1,1,1,], dtype=torch.float32)
             # action[:, [10,11, 10+22,11+22]] = (1-2*((i//10)%2))*torch.tensor([-1,-1,1,1,], dtype=torch.float32)
-            # action[:, [10,10+22]] = (1-2*((i//10)%2))*torch.tensor([-1,1,], dtype=torch.float32)
+            action[:, [10,10+22]] = (1-2*((i//10)%2))*torch.tensor([-1,1,], dtype=torch.float32)
             # action[:, [10]] = 1-2*((i//10)%2)*torch.tensor([1,], dtype=torch.float32)
             _, _, _, _ = env.step(action)
             i+=1

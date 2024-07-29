@@ -12,7 +12,7 @@ from isaacgymenvs.utils.torch_jit_utils import *
 from isaacgymenvs.tasks.base.vec_task import VecTask
 
 
-class BiLeapHandGrasp(VecTask):
+class BiLeapHandGraspV0(VecTask):
     def __init__(
         self,
         cfg,
@@ -62,9 +62,9 @@ class BiLeapHandGrasp(VecTask):
         self.av_factor = self.cfg["env"].get("averFactor", 0.1)
         self.goal_height = self.cfg["env"].get("goalHeight", 0.6)
 
-        self.palm_offset = self.cfg["env"]["palm_offset"]
-        self.fingertip_offset = self.cfg["env"]["finger_offset"]
-        self.thumb_offset = self.cfg["env"]["thumb_offset"]
+        # self.palm_offset = self.cfg["env"]["palm_offset"]
+        # self.fingertip_offset = self.cfg["env"]["finger_offset"]
+        # self.thumb_offset = self.cfg["env"]["thumb_offset"]
 
         self.obs_type = self.cfg["env"]["observationType"]
         self.multi_task = self.cfg["env"]["multiTask"]
@@ -74,7 +74,7 @@ class BiLeapHandGrasp(VecTask):
 
         # need to set the number of observations according to the robot
         self.num_obs_dict = {
-            "full": 262,
+            "full": 318,#262,
         }
 
         self.use_vel_obs = False
@@ -92,12 +92,12 @@ class BiLeapHandGrasp(VecTask):
 
 
         # need to set the names according to the robot
-        self.palm = "palm_lower"
+        self.palm = "palm"#_lower
         self.fingertips = [
-            "thumb_fingertip",
-            "fingertip",
-            "fingertip_2",
-            "fingertip_3",
+            "thumb_tip_head",
+            "index_tip_head",
+            "middle_tip_head",
+            "ring_tip_head",
         ]
         self.arm_dof_names = [
             "arm_joint1",
@@ -127,8 +127,8 @@ class BiLeapHandGrasp(VecTask):
 
         # viewer camera setup
         if self.viewer != None:
-            cam_pos = gymapi.Vec3(10.0, 5.0, 1.0)
-            cam_target = gymapi.Vec3(6.0, 5.0, 0.0)
+            cam_pos = gymapi.Vec3(2.0, 0.0, 1.0)
+            cam_target = gymapi.Vec3(0.0, 0.0, 0.5)
             self.gym.viewer_camera_look_at(self.viewer, None, cam_pos, cam_target)
 
         # get gym GPU state tensors
@@ -221,7 +221,6 @@ class BiLeapHandGrasp(VecTask):
         self.robot_dof_upper_limits = to_torch(self.left_robot_dof_upper_limits + self.right_robot_dof_upper_limits, device=self.device)
         self.robot_dof_default_pos = to_torch(self.left_robot_dof_default_pos + self.right_robot_dof_default_pos, device=self.device)
         self.robot_dof_default_vel = to_torch(self.left_robot_dof_default_vel + self.right_robot_dof_default_vel, device=self.device)
-
 
         # get hand asset info
         self.num_robot_bodies = self.gym.get_asset_rigid_body_count(left_asset) + self.gym.get_asset_rigid_body_count(right_asset)
@@ -509,7 +508,7 @@ class BiLeapHandGrasp(VecTask):
         table_start_pose = gymapi.Transform()
         table_start_pose.p = gymapi.Vec3(0.0, 0.0, table_dims.z / 2)
 
-        side_panel_dims = gymapi.Vec3(0.06, 1.5, 1.1)
+        side_panel_dims = gymapi.Vec3(0.06, 1.5, table_dims.z)
         asset_options = gymapi.AssetOptions()
         asset_options.fix_base_link = True
         side_panel_asset = self.gym.create_box(
@@ -602,33 +601,35 @@ class BiLeapHandGrasp(VecTask):
         self.left_palm_state = self.rigid_body_states[:, self.left_palm_handle][..., :13]
         self.left_palm_pos = self.left_palm_state[..., :3]
         self.left_palm_rot = self.left_palm_state[..., 3:7]
-        self.left_palm_center_pos = self.left_palm_pos + quat_apply(self.left_palm_rot, to_torch(self.palm_offset).repeat(self.num_envs, 1))
+        self.left_palm_center_pos = self.left_palm_pos#  + quat_apply(self.left_palm_rot, to_torch(self.palm_offset).repeat(self.num_envs, 1))
         self.right_palm_state = self.rigid_body_states[:, self.right_palm_handle][..., :13]
         self.right_palm_pos = self.right_palm_state[..., :3]
         self.right_palm_rot = self.right_palm_state[..., 3:7]
-        self.right_palm_center_pos = self.right_palm_pos + quat_apply(self.right_palm_rot, to_torch(self.palm_offset).repeat(self.num_envs, 1))
+        self.right_palm_center_pos = self.right_palm_pos#  + quat_apply(self.right_palm_rot, to_torch(self.palm_offset).repeat(self.num_envs, 1))
 
         self.left_fingertip_state = self.rigid_body_states[:, self.left_fingertip_handles][..., :13]
         self.left_fingertip_pose = self.left_fingertip_state[..., :7]
         self.left_fingertip_pos = self.left_fingertip_state[..., :3]
         self.left_fingertip_rot = self.left_fingertip_state[..., 3:7]
-        self.left_fingertip_center_pos = torch.zeros_like(self.left_fingertip_pos)
-        for i in range(len(self.fingertips)):
-            if i == 0:
-                self.left_fingertip_center_pos[:, i, :] = self.left_fingertip_pos[:, i, :] + quat_apply(self.left_fingertip_rot[:, i, :],to_torch(self.thumb_offset).repeat(self.num_envs, 1),)
-            else:
-                self.left_fingertip_center_pos[:, i, :] = self.left_fingertip_pos[:, i, :] + quat_apply(self.left_fingertip_rot[:, i, :],to_torch(self.fingertip_offset).repeat(self.num_envs, 1),)
+        self.left_fingertip_center_pos = self.left_fingertip_pos
+        # self.left_fingertip_center_pos = torch.zeros_like(self.left_fingertip_pos)
+        # for i in range(len(self.fingertips)):
+        #     if i == 0:
+        #         self.left_fingertip_center_pos[:, i, :] = self.left_fingertip_pos[:, i, :] + quat_apply(self.left_fingertip_rot[:, i, :],to_torch(self.thumb_offset).repeat(self.num_envs, 1),)
+        #     else:
+        #         self.left_fingertip_center_pos[:, i, :] = self.left_fingertip_pos[:, i, :] + quat_apply(self.left_fingertip_rot[:, i, :],to_torch(self.fingertip_offset).repeat(self.num_envs, 1),)
 
         self.right_fingertip_state = self.rigid_body_states[:, self.right_fingertip_handles][..., :13]
         self.right_fingertip_pose = self.right_fingertip_state[..., :7]
         self.right_fingertip_pos = self.right_fingertip_state[..., :3]
         self.right_fingertip_rot = self.right_fingertip_state[..., 3:7]
-        self.right_fingertip_center_pos = torch.zeros_like(self.right_fingertip_pos)
-        for i in range(len(self.fingertips)):
-            if i == 0:
-                self.right_fingertip_center_pos[:, i, :] = self.right_fingertip_pos[:, i, :] + quat_apply(self.right_fingertip_rot[:, i, :],to_torch(self.thumb_offset).repeat(self.num_envs, 1),)
-            else:
-                self.right_fingertip_center_pos[:, i, :] = self.right_fingertip_pos[:, i, :] + quat_apply(self.right_fingertip_rot[:, i, :],to_torch(self.fingertip_offset).repeat(self.num_envs, 1),)
+        self.right_fingertip_center_pos = self.right_fingertip_pos
+        # self.right_fingertip_center_pos = torch.zeros_like(self.right_fingertip_pos)
+        # for i in range(len(self.fingertips)):
+        #     if i == 0:
+        #         self.right_fingertip_center_pos[:, i, :] = self.right_fingertip_pos[:, i, :] + quat_apply(self.right_fingertip_rot[:, i, :],to_torch(self.thumb_offset).repeat(self.num_envs, 1),)
+        #     else:
+        #         self.right_fingertip_center_pos[:, i, :] = self.right_fingertip_pos[:, i, :] + quat_apply(self.right_fingertip_rot[:, i, :],to_torch(self.fingertip_offset).repeat(self.num_envs, 1),)
 
         if self.obs_type == "full_no_vel":
             self.compute_full_observations()
@@ -657,7 +658,6 @@ class BiLeapHandGrasp(VecTask):
         cnt += 2 * num_ft_states
         self.obs_buf[:, cnt : cnt + self.num_actions] = self.actions
 
-
         # object state, pose, linvel, angvel. 13 
         # tool state, pose, linvel, angvel. 13
         cnt += self.num_actions
@@ -668,6 +668,19 @@ class BiLeapHandGrasp(VecTask):
         self.obs_buf[:, cnt + 20 : cnt + 23] = self.tool_linvel
         self.obs_buf[:, cnt + 23 : cnt + 26] = self.tool_angvel
 
+        # wrist state, 13 * 2
+        cnt += 2 * 13
+        self.obs_buf[:, cnt : cnt + 13] = self.left_palm_state
+        self.obs_buf[:, cnt + 13 : cnt + 26] = self.right_palm_state
+
+        # relative pos to object center, 15 * 2
+        cnt += 2 * 13
+        self.obs_buf[:, cnt : cnt + 3] = self.object_pos - self.left_palm_pos
+        self.obs_buf[:, cnt + 3 : cnt + 15] = (self.object_pos.unsqueeze(1) - self.left_fingertip_pos).reshape(-1,12)
+        self.obs_buf[:, cnt + 15: cnt + 18] = self.tool_pos - self.right_palm_pos
+        self.obs_buf[:, cnt + 18 : cnt + 30] = (self.tool_pos.unsqueeze(1) - self.right_fingertip_pos).reshape(-1,12)
+
+        return self.obs_buf
 
     def compute_full_state(self):
         if self.asymmetric_obs:
@@ -758,7 +771,6 @@ class BiLeapHandGrasp(VecTask):
             # action observations, 29 (195+29=224)
             obs_end = ft_obs_start + num_ft_states + num_ft_force_torques
             self.obs_buf[:, obs_end : obs_end + self.num_actions] = self.actions
-
 
     def reset_idx(self, env_ids):
         # randomization can happen only at reset time, since it can reset actor positions on GPU
@@ -906,7 +918,6 @@ class BiLeapHandGrasp(VecTask):
         both_hand_indices = torch.cat([self.left_robot_indices, self.right_robot_indices])
         self.gym.set_dof_position_target_tensor_indexed(self.sim, gymtorch.unwrap_tensor(self.prev_targets), gymtorch.unwrap_tensor(both_hand_indices.to(torch.int32)), len(both_hand_indices))
 
-
     def post_physics_step(self):
         self.progress_buf += 1
         self.randomize_buf += 1
@@ -929,7 +940,6 @@ class BiLeapHandGrasp(VecTask):
                     self._add_debug_lines(self.envs[i],self.left_fingertip_center_pos[i][j],self.left_fingertip_rot[i][j])
                     self._add_debug_lines(self.envs[i],self.right_fingertip_center_pos[i][j],self.right_fingertip_rot[i][j])
 
-                    
     def _add_debug_lines(self, env, pos, rot, line_len=0.2):
         posx = (
             (pos + quat_apply(rot, to_torch([1, 0, 0], device=self.device) * line_len))
@@ -1161,11 +1171,11 @@ def compute_task_rewards(
     # stage 1: after hand approach object, lift_object
     lift_object_rew = torch.zeros_like(goal_object_dist)
     lift_object_rew = torch.where(
-        is_grasp_left == True, 2 * (goal_height - table_height - goal_object_dist), lift_object_rew
+        is_grasp_left == True, 3 * (goal_height - table_height) - 2 * goal_object_dist, lift_object_rew
     )
     lift_tool_rew = torch.zeros_like(gool_tool_dist)
     lift_tool_rew = torch.where(
-        is_grasp_right == True, 2 * (goal_height - table_height - gool_tool_dist), lift_tool_rew
+        is_grasp_right == True, 3 * (goal_height - table_height) - 2 * gool_tool_dist, lift_tool_rew
     )
     # stage 2: lift up reward
     left_hand_up_rew = torch.zeros_like(goal_object_dist)
@@ -1204,6 +1214,7 @@ def compute_task_rewards(
     reward = left_reward + right_reward
 
     # level 1
+    info["left/is_grasp"] = is_grasp_left
     info["left/fingertips_object_dist"] = left_fingertips_object_dist
     info["left/palm_object_dist"] = left_palm_object_dist
     info["left/lift_object_rew"] = lift_object_rew
@@ -1211,6 +1222,7 @@ def compute_task_rewards(
     info["left/bonus"] = left_bonus
     info["left/object_offset"] = object_offset
 
+    info["right/is_grasp"] = is_grasp_right
     info["right/fingers_tool_dist"] = right_fingers_tool_dist
     info["right/palm_object_dist"] = right_palm_object_dist
     info["right/lift_tool_rew"] = lift_tool_rew

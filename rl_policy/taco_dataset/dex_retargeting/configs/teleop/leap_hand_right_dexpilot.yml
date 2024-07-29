@@ -1,6 +1,6 @@
 retargeting:
   type: DexPilot
-  urdf_path: ../assets/leap_hand_description/leap_hand_right.urdf  #leap_hand/leap_hand_right.urdf
+  urdf_path: taco_dataset/dex_retargeting/configs/teleop/leap_hand_right.urdf  
   wrist_link_name: "base"
 
   # Target refers to the retargeting target, which is the robot hand

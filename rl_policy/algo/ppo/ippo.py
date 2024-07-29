@@ -221,8 +221,6 @@ class IPPO(nn.Module):
         if not self.is_testing:
             self.writer = SummaryWriter(log_dir=self.log_dir, flush_secs=10)
 
-
-
     def test(self, path):
         self.load(path)
         self.eval()
@@ -247,7 +245,7 @@ class IPPO(nn.Module):
             self.left_agent.optimizer.load_state_dict(left_optimizer_state_dict)
             self.right_agent.optimizer.load_state_dict(right_optimizer_state_dict)
         self.load_state_dict(saved_ckpt["model_state_dict"])
-        self.current_learning_iteration = int(left_optimizer_state_dict['state'][1]['step'].item()//20)  # TODO 
+        self.current_learning_iteration = 0#int(left_optimizer_state_dict['state'][1]['step'].item()//20)  # TODO 
         self.train()
         print(f"Loaded checkpoint from {path}")
 
@@ -317,26 +315,24 @@ class IPPO(nn.Module):
                     next_states = self.vec_env.get_state()
                     # Record the transition
                     left_rews = infos["left/reward"]
-                    left_dones = infos["left/dones"]
                     self.left_agent.storage.add_transitions(
                         left_obs,
                         current_states,
                         left_actions,
                         left_rews,
-                        left_dones,
+                        dones,
                         left_values,
                         left_actions_log_prob,
                         left_mu,
                         left_sigma,
                     )
                     right_rews = infos["right/reward"]
-                    right_dones = infos["right/dones"]
                     self.right_agent.storage.add_transitions(
                         right_obs,
                         current_states,
                         right_actions,
                         right_rews,
-                        right_dones,
+                        dones,
                         right_values,
                         right_actions_log_prob,
                         right_mu,
