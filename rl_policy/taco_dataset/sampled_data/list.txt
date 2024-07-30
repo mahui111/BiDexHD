@@ -1,8 +1,15 @@
-(brush, brush, plate)  4,6
-(pour in some, teapot, cup)  1,0
-(pour in some, teapot, teapot) 
-(smear, eraser, plate)  1,2
-(hit, hammer, toy)   7  (x)
+# success task
+(stir, spatula, pan)           spatula
+(stir, spoon, pan)             spoon
+(brush, brush, plate)          brush
+(pour in some, teapot, cup)    teapot, cup
+(smear, eraser, plate)         eraser
+(hit, hammer, toy)             toy
 
-# challenging
-(stir, spoon, pan)
+# candidate
+(brush, brush, plate)           4,6
+(pour in some, teapot, cup)     1,0
+(pour in some, teapot, teapot)  ...
+(smear, eraser, plate)          1,2
+(hit, hammer, toy)               7      (x)
+(stir, spoon, pan)                  (challenging)

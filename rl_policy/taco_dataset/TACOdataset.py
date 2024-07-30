@@ -661,10 +661,10 @@ class BiRetargetor:
     # [Important!] Update poses for robot hands
     def retarget_to_robot_poses(self, left_joint_pos, right_joint_pos):
         # normalize to the wrist
-        # left_joint_pos = left_joint_pos - left_joint_pos[0:1, :]
-        # right_joint_pos = right_joint_pos - right_joint_pos[0:1, :]
-        # left_joint_pos = left_joint_pos @ self.estimate_frame_from_hand_points(left_joint_pos, 'left') @ self.side_convernion['left']
-        # right_joint_pos = right_joint_pos @ self.estimate_frame_from_hand_points(right_joint_pos, 'right') @ self.side_convernion['right']
+        left_joint_pos = left_joint_pos - left_joint_pos[0:1, :]
+        right_joint_pos = right_joint_pos - right_joint_pos[0:1, :]
+        left_joint_pos = left_joint_pos @ self.estimate_frame_from_hand_points(left_joint_pos, 'left') @ self.side_convernion['left']
+        right_joint_pos = right_joint_pos @ self.estimate_frame_from_hand_points(right_joint_pos, 'right') @ self.side_convernion['right']
 
         left_indices = self.left_retargetor.optimizer.target_link_human_indices
         right_indices = self.right_retargetor.optimizer.target_link_human_indices
