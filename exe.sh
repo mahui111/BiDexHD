@@ -11,7 +11,7 @@ case $mode in
     ;;
   evaluate)
     # Evaluate
-    python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=1 test=True checkpoint="'runs/(hit, hammer, box)/task5/ippo_grasp_reward/model_1500.pt'" task_id=5 triplet="'(hit, hammer, box)'"
+    python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=1 test=True checkpoint="'runs/(pour in some, teapot, cup)/task1/ippo_grasp_reward/model_13000.pt'" task_id=1 triplet="'(pour in some, teapot, cup)'"
     ;;
   visualize)
     # Visualize

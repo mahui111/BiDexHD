@@ -2,7 +2,7 @@
 (pour in some, teapot, cup)  1,0
 (pour in some, teapot, teapot) 
 (smear, eraser, plate)  1,2
-(hit, hammer, toy)   7
+(hit, hammer, toy)   7  (x)
 
 # challenging
 (stir, spoon, pan)
