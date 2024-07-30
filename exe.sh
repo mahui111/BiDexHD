@@ -7,19 +7,19 @@ mode=$1
 case $mode in
   train)
     # Train
-    python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO num_envs=8192 headless=True algo=ippo exp_name=ippo_grasp_reward
+    python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=8192 headless=True exp_name=ippo_bvdex_reward
     ;;
   evaluate)
     # Evaluate
-    python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=1 test=True checkpoint="'runs/(pour in some, teapot, cup)/task1/ippo_grasp_reward/model_13000.pt'" task_id=1 triplet="'(pour in some, teapot, cup)'"
+    python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=1 test=True checkpoint="'runs/(pour in some, teapot, cup)/task1/ippo_grasp_reward_novel/model_1000.pt'"
     ;;
   visualize)
     # Visualize
-    python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ppo num_envs=1 test=True mode=visualize 
+    python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=1 test=True mode=visualize 
     ;;
   debug)
     # Debug
-    python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ppo num_envs=1 #debug=True
+    python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=1 #debug=True
     ;;
   *)
     echo "Usage: $0 {train|evaluate|debug|visualize}"

@@ -1,7 +1,7 @@
 params:
   name: ${algo}
   log_dir: './runs' 
-  
+  observationType: ${observationType}
   policy: # only works for MlpPolicy right now
     backbone_type: ''
     freeze_backbone: False

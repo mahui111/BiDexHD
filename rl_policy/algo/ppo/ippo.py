@@ -62,12 +62,12 @@ class IPPOAgent(nn.Module):
 
         # PPO components
         self.vec_env = vec_env
-        single_observation_space_shape = (self.observation_space.shape[0]//2,)
-        single_action_space_shape = (self.action_space.shape[0]//2,)
+        self.single_observation_space_shape = (self.observation_space.shape[0]//2,)
+        self.single_action_space_shape = (self.action_space.shape[0]//2,)
         self.actor_critic = actor_critic_class(
-            single_observation_space_shape,
+            self.single_observation_space_shape,
             self.state_space.shape,
-            single_action_space_shape,
+            self.single_action_space_shape,
             self.init_noise_std,
             self.model_cfg,
             asymmetric=self.asymmetric,
@@ -77,9 +77,9 @@ class IPPOAgent(nn.Module):
         self.storage = RolloutStorage(
             self.vec_env.num_envs,
             self.num_transitions_per_env,
-            single_observation_space_shape,
+            self.single_observation_space_shape,
             self.state_space.shape,
-            single_action_space_shape,
+            self.single_action_space_shape,
             self.device,
             self.sampler,
         )
@@ -183,9 +183,6 @@ class IPPO(nn.Module):
             raise TypeError("vec_env.state_space must be a gym Space")
         if not isinstance(vec_env.action_space, Space):
             raise TypeError("vec_env.action_space must be a gym Space")
-        self.observation_space = vec_env.observation_space
-        self.state_space = vec_env.state_space
-        self.action_space = vec_env.action_space
         self.device = vec_env.device
         # agent
         self.left_agent = IPPOAgent(
@@ -194,16 +191,20 @@ class IPPO(nn.Module):
             train_param,
             is_vision,
         )
-        self.left_obs_indices = list(range(0,22))+list(range(44,66))+list(range(88,140))+list(range(192,214))+list(range(236,249)) + list(range(262,275)) + list(range(288,303))
-        self.left_act_indices = list(range(0,22)) 
         self.right_agent = IPPOAgent(
             vec_env,
             actor_critic_class,
             train_param,
             is_vision,
         )
-        self.right_obs_indices = list(range(22,44))+list(range(66,88))+list(range(140,192))+list(range(214,236))+list(range(249,262)) + list(range(275,288)) + list(range(303,318))
-        self.right_act_indices = list(range(22,44))
+        if train_param["observationType"] == 'full':
+            self.left_obs_indices = list(range(0,22))+list(range(44,66))+list(range(88,140))+list(range(192,214))+list(range(236,249)) + list(range(262,275)) + list(range(288,303))
+            self.right_obs_indices = list(range(22,44))+list(range(66,88))+list(range(140,192))+list(range(214,236))+list(range(249,262)) + list(range(275,288)) + list(range(303,318))
+        elif train_param["observationType"] == 'full_no_vel':
+            self.left_obs_indices = list(range(0,22))+list(range(44,66))+list(range(88,100))+list(range(112,134))+list(range(156, 169)) + list(range(182,189)) + list(range(196,211))
+            self.right_obs_indices = list(range(22,44))+list(range(66,88))+list(range(100,112))+list(range(134,156))+list(range(169,182)) + list(range(189,196)) + list(range(211,226))
+        assert self.left_agent.single_observation_space_shape[0] == len(self.left_obs_indices)
+        assert self.right_agent.single_observation_space_shape[0] == len(self.right_obs_indices)
 
         # training params
         self.tot_timesteps = 0
@@ -245,7 +246,7 @@ class IPPO(nn.Module):
             self.left_agent.optimizer.load_state_dict(left_optimizer_state_dict)
             self.right_agent.optimizer.load_state_dict(right_optimizer_state_dict)
         self.load_state_dict(saved_ckpt["model_state_dict"])
-        self.current_learning_iteration = 0#int(left_optimizer_state_dict['state'][1]['step'].item()//20)  # TODO 
+        self.current_learning_iteration = 0
         self.train()
         print(f"Loaded checkpoint from {path}")
 

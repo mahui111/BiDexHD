@@ -15,7 +15,7 @@ import tasks
 
 
 def build_runner(cfg, env):
-    from algo import ppo  # , dagger, dagger_value
+    from algo import ppo  
 
     train_param = cfg.train.params
     is_testing = cfg.test  # train_param["test"]
