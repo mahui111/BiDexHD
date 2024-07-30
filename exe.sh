@@ -7,11 +7,11 @@ mode=$1
 case $mode in
   train)
     # Train
-    python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=8192 headless=True exp_name=ippo_bvdex_reward
+    python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=8192 headless=True exp_name=ippo_bvdex_reward_reimplement
     ;;
   evaluate)
     # Evaluate
-    python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=1 test=True checkpoint="'runs/(pour in some, teapot, cup)/task1/ippo_grasp_reward_novel/model_1000.pt'"
+    python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=1 test=True checkpoint="'runs/(pour in some, teapot, cup)/task1/ippo_bvdex_reward/model_4500.pt'"
     ;;
   visualize)
     # Visualize
