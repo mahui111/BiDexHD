@@ -559,6 +559,15 @@ class BiLeapHandGraspV1(VecTask):
         asset_options.thickness = 0.001
         asset_options.angular_damping = 0.01
 
+        asset_options.vhacd_enabled = True
+        asset_options.vhacd_params = gymapi.VhacdParams()
+        asset_options.vhacd_params.resolution = 100000
+        asset_options.vhacd_params.concavity = 0.0025
+        asset_options.vhacd_params.alpha = 0.04
+        asset_options.vhacd_params.beta = 1.0
+        asset_options.vhacd_params.convex_hull_downsampling = 4
+        asset_options.vhacd_params.max_num_vertices_per_ch = 256
+
         if self.physics_engine == gymapi.SIM_PHYSX:
             asset_options.use_physx_armature = True
 
@@ -1227,7 +1236,7 @@ class BiLeapHandGraspV1(VecTask):
         u = (j_eef_T @ torch.inverse(j_eef @ j_eef_T + lmbda) @ dpose).view(self.num_envs, 6)
         return u
 
-    def visualize(self, replay_times=5, debug=False, vis_metrics=True):
+    def visualize(self, replay_times=50, debug=False, vis_metrics=False):
         def visualize_curves(data_dict):
             """
             Visualize each list in the dictionary as a curve in a 2xM matrix of subplots.
@@ -1253,7 +1262,6 @@ class BiLeapHandGraspV1(VecTask):
             self._prepare_task(task_id=self.task_id)
             metric_collector = defaultdict(list)
             for i in range(self.init_timestep-1, self.end_timestep+1):
-                if i > self.ref_timestep: break
                 self.actions = torch.zeros_like(self.robot_dof_pos)
                 self.actions[:, self.both_fingers_dof_indices] = self.both_fingers_dof[i:i+1]
                 self.actions[:, self.both_arm_dof_indices] = self.calculate_ik(self.target_left_pose[i:i+1], self.target_right_pose[i:i+1])
@@ -1866,8 +1874,8 @@ def compute_bvdex_rewards(
     left_lift_to_refpos_reward = left_lift_object_pos_rew + left_lift_object_rot_rew * 0.2
     right_lift_to_refpos_reward = right_lift_tool_pos_rew + right_lift_tool_rot_rew  * 0.2
 
-    left_reward = - left_approach_penalty + left_lift_to_refpos_reward + left_object_hand_rot_rew * 0.1 + left_bonus   # - object_offset_penalty
-    right_reward = - right_approach_penalty + right_lift_to_refpos_reward + right_tool_hand_rot_rew * 0.1 + right_bonus  # - tool_offset_penalty
+    left_reward = - left_approach_penalty + left_lift_to_refpos_reward + left_object_hand_rot_rew * 0.05 + left_bonus   # - object_offset_penalty
+    right_reward = - right_approach_penalty + right_lift_to_refpos_reward + right_tool_hand_rot_rew * 0.05 + right_bonus  # - tool_offset_penalty
     reward = left_reward + right_reward
 
 

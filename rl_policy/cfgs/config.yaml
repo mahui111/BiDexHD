@@ -67,3 +67,4 @@ triplet: "(pour in some, teapot, cup)" #(stir, spoon, pan) (stir, spatula, pan) 
 exp_name: ""
 task_id: 1
 observationType: "full_no_vel" # can be "full_no_vel", "full"
+object_hand_joint_rot_diff: 0
