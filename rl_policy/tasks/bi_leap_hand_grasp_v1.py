@@ -622,25 +622,25 @@ def compute_bvdex_stage12_rewards(
     '''lift object reward'''
     left_lift_object_pos_rew = torch.where(
         is_grasp_left == True,
-        torch.where(left_reach_ref_timestep == -1, left_lift_object_pos_rew2, left_lift_object_pos_rew1),
+        torch.where(left_reach_ref_timestep == -1, left_lift_object_pos_rew1, left_lift_object_pos_rew2),
         torch.zeros_like(ref_object_pos_dist),
     )
     left_lift_object_rot_rew = torch.where(
         is_grasp_left == True,
-        torch.where(left_reach_ref_timestep == -1, left_lift_object_rot_rew2, left_lift_object_rot_rew1),
+        torch.where(left_reach_ref_timestep == -1, left_lift_object_rot_rew1, left_lift_object_rot_rew2),
         torch.zeros_like(ref_object_pos_dist),
     )
     right_lift_tool_pos_rew = torch.where(
         is_grasp_right == True,
-        torch.where(right_reach_ref_timestep == -1, right_lift_tool_pos_rew2, right_lift_tool_pos_rew1),
+        torch.where(right_reach_ref_timestep == -1, right_lift_tool_pos_rew1, right_lift_tool_pos_rew2),
         torch.zeros_like(ref_tool_pos_dist),
     )
     right_lift_tool_rot_rew = torch.where(
         is_grasp_right == True,
-        torch.where(right_reach_ref_timestep == -1, right_lift_tool_rot_rew2, right_lift_tool_rot_rew1),
+        torch.where(right_reach_ref_timestep == -1, right_lift_tool_rot_rew1, right_lift_tool_rot_rew2),
         torch.zeros_like(ref_tool_pos_dist),
     )
-
+    
     # stage 2: hand-object joint rotation, no grasp condition
     if is_object_hand_joint_rot_diff:
         object_hand_rot_diff = quat_diff_theta(object_pose[:, 3:7], left_palm_pose[:, 3:7])
@@ -1300,7 +1300,7 @@ class BiLeapHandGraspV1(VecTask):
                 arm_dof_indices, hand_dof_indices, robot_dof_indices, \
                 robot_dof_lower_limits, robot_dof_upper_limits
 
-    def _prepare_object_asset(self, asset_root, asset_file):
+    def _prepare_object_asset(self, asset_root, asset_file, vhacd_enabled):
         # load object asset
         asset_options = gymapi.AssetOptions()
         asset_options.flip_visual_attachments = False
@@ -1309,15 +1309,15 @@ class BiLeapHandGraspV1(VecTask):
         asset_options.collapse_fixed_joints = True
         asset_options.thickness = 0.001
         asset_options.angular_damping = 0.01
-
-        asset_options.vhacd_enabled = True
-        asset_options.vhacd_params = gymapi.VhacdParams()
-        asset_options.vhacd_params.resolution = 25000 #100000
-        asset_options.vhacd_params.concavity = 0.01 #0.0025
-        asset_options.vhacd_params.alpha = 0.1 #0.04
-        asset_options.vhacd_params.beta = 1.5 #1.0
-        asset_options.vhacd_params.convex_hull_downsampling = 1 #4
-        asset_options.vhacd_params.max_num_vertices_per_ch = 64 #256
+        if vhacd_enabled:
+            asset_options.vhacd_enabled = True
+            asset_options.vhacd_params = gymapi.VhacdParams()
+            asset_options.vhacd_params.resolution = 25000 #100000
+            asset_options.vhacd_params.concavity = 0.01 #0.0025
+            asset_options.vhacd_params.alpha = 0.1 #0.04
+            asset_options.vhacd_params.beta = 1.5 #1.0
+            asset_options.vhacd_params.convex_hull_downsampling = 1 #4
+            asset_options.vhacd_params.max_num_vertices_per_ch = 64 #256
 
 
         if self.physics_engine == gymapi.SIM_PHYSX:
@@ -1422,12 +1422,12 @@ class BiLeapHandGraspV1(VecTask):
         self.ref_object_pose = self.dataset_object_pose[self.ref_timestep].unsqueeze(0)
         self.ref_tool_pose = self.dataset_tool_pose[self.ref_timestep].unsqueeze(0)
 
-    def _prepare_object_tool_pair(self, asset_root):  
+    def _prepare_object_tool_pair(self, asset_root, vhacd_enabled=False):  
         assert isinstance(self.sampled_taco_task_data, dict), "Please load the dataset first!"
         object_mesh_path = os.path.join(asset_root, 'TACOobjects')
         self._create_urdf(self.sampled_taco_task_data['tool']['id'], self.sampled_taco_task_data['object']['id'], object_mesh_path)
-        object_asset = self._prepare_object_asset(object_mesh_path, 'object.urdf')
-        tool_asset = self._prepare_object_asset(object_mesh_path, 'tool.urdf')
+        object_asset = self._prepare_object_asset(object_mesh_path, 'object.urdf', vhacd_enabled)
+        tool_asset = self._prepare_object_asset(object_mesh_path, 'tool.urdf', vhacd_enabled)
         return object_asset, tool_asset
 
     def _prepare_table_asset(self):
