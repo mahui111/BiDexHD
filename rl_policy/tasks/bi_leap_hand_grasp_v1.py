@@ -561,12 +561,13 @@ class BiLeapHandGraspV1(VecTask):
 
         asset_options.vhacd_enabled = True
         asset_options.vhacd_params = gymapi.VhacdParams()
-        asset_options.vhacd_params.resolution = 100000
-        asset_options.vhacd_params.concavity = 0.0025
-        asset_options.vhacd_params.alpha = 0.04
-        asset_options.vhacd_params.beta = 1.0
-        asset_options.vhacd_params.convex_hull_downsampling = 4
-        asset_options.vhacd_params.max_num_vertices_per_ch = 256
+        asset_options.vhacd_params.resolution = 25000 #100000
+        asset_options.vhacd_params.concavity = 0.01 #0.0025
+        asset_options.vhacd_params.alpha = 0.1 #0.04
+        asset_options.vhacd_params.beta = 1.5 #1.0
+        asset_options.vhacd_params.convex_hull_downsampling = 1 #4
+        asset_options.vhacd_params.max_num_vertices_per_ch = 64 #256
+
 
         if self.physics_engine == gymapi.SIM_PHYSX:
             asset_options.use_physx_armature = True
@@ -590,8 +591,8 @@ class BiLeapHandGraspV1(VecTask):
         self.sampled_taco_task_data = self.dataset_taco_data[task_id]
         # timestep
         self.init_timestep = self.sampled_taco_task_data['key_steps']['init']
+        self.ref_timestep = self.sampled_taco_task_data['key_steps']['ref']
         self.end_timestep = min(self.cfg['env']['episodeLength']-1, self.sampled_taco_task_data['key_steps']['end'])
-        self.ref_timestep = 35  # TODO
         # objects
         if trans is None:
             trans_z_180 = np.array([
@@ -728,8 +729,8 @@ class BiLeapHandGraspV1(VecTask):
                 self.table_height,
                 self.actions,
             )
-        elif mode == 'v1':
-            returns = compute_bvdex_rewards(
+        elif mode == 's1':
+            returns = compute_bvdex_stage1_rewards(
                 self.reset_buf,
                 self.progress_buf,
                 self.successes,
@@ -1171,7 +1172,7 @@ class BiLeapHandGraspV1(VecTask):
         self.randomize_buf += 1
 
         self.compute_observations()
-        self.compute_reward(mode='v1')
+        self.compute_reward(mode='s1')
 
         if self.viewer and self.debug_vis:
             # draw axes to debug
@@ -1236,7 +1237,7 @@ class BiLeapHandGraspV1(VecTask):
         u = (j_eef_T @ torch.inverse(j_eef @ j_eef_T + lmbda) @ dpose).view(self.num_envs, 6)
         return u
 
-    def visualize(self, replay_times=50, debug=False, vis_metrics=False):
+    def visualize(self, replay_times=10, debug=False, vis_metrics=False):
         def visualize_curves(data_dict):
             """
             Visualize each list in the dictionary as a curve in a 2xM matrix of subplots.
@@ -1261,7 +1262,7 @@ class BiLeapHandGraspV1(VecTask):
         for replay_times in range(1,1+replay_times):
             self._prepare_task(task_id=self.task_id)
             metric_collector = defaultdict(list)
-            for i in range(self.init_timestep-1, self.end_timestep+1):
+            for i in range(self.init_timestep-1, self.ref_timestep+1):
                 self.actions = torch.zeros_like(self.robot_dof_pos)
                 self.actions[:, self.both_fingers_dof_indices] = self.both_fingers_dof[i:i+1]
                 self.actions[:, self.both_arm_dof_indices] = self.calculate_ik(self.target_left_pose[i:i+1], self.target_right_pose[i:i+1])
@@ -1301,7 +1302,7 @@ class BiLeapHandGraspV1(VecTask):
                     # compute metrics
                     # if i == self.ref_timestep:
                     #     breakpoint()
-                    metrics = self.compute_reward(mode='v1')
+                    metrics = self.compute_reward(mode='s1')
                     for k,v in metrics.items():  # for visualize metrics
                         metric_collector[k].append(v.float().mean().item())
             if vis_metrics:
@@ -1768,7 +1769,7 @@ def compute_imi_hand_rewards(dataset_palm_pose, palm_pose, timestep, t0:int, te:
 
 
 @torch.jit.script
-def compute_bvdex_rewards(
+def compute_bvdex_stage1_rewards(
     reset_buf,
     progress_buf,
     successes,
@@ -1874,8 +1875,8 @@ def compute_bvdex_rewards(
     left_lift_to_refpos_reward = left_lift_object_pos_rew + left_lift_object_rot_rew * 0.2
     right_lift_to_refpos_reward = right_lift_tool_pos_rew + right_lift_tool_rot_rew  * 0.2
 
-    left_reward = - left_approach_penalty + left_lift_to_refpos_reward + left_object_hand_rot_rew * 0.05 + left_bonus   # - object_offset_penalty
-    right_reward = - right_approach_penalty + right_lift_to_refpos_reward + right_tool_hand_rot_rew * 0.05 + right_bonus  # - tool_offset_penalty
+    left_reward = - left_approach_penalty + left_lift_to_refpos_reward + left_object_hand_rot_rew * 0.3 + left_bonus   # - object_offset_penalty
+    right_reward = - right_approach_penalty + right_lift_to_refpos_reward + right_tool_hand_rot_rew * 0.3 + right_bonus  # - tool_offset_penalty
     reward = left_reward + right_reward
 
 
@@ -1945,3 +1946,4 @@ def compute_bvdex_rewards(
         cons_successes,
         info,
     )
+

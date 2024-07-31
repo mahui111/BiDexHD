@@ -2,7 +2,8 @@
     {
         "save_name": "taco_dataset/sampled_data/(pour in some, teapot, cup)-20230917_041.json",
         "key_steps": {
-            "init": 22,
+            "init": 1,
+            "ref": 63,
             "end": 181
         },
         "tool": {
@@ -25005,7 +25006,8 @@
     {
         "save_name": "taco_dataset/sampled_data/(pour in some, teapot, cup)-20230927_039.json",
         "key_steps": {
-            "init": 16,
+            "init": 1,
+            "ref": 40,
             "end": 132
         },
         "tool": {
