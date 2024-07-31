@@ -1422,7 +1422,7 @@ class BiLeapHandGraspV1(VecTask):
         self.ref_object_pose = self.dataset_object_pose[self.ref_timestep].unsqueeze(0)
         self.ref_tool_pose = self.dataset_tool_pose[self.ref_timestep].unsqueeze(0)
 
-    def _prepare_object_tool_pair(self, asset_root, vhacd_enabled=False):  
+    def _prepare_object_tool_pair(self, asset_root, vhacd_enabled=True):  
         assert isinstance(self.sampled_taco_task_data, dict), "Please load the dataset first!"
         object_mesh_path = os.path.join(asset_root, 'TACOobjects')
         self._create_urdf(self.sampled_taco_task_data['tool']['id'], self.sampled_taco_task_data['object']['id'], object_mesh_path)
@@ -1518,13 +1518,12 @@ class BiLeapHandGraspV1(VecTask):
                 self.is_object_hand_joint_rot_diff,
             )
         elif mode == 's12':
-            ref_object_pose = self.ref_object_pose.repeat(self.num_envs, 1)
-            ref_tool_pose = self.ref_tool_pose.repeat(self.num_envs, 1)
-            # TODO: frequency
-            # t_left = torch.where(self.left_reach_ref_timestep == -1, torch.zeros_like(self.timestep), self.timestep - self.left_reach_ref_timestep) + self.ref_timestep
-            # t_right = torch.where(self.right_reach_ref_timestep == -1, torch.zeros_like(self.timestep), self.timestep - self.right_reach_ref_timestep) + self.ref_timestep
-            # ref_object_pose = self.dataset_object_pose[t_left.clip(max=self.end_timestep)]  
-            # ref_tool_pose = self.dataset_tool_pose[t_right.clip(max=self.end_timestep)]  
+            # ref_object_pose = self.ref_object_pose.repeat(self.num_envs, 1)
+            # ref_tool_pose = self.ref_tool_pose.repeat(self.num_envs, 1)
+            t_left = torch.where(self.left_reach_ref_timestep == -1, torch.zeros_like(self.timestep), torch.ceil((self.timestep - self.left_reach_ref_timestep)/self.frequency).int()) + self.ref_timestep
+            t_right = torch.where(self.right_reach_ref_timestep == -1, torch.zeros_like(self.timestep), torch.ceil((self.timestep - self.right_reach_ref_timestep)/self.frequency).int()) + self.ref_timestep
+            ref_object_pose = self.dataset_object_pose[t_left.clip(max=self.end_timestep)]  
+            ref_tool_pose = self.dataset_tool_pose[t_right.clip(max=self.end_timestep)]  
 
             (
                 self.rew_buf[:],

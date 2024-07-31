@@ -68,6 +68,6 @@ exp_name: ""
 task_id: 1
 observationType: "full_no_vel" # can be "full_no_vel", "full"
 isObjectHandJointRotDiff: 0
-isStage2PosRewExp: 0
+isStage2PosRewExp: 1
 
 
