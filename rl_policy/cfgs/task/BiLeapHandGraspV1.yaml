@@ -69,7 +69,8 @@ task:
   task_id: ${...task_id}
   frequency: 2
   horizon: 2
-  object_hand_joint_rot_diff: ${object_hand_joint_rot_diff}
+  isStage2PosRewExp: ${isStage2PosRewExp}
+  isObjectHandJointRotDiff: ${isObjectHandJointRotDiff}
   randomize: False
   randomization_params:
     frequency: 720   # Define how many simulation steps between generating new randomizations
