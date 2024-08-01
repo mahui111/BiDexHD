@@ -1006,10 +1006,10 @@ class BiLeapHandGraspV1(VecTask):
         asset_root = self.cfg["env"]["asset"]["assetRoot"]
         left_asset, left_dof_props, self.left_palm_handle, self.left_fingertip_handles, self.left_eef_index, \
         self.left_arm_dof_indices, self.left_fingers_dof_indices, self.left_robot_dof_indices, \
-        self.left_robot_dof_lower_limits, self.left_robot_dof_upper_limits = self._prepare_robot_asset(asset_root, self.cfg["env"]["asset"]["leftAssetFile"], vhacd_enabled=True)
+        self.left_robot_dof_lower_limits, self.left_robot_dof_upper_limits = self._prepare_robot_asset(asset_root, self.cfg["env"]["asset"]["leftAssetFile"])
         right_asset, right_dof_props, self.right_palm_handle, self.right_fingertip_handles, self.right_eef_index,\
         self.right_arm_dof_indices, self.right_fingers_dof_indices, self.right_robot_dof_indices, \
-        self.right_robot_dof_lower_limits, self.right_robot_dof_upper_limits = self._prepare_robot_asset(asset_root, self.cfg["env"]["asset"]["rightAssetFile"], vhacd_enabled=True)    
+        self.right_robot_dof_lower_limits, self.right_robot_dof_upper_limits = self._prepare_robot_asset(asset_root, self.cfg["env"]["asset"]["rightAssetFile"])    
 
         self.robot_dof_lower_limits = to_torch(self.left_robot_dof_lower_limits + self.right_robot_dof_lower_limits, device=self.device)
         self.robot_dof_upper_limits = to_torch(self.left_robot_dof_upper_limits + self.right_robot_dof_upper_limits, device=self.device)
@@ -1233,7 +1233,7 @@ class BiLeapHandGraspV1(VecTask):
         self.ref_init_tool_rot_diff = quat_diff_theta(self.ref_tool_pose[:, 3:7], self.tool_init_states[:1, 3:7])
         self.ref_init_tool_hand_rot_diff = quat_diff_theta(self.ref_tool_pose[:, 3:7], self.ref_right_pose[:, 3:7])
 
-    def _prepare_robot_asset(self, asset_root, asset_file, vhacd_enabled):
+    def _prepare_robot_asset(self, asset_root, asset_file, vhacd_enabled=False):
         # load arm hand asset
         asset_options = gymapi.AssetOptions()
         asset_options.flip_visual_attachments = False
