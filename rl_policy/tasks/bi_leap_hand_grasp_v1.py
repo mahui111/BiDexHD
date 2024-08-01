@@ -643,12 +643,23 @@ def compute_bvdex_stage12_rewards(
     
     # stage 2: hand-object joint rotation, no grasp condition
     if is_object_hand_joint_rot_diff:
-        object_hand_rot_diff = quat_diff_theta(object_pose[:, 3:7], left_palm_pose[:, 3:7])
-        left_object_hand_rot_rew = - torch.abs((ref_init_object_hand_rot_diff - object_hand_rot_diff))  # [0, -2pi]
-        left_object_hand_rot_rew = 0.5 + left_object_hand_rot_rew * (0.5 / torch.pi)  # [0.5, -0.5]
-        tool_hand_rot_diff = quat_diff_theta(tool_pose[:, 3:7], right_palm_pose[:, 3:7])
-        right_tool_hand_rot_rew = - torch.abs((ref_init_tool_hand_rot_diff - tool_hand_rot_diff))  # [0, -2pi]
-        right_tool_hand_rot_rew = 0.5 + right_tool_hand_rot_rew * (0.5 / torch.pi)  # [0.5, -0.5]
+        object_hand_rot_diff1 = quat_diff_theta(object_pose[:, 3:7], left_palm_pose[:, 3:7])
+        left_object_hand_rot_rew1 = - torch.abs((ref_init_object_hand_rot_diff - object_hand_rot_diff1))  # [0, -2pi]
+        left_object_hand_rot_rew1 = 0.5 + left_object_hand_rot_rew1 * (0.5 / torch.pi)  # [0.5, -0.5]
+        left_object_hand_rot_rew = torch.where(
+            is_grasp_left == True,
+            torch.where(left_reach_ref_timestep == -1, left_object_hand_rot_rew1, torch.zeros_like(ref_object_pos_dist)),
+            torch.zeros_like(ref_object_pos_dist),
+        )
+
+        tool_hand_rot_diff1 = quat_diff_theta(tool_pose[:, 3:7], right_palm_pose[:, 3:7])
+        right_tool_hand_rot_rew1 = - torch.abs((ref_init_tool_hand_rot_diff - tool_hand_rot_diff1))  # [0, -2pi]
+        right_tool_hand_rot_rew1 = 0.5 + right_tool_hand_rot_rew1 * (0.5 / torch.pi)  # [0.5, -0.5]
+        right_tool_hand_rot_rew = torch.where(
+            is_grasp_right == True,
+            torch.where(right_reach_ref_timestep == -1, right_tool_hand_rot_rew1, torch.zeros_like(ref_tool_pos_dist)),
+            torch.zeros_like(ref_tool_pos_dist),
+        )
     else:
         left_object_hand_rot_rew = torch.zeros_like(ref_object_pos_dist)
         right_tool_hand_rot_rew = torch.zeros_like(ref_tool_pos_dist)
@@ -2040,7 +2051,7 @@ class BiLeapHandGraspV1(VecTask):
         u = (j_eef_T @ torch.inverse(j_eef @ j_eef_T + lmbda) @ dpose).view(self.num_envs, 6)
         return u
 
-    def visualize(self, replay_times=5, debug=False, vis_metrics=True, vis_mode='all'):
+    def visualize(self, replay_times=5, debug=False, vis_metrics=True, vis_mode='ref'):
         def visualize_curves(data_dict):
             """
             Visualize each list in the dictionary as a curve in a 2xM matrix of subplots.
