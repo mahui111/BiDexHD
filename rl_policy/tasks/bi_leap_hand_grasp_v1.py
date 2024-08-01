@@ -1344,7 +1344,6 @@ class BiLeapHandGraspV1(VecTask):
         self.init_timestep = self.sampled_taco_task_data['key_steps']['init']
         self.ref_timestep = self.sampled_taco_task_data['key_steps']['ref']
         self.end_timestep = min(self.cfg['env']['episodeLength']-1, self.sampled_taco_task_data['key_steps']['end'])
-        # self.frequency = self.cfg['env']['episodeLength'] // (self.end_timestep - self.ref_timestep)
         # objects
         if trans is None:
             trans_z_180 = np.array([
