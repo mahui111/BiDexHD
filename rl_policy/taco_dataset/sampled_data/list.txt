@@ -19,3 +19,4 @@
 (pour in some, teapot, cup)     1
 (stir, spatula, pan)            4
 (hit, hammer, box)              5,7,8,12,13,14
+(stir, spoon, pan)              8,9  # 0,2,3,8,9,10,11,13,14,15,16,17

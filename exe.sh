@@ -4,14 +4,16 @@ cd rl_policy
 # python taco_dataset/TACOdataset.py --mode make_dataset --triplet "(stir, spatula, pan)"
 
 mode=$1
+triplet=$2
+task_id=$3
 case $mode in
   train)
     # Train
-    python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=5000 headless=True exp_name=ippo_Bbvdex_reward_exp
+    python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=8192 headless=True exp_name=ippo_Bbvdex_reward_exp
     ;;
   evaluate)
     # Evaluate
-    python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=1 test=True checkpoint="'runs/(pour in some, teapot, cup)/task1/ippo_Bbvdex_reward_exp/model_1500.pt'"
+    python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=1 test=True checkpoint="'runs/(pour in some, teapot, cup)/task1/ippo_Bbvdex_reward_exp/model_2500.pt'"
     ;;
   visualize)
     # Visualize

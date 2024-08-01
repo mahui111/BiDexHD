@@ -1006,10 +1006,10 @@ class BiLeapHandGraspV1(VecTask):
         asset_root = self.cfg["env"]["asset"]["assetRoot"]
         left_asset, left_dof_props, self.left_palm_handle, self.left_fingertip_handles, self.left_eef_index, \
         self.left_arm_dof_indices, self.left_fingers_dof_indices, self.left_robot_dof_indices, \
-        self.left_robot_dof_lower_limits, self.left_robot_dof_upper_limits = self._prepare_robot_asset(asset_root, self.cfg["env"]["asset"]["leftAssetFile"])
+        self.left_robot_dof_lower_limits, self.left_robot_dof_upper_limits = self._prepare_robot_asset(asset_root, self.cfg["env"]["asset"]["leftAssetFile"], vhacd_enabled=True)
         right_asset, right_dof_props, self.right_palm_handle, self.right_fingertip_handles, self.right_eef_index,\
         self.right_arm_dof_indices, self.right_fingers_dof_indices, self.right_robot_dof_indices, \
-        self.right_robot_dof_lower_limits, self.right_robot_dof_upper_limits = self._prepare_robot_asset(asset_root, self.cfg["env"]["asset"]["rightAssetFile"])    
+        self.right_robot_dof_lower_limits, self.right_robot_dof_upper_limits = self._prepare_robot_asset(asset_root, self.cfg["env"]["asset"]["rightAssetFile"], vhacd_enabled=True)    
 
         self.robot_dof_lower_limits = to_torch(self.left_robot_dof_lower_limits + self.right_robot_dof_lower_limits, device=self.device)
         self.robot_dof_upper_limits = to_torch(self.left_robot_dof_upper_limits + self.right_robot_dof_upper_limits, device=self.device)
@@ -1233,7 +1233,7 @@ class BiLeapHandGraspV1(VecTask):
         self.ref_init_tool_rot_diff = quat_diff_theta(self.ref_tool_pose[:, 3:7], self.tool_init_states[:1, 3:7])
         self.ref_init_tool_hand_rot_diff = quat_diff_theta(self.ref_tool_pose[:, 3:7], self.ref_right_pose[:, 3:7])
 
-    def _prepare_robot_asset(self, asset_root, asset_file):
+    def _prepare_robot_asset(self, asset_root, asset_file, vhacd_enabled):
         # load arm hand asset
         asset_options = gymapi.AssetOptions()
         asset_options.flip_visual_attachments = False
@@ -1242,6 +1242,11 @@ class BiLeapHandGraspV1(VecTask):
         asset_options.collapse_fixed_joints = True
         asset_options.thickness = 0.001
         asset_options.angular_damping = 0.01
+
+        if vhacd_enabled:
+            asset_options.vhacd_enabled = True
+            asset_options.vhacd_params = gymapi.VhacdParams()
+            asset_options.vhacd_params.resolution = 100000
 
         if self.physics_engine == gymapi.SIM_PHYSX:
             asset_options.use_physx_armature = True
@@ -1312,12 +1317,12 @@ class BiLeapHandGraspV1(VecTask):
         if vhacd_enabled:
             asset_options.vhacd_enabled = True
             asset_options.vhacd_params = gymapi.VhacdParams()
-            asset_options.vhacd_params.resolution = 25000 #100000
-            asset_options.vhacd_params.concavity = 0.01 #0.0025
-            asset_options.vhacd_params.alpha = 0.1 #0.04
-            asset_options.vhacd_params.beta = 1.5 #1.0
-            asset_options.vhacd_params.convex_hull_downsampling = 1 #4
-            asset_options.vhacd_params.max_num_vertices_per_ch = 64 #256
+            asset_options.vhacd_params.resolution = 100000
+            # asset_options.vhacd_params.concavity = 0.0025
+            # asset_options.vhacd_params.alpha = 0.04
+            # asset_options.vhacd_params.beta = 1.0
+            # asset_options.vhacd_params.convex_hull_downsampling = 1 
+            # asset_options.vhacd_params.max_num_vertices_per_ch = 64 
 
 
         if self.physics_engine == gymapi.SIM_PHYSX:
@@ -2035,7 +2040,7 @@ class BiLeapHandGraspV1(VecTask):
         u = (j_eef_T @ torch.inverse(j_eef @ j_eef_T + lmbda) @ dpose).view(self.num_envs, 6)
         return u
 
-    def visualize(self, replay_times=10, debug=False, vis_metrics=False, vis_mode='all'):
+    def visualize(self, replay_times=5, debug=False, vis_metrics=True, vis_mode='all'):
         def visualize_curves(data_dict):
             """
             Visualize each list in the dictionary as a curve in a 2xM matrix of subplots.
@@ -2044,7 +2049,7 @@ class BiLeapHandGraspV1(VecTask):
             data_dict (dict): A dictionary where keys are labels and values are lists of data points.
             """
             num_keys = len(data_dict)
-            num_columns = (num_keys + 1) // 3
+            num_columns = int(np.ceil(num_keys / 3))
             fig, axs = plt.subplots(3, num_columns, figsize=(3*len(data_dict), 3*3))
             axs = axs.flatten()
             for i, (key, values) in enumerate(data_dict.items()):
@@ -2101,7 +2106,7 @@ class BiLeapHandGraspV1(VecTask):
                     # compute metrics
                     # if i == self.ref_timestep:
                     #     breakpoint()
-                    metrics = self.compute_reward(mode='s1')
+                    metrics = self.compute_reward(mode='s12')
                     for k,v in metrics.items():  # for visualize metrics
                         metric_collector[k].append(v.float().mean().item())
             if vis_metrics:
