@@ -861,7 +861,7 @@ class BiLeapHandGraspV1(VecTask):
 
 
         # need to set the names according to the robot
-        self.palm = "palm"#_lower
+        self.palm = "palm_lower"#
         self.fingertips = [
             "thumb_tip_head",
             "index_tip_head",
@@ -1244,7 +1244,7 @@ class BiLeapHandGraspV1(VecTask):
         self.ref_init_tool_rot_diff = quat_diff_theta(self.ref_tool_pose[:, 3:7], self.tool_init_states[:1, 3:7])
         self.ref_init_tool_hand_rot_diff = quat_diff_theta(self.ref_tool_pose[:, 3:7], self.ref_right_pose[:, 3:7])
 
-    def _prepare_robot_asset(self, asset_root, asset_file, vhacd_enabled=False):
+    def _prepare_robot_asset(self, asset_root, asset_file, vhacd_enabled=True):
         # load arm hand asset
         asset_options = gymapi.AssetOptions()
         asset_options.flip_visual_attachments = False
