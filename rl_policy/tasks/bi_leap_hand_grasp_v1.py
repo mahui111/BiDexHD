@@ -564,9 +564,9 @@ def compute_bvdex_stage12_rewards(
     table_height: float,
     actions,
     timestep, left_reach_ref_timestep, right_reach_ref_timestep,
-    ref_object_pose, ref_init_object_pos_dist, ref_init_object_hand_rot_diff,
-    ref_tool_pose, ref_init_tool_pos_dist, ref_init_tool_hand_rot_diff,
-    is_object_hand_joint_rot_diff: int, is_stage2_pos_rew_exp: int,
+    ref_object_pose, ref_init_object_pos_dist, ref_init_object_hand_pos_diff, ref_init_object_hand_rot_diff,
+    ref_tool_pose, ref_init_tool_pos_dist, ref_init_tool_hand_pos_diff, ref_init_tool_hand_rot_diff,
+    is_object_hand_joint_diff: int, is_stage2_pos_rew_exp: int,
 ):
     '''
     stage 1: reach a static ref object pose (linear reward)
@@ -641,28 +641,36 @@ def compute_bvdex_stage12_rewards(
         torch.zeros_like(ref_tool_pos_dist),
     )
     
-    # stage 2: hand-object joint rotation, no grasp condition
-    if is_object_hand_joint_rot_diff:
+    # stage 2: hand-object joint pose difference reward in stage 1
+    if is_object_hand_joint_diff:
         object_hand_rot_diff1 = quat_diff_theta(object_pose[:, 3:7], left_palm_pose[:, 3:7])
         left_object_hand_rot_rew1 = - torch.abs((ref_init_object_hand_rot_diff - object_hand_rot_diff1))  # [0, -2pi]
         left_object_hand_rot_rew1 = 0.5 + left_object_hand_rot_rew1 * (0.5 / torch.pi)  # [0.5, -0.5]
-        left_object_hand_rot_rew = torch.where(
-            is_grasp_left == True,
-            torch.where(left_reach_ref_timestep == -1, left_object_hand_rot_rew1, torch.zeros_like(ref_object_pos_dist)),
-            torch.zeros_like(ref_object_pos_dist),
-        )
+        left_object_hand_rot_rew = torch.where(left_reach_ref_timestep == -1, left_object_hand_rot_rew1, torch.zeros_like(ref_object_pos_dist))
 
         tool_hand_rot_diff1 = quat_diff_theta(tool_pose[:, 3:7], right_palm_pose[:, 3:7])
         right_tool_hand_rot_rew1 = - torch.abs((ref_init_tool_hand_rot_diff - tool_hand_rot_diff1))  # [0, -2pi]
         right_tool_hand_rot_rew1 = 0.5 + right_tool_hand_rot_rew1 * (0.5 / torch.pi)  # [0.5, -0.5]
-        right_tool_hand_rot_rew = torch.where(
-            is_grasp_right == True,
-            torch.where(right_reach_ref_timestep == -1, right_tool_hand_rot_rew1, torch.zeros_like(ref_tool_pos_dist)),
-            torch.zeros_like(ref_tool_pos_dist),
-        )
+        right_tool_hand_rot_rew = torch.where(right_reach_ref_timestep == -1, right_tool_hand_rot_rew1, torch.zeros_like(ref_tool_pos_dist))
+
+        object_hand_pos_diff1 = object_pos - left_palm_pose[:, :3]
+        left_object_hand_pos_rew1 = - torch.abs(torch.norm(ref_init_object_hand_pos_diff,dim=-1) - torch.norm(object_hand_pos_diff1,dim=-1)) + 0.3 * F.cosine_similarity(ref_init_object_hand_pos_diff, object_hand_pos_diff1, dim=-1) 
+        left_object_hand_pos_rew = torch.where(left_reach_ref_timestep == -1, left_object_hand_pos_rew1, torch.zeros_like(ref_object_pos_dist))
+
+        tool_hand_pos_diff1 = tool_pos - right_palm_pose[:, :3]
+        right_object_hand_pos_rew1 = - torch.abs(torch.norm(ref_init_tool_hand_pos_diff,dim=-1) - torch.norm(tool_hand_pos_diff1,dim=-1)) + 0.3 * F.cosine_similarity(ref_init_tool_hand_pos_diff, tool_hand_pos_diff1, dim=-1)
+        right_object_hand_pos_rew = torch.where(right_reach_ref_timestep == -1, right_object_hand_pos_rew1, torch.zeros_like(ref_tool_pos_dist))
+    
+        left_object_hand_posdiff_rew = 0.3 * left_object_hand_rot_rew + 0.3 * left_object_hand_pos_rew
+        right_tool_hand_posdiff_rew = 0.3 * right_tool_hand_rot_rew + 0.3 * right_object_hand_pos_rew
+
+        info["left/object_hand_pos_rew"] = left_object_hand_pos_rew
+        info["left/object_hand_rot_rew"] = left_object_hand_rot_rew
+        info["right/tool_hand_pos_rew"] = right_object_hand_pos_rew
+        info["right/tool_hand_rot_rew"] = right_tool_hand_rot_rew
     else:
-        left_object_hand_rot_rew = torch.zeros_like(ref_object_pos_dist)
-        right_tool_hand_rot_rew = torch.zeros_like(ref_tool_pos_dist)
+        left_object_hand_posdiff_rew = torch.zeros_like(ref_object_pos_dist)
+        right_tool_hand_posdiff_rew = torch.zeros_like(ref_tool_pos_dist)
 
     # stage 3: lift near goal bonus
     left_bonus = torch.zeros_like(ref_object_pos_dist)
@@ -698,11 +706,12 @@ def compute_bvdex_stage12_rewards(
     # total reward
     left_approach_penalty = dist_reward_scale * left_fingertips_object_dist + 2 * dist_reward_scale * left_palm_object_dist
     right_approach_penalty = dist_reward_scale * right_fingers_tool_dist + 2 * dist_reward_scale * right_palm_object_dist
-    left_lift_to_refpos_reward = left_lift_object_pos_rew + left_lift_object_rot_rew * 0.2
-    right_lift_to_refpos_reward = right_lift_tool_pos_rew + right_lift_tool_rot_rew  * 0.2
+    left_lift_to_refpos_reward = left_lift_object_pos_rew + 0.2 * left_lift_object_rot_rew
+    right_lift_to_refpos_reward = right_lift_tool_pos_rew + 0.2 * right_lift_tool_rot_rew 
 
-    left_reward = - left_approach_penalty + left_lift_to_refpos_reward + left_object_hand_rot_rew * 0.3 + left_bonus   # - object_offset_penalty
-    right_reward = - right_approach_penalty + right_lift_to_refpos_reward + right_tool_hand_rot_rew * 0.3 + right_bonus  # - tool_offset_penalty
+
+    left_reward = - left_approach_penalty + left_lift_to_refpos_reward + left_object_hand_posdiff_rew + left_bonus   # - object_offset_penalty
+    right_reward = - right_approach_penalty + right_lift_to_refpos_reward + right_tool_hand_posdiff_rew + right_bonus  # - tool_offset_penalty
     reward = left_reward + right_reward
 
     # level 1
@@ -711,7 +720,6 @@ def compute_bvdex_stage12_rewards(
     info["left/palm_object_dist"] = left_palm_object_dist
     info["left/lift_object_pos_rew"] = left_lift_object_pos_rew
     info["left/lift_object_rot_rew"] = left_lift_object_rot_rew
-    info["left/object_hand_rot_rew"] = left_object_hand_rot_rew
     info["left/bonus"] = left_bonus
     info["left/object_offset"] = object_offset
     info["left/ref_object_pos_dist"] = ref_object_pos_dist
@@ -721,7 +729,6 @@ def compute_bvdex_stage12_rewards(
     info["right/palm_tool_dist"] = right_palm_object_dist
     info["right/lift_tool_pos_rew"] = right_lift_tool_pos_rew
     info["right/lift_tool_rot_rew"] = right_lift_tool_rot_rew
-    info["right/tool_hand_rot_rew"] = right_tool_hand_rot_rew
     info["right/bonus"] = right_bonus
     info["right/tool_offset"] = tool_offset
     info["right/ref_tool_pos_dist"] = ref_tool_pos_dist
@@ -729,9 +736,11 @@ def compute_bvdex_stage12_rewards(
     # level 2
     info["left/left_approach_penalty"] = left_approach_penalty
     info["left/lift_to_refpos_reward"] = left_lift_to_refpos_reward
+    info["left/object_hand_posdiff_rew"] = left_object_hand_posdiff_rew
 
     info["right/right_approach_penalty"] = right_approach_penalty
     info["right/lift_to_refpos_reward"] = right_lift_to_refpos_reward
+    info["right/tool_hand_posdiff_rew"] = right_tool_hand_posdiff_rew
     
     # level 3
     info["left/reward"] = left_reward
@@ -791,7 +800,7 @@ class BiLeapHandGraspV1(VecTask):
         self.cfg = cfg
         self.mode = self.cfg["mode"]
         self.frequency, self.horizon = self.cfg["task"]['frequency'], self.cfg["task"]['horizon']
-        self.is_object_hand_joint_rot_diff = self.cfg["task"]["isObjectHandJointRotDiff"]
+        self.is_object_hand_joint_diff = self.cfg["task"]["isObjectHandJointDiff"]
         self.is_stage2_pos_rew_exp = self.cfg["task"]["isStage2PosRewExp"]
 
         self.randomize = self.cfg["task"]["randomize"]
@@ -1237,14 +1246,16 @@ class BiLeapHandGraspV1(VecTask):
             self.eef_idx = to_torch(self.eef_idx, dtype=torch.long, device=self.device)
 
         # calculate static 
-        self.ref_init_object_pos_dist = torch.norm(self.ref_object_pose[:, :3] - self.object_init_states[:, :3], dim=-1)
-        self.ref_init_object_rot_diff = quat_diff_theta(self.ref_object_pose[:, 3:7], self.object_init_states[:1, 3:7])
-        self.ref_init_object_hand_rot_diff = quat_diff_theta(self.ref_object_pose[:, 3:7], self.ref_left_pose[:, 3:7])
-        self.ref_init_tool_pos_dist = torch.norm(self.ref_tool_pose[:, :3] - self.tool_init_states[:, :3], dim=-1)
-        self.ref_init_tool_rot_diff = quat_diff_theta(self.ref_tool_pose[:, 3:7], self.tool_init_states[:1, 3:7])
-        self.ref_init_tool_hand_rot_diff = quat_diff_theta(self.ref_tool_pose[:, 3:7], self.ref_right_pose[:, 3:7])
+        self.ref_init_object_pos_dist = torch.norm(self.ref_object_pose[:, :3] - self.object_init_states[:, :3], dim=-1)    # (1,)
+        self.ref_init_object_rot_diff = quat_diff_theta(self.ref_object_pose[:, 3:7], self.object_init_states[:1, 3:7])     # (1,)
+        self.ref_init_object_hand_pos_diff = self.ref_object_pose[:, :3] - self.ref_left_pose[:, :3]                         # (1, 3)
+        self.ref_init_object_hand_rot_diff = quat_diff_theta(self.ref_object_pose[:, 3:7], self.ref_left_pose[:, 3:7])      # (1,)
+        self.ref_init_tool_pos_dist = torch.norm(self.ref_tool_pose[:, :3] - self.tool_init_states[:, :3], dim=-1)          # (1,)
+        self.ref_init_tool_rot_diff = quat_diff_theta(self.ref_tool_pose[:, 3:7], self.tool_init_states[:1, 3:7])           # (1,)        
+        self.ref_init_tool_hand_pos_diff = self.ref_tool_pose[:, :3] - self.ref_right_pose[:, :3]                            # (1, 3)
+        self.ref_init_tool_hand_rot_diff = quat_diff_theta(self.ref_tool_pose[:, 3:7], self.ref_right_pose[:, 3:7])         # (1,)
 
-    def _prepare_robot_asset(self, asset_root, asset_file, vhacd_enabled=True):
+    def _prepare_robot_asset(self, asset_root, asset_file, vhacd_enabled=False):
         # load arm hand asset
         asset_options = gymapi.AssetOptions()
         asset_options.flip_visual_attachments = False
@@ -1531,7 +1542,7 @@ class BiLeapHandGraspV1(VecTask):
                 self.actions,
                 self.ref_object_pose, self.ref_init_object_pos_dist, self.ref_init_object_hand_rot_diff,
                 self.ref_tool_pose, self.ref_init_tool_pos_dist, self.ref_init_tool_hand_rot_diff,
-                self.is_object_hand_joint_rot_diff,
+                self.is_object_hand_joint_diff,
             )
         elif mode == 's12':
             # ref_object_pose = self.ref_object_pose.repeat(self.num_envs, 1)
@@ -1567,9 +1578,9 @@ class BiLeapHandGraspV1(VecTask):
                 self.table_height,
                 self.actions,
                 self.timestep, self.left_reach_ref_timestep, self.right_reach_ref_timestep,
-                ref_object_pose, self.ref_init_object_pos_dist, self.ref_init_object_hand_rot_diff,
-                ref_tool_pose, self.ref_init_tool_pos_dist, self.ref_init_tool_hand_rot_diff,
-                self.is_object_hand_joint_rot_diff, self.is_stage2_pos_rew_exp,
+                ref_object_pose, self.ref_init_object_pos_dist, self.ref_init_object_hand_pos_diff, self.ref_init_object_hand_rot_diff,
+                ref_tool_pose, self.ref_init_tool_pos_dist, self.ref_init_tool_hand_pos_diff, self.ref_init_tool_hand_rot_diff,
+                self.is_object_hand_joint_diff, self.is_stage2_pos_rew_exp,
             )
 
         self.extras.update(reward_info)
@@ -2051,7 +2062,7 @@ class BiLeapHandGraspV1(VecTask):
         u = (j_eef_T @ torch.inverse(j_eef @ j_eef_T + lmbda) @ dpose).view(self.num_envs, 6)
         return u
 
-    def visualize(self, replay_times=5, debug=False, vis_metrics=True, vis_mode='ref'):
+    def visualize(self, replay_times=5, debug=False, vis_metrics=False, vis_mode='ref'):
         def visualize_curves(data_dict):
             """
             Visualize each list in the dictionary as a curve in a 2xM matrix of subplots.
