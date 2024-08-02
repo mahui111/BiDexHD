@@ -7,7 +7,7 @@ triplet=$1
 #     python taco_dataset/TACOdataset.py --mode make_dataset --triplet "$triplet"
 # done
 
-for i in {1..20}
+for i in {2,4,6,7}
 do
   echo "Task ID: $i"
   python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ppo num_envs=1 test=True mode=visualize triplet="$triplet" task_id=$i
