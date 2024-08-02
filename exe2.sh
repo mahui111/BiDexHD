@@ -9,3 +9,4 @@ task_id=$2
 
 # evaluate
 python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=1 triplet="$triplet" task_id=$task_id test=True checkpoint="'runs/(stir, spoon, pan)/task9/ippo_Bbvdex_reward_0.3ho_exp/model_6500.pt'"
+
