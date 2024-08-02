@@ -546,7 +546,7 @@ def compute_bvdex_stage1_rewards(
     )
 
 
-@torch.jit.script
+# @torch.jit.script
 def compute_bvdex_stage12_rewards(
     reset_buf,
     progress_buf,
@@ -609,9 +609,9 @@ def compute_bvdex_stage12_rewards(
     ref_tool_pos_dist = torch.norm(ref_tool_pose[:, :3] - tool_pos, dim=-1)
     ref_tool_rot_rew = quat_rew(ref_tool_pose[:, 3:7], tool_pose[:, 3:7])  # [-1,1]
     '''lift object reward for stage 1'''
-    left_lift_object_pos_rew1 = 1 - ref_object_pos_dist / ref_init_object_pos_dist
+    left_lift_object_pos_rew1 = (1 - ref_object_pos_dist / ref_init_object_pos_dist).clip(min=-1)
     left_lift_object_rot_rew1 = ref_object_rot_rew
-    right_lift_tool_pos_rew1 = 1 - ref_tool_pos_dist / ref_init_tool_pos_dist
+    right_lift_tool_pos_rew1 = (1 - ref_tool_pos_dist / ref_init_tool_pos_dist).clip(min=-1)
     right_lift_tool_rot_rew1 = ref_tool_rot_rew
     '''lift object reward for stage 2'''
     # TODO: add stage 2 reward
@@ -641,7 +641,7 @@ def compute_bvdex_stage12_rewards(
         torch.zeros_like(ref_tool_pos_dist),
     )
     
-    # stage 2: hand-object joint pose difference reward in stage 1
+    # stage 2: hand-object joint pose difference reward only in stage 1, notice no grasp condition 
     if is_object_hand_joint_diff:
         object_hand_rot_diff1 = quat_diff_theta(object_pose[:, 3:7], left_palm_pose[:, 3:7])
         left_object_hand_rot_rew1 = - torch.abs((ref_init_object_hand_rot_diff - object_hand_rot_diff1))  # [0, -2pi]
@@ -654,19 +654,21 @@ def compute_bvdex_stage12_rewards(
         right_tool_hand_rot_rew = torch.where(right_reach_ref_timestep == -1, right_tool_hand_rot_rew1, torch.zeros_like(ref_tool_pos_dist))
 
         object_hand_pos_diff1 = object_pos - left_palm_pose[:, :3]
-        left_object_hand_pos_rew1 = - torch.abs(torch.norm(ref_init_object_hand_pos_diff,dim=-1) - torch.norm(object_hand_pos_diff1,dim=-1)) + 0.3 * F.cosine_similarity(ref_init_object_hand_pos_diff, object_hand_pos_diff1, dim=-1) 
-        left_object_hand_pos_rew = torch.where(left_reach_ref_timestep == -1, left_object_hand_pos_rew1, torch.zeros_like(ref_object_pos_dist))
+        # left_object_hand_pos_rew1 = - torch.abs(torch.norm(ref_init_object_hand_pos_diff,dim=-1) - torch.norm(object_hand_pos_diff1,dim=-1)) + 0.3 * F.cosine_similarity(ref_init_object_hand_pos_diff, object_hand_pos_diff1, dim=-1) 
+        left_object_hand_pos_rew1 = - torch.norm(ref_init_object_hand_pos_diff-object_hand_pos_diff1,dim=-1)
+        left_object_hand_pos_rew = torch.where(right_reach_ref_timestep == -1, left_object_hand_pos_rew1, torch.zeros_like(ref_object_pos_dist))
 
         tool_hand_pos_diff1 = tool_pos - right_palm_pose[:, :3]
-        right_object_hand_pos_rew1 = - torch.abs(torch.norm(ref_init_tool_hand_pos_diff,dim=-1) - torch.norm(tool_hand_pos_diff1,dim=-1)) + 0.3 * F.cosine_similarity(ref_init_tool_hand_pos_diff, tool_hand_pos_diff1, dim=-1)
-        right_object_hand_pos_rew = torch.where(right_reach_ref_timestep == -1, right_object_hand_pos_rew1, torch.zeros_like(ref_tool_pos_dist))
-    
-        left_object_hand_posdiff_rew = 0.3 * left_object_hand_rot_rew + 0.3 * left_object_hand_pos_rew
-        right_tool_hand_posdiff_rew = 0.3 * right_tool_hand_rot_rew + 0.3 * right_object_hand_pos_rew
+        # right_tool_hand_pos_rew1 = - torch.abs(torch.norm(ref_init_tool_hand_pos_diff,dim=-1) - torch.norm(tool_hand_pos_diff1,dim=-1)) + 0.3 * F.cosine_similarity(ref_init_tool_hand_pos_diff, tool_hand_pos_diff1, dim=-1)
+        right_tool_hand_pos_rew1 = - torch.norm(ref_init_tool_hand_pos_diff-tool_hand_pos_diff1,dim=-1)
+        right_tool_hand_pos_rew = torch.where(right_reach_ref_timestep == -1, right_tool_hand_pos_rew1, torch.zeros_like(ref_tool_pos_dist))
+
+        left_object_hand_posdiff_rew = 0.3 * (left_object_hand_rot_rew + left_object_hand_pos_rew)
+        right_tool_hand_posdiff_rew = 0.3 * (right_tool_hand_rot_rew + right_tool_hand_pos_rew)
 
         info["left/object_hand_pos_rew"] = left_object_hand_pos_rew
         info["left/object_hand_rot_rew"] = left_object_hand_rot_rew
-        info["right/tool_hand_pos_rew"] = right_object_hand_pos_rew
+        info["right/tool_hand_pos_rew"] = right_tool_hand_pos_rew
         info["right/tool_hand_rot_rew"] = right_tool_hand_rot_rew
     else:
         left_object_hand_posdiff_rew = torch.zeros_like(ref_object_pos_dist)
@@ -695,7 +697,6 @@ def compute_bvdex_stage12_rewards(
     
     right_successes = torch.logical_and(ref_tool_pos_dist <= success_tolerance, right_fingers_tool_dist + right_palm_object_dist < 0.12 * (num_fingers + 1)).float()
     right_reach_ref_timestep = torch.where(torch.logical_and(right_successes == 1, right_reach_ref_timestep == -1), timestep, right_reach_ref_timestep)
-    
 
     # additional (x,y) offset
     object_offset = torch.norm(object_pos[:, 0:2] - ref_object_pose[:, 0:2], dim=-1)
@@ -715,6 +716,7 @@ def compute_bvdex_stage12_rewards(
     reward = left_reward + right_reward
 
     # level 1
+    info["left/successes"] = left_successes
     info["left/is_grasp"] = is_grasp_left
     info["left/fingertips_object_dist"] = left_fingertips_object_dist
     info["left/palm_object_dist"] = left_palm_object_dist
@@ -724,6 +726,7 @@ def compute_bvdex_stage12_rewards(
     info["left/object_offset"] = object_offset
     info["left/ref_object_pos_dist"] = ref_object_pos_dist
 
+    info["right/successes"] = right_successes
     info["right/is_grasp"] = is_grasp_right
     info["right/fingers_tool_dist"] = right_fingers_tool_dist
     info["right/palm_tool_dist"] = right_palm_object_dist
@@ -870,7 +873,7 @@ class BiLeapHandGraspV1(VecTask):
 
 
         # need to set the names according to the robot
-        self.palm = "palm_lower"#
+        self.palm = "palm"#_lower
         self.fingertips = [
             "thumb_tip_head",
             "index_tip_head",
@@ -1081,10 +1084,10 @@ class BiLeapHandGraspV1(VecTask):
         # initialize pose
         object_center = (self.dataset_object_init_pos + self.dataset_tool_init_pos) / 2
         left_robot_start_pose = gymapi.Transform()
-        left_robot_start_pose.p = gymapi.Vec3(object_center[0] - 0.32, object_center[1] - 0.5, self.table_height + 0.52)
+        left_robot_start_pose.p = gymapi.Vec3(object_center[0] - 0.34, object_center[1] - 0.5, self.table_height + 0.52)
         left_robot_start_pose.r = gymapi.Quat(0.5,  0.5,  0.5, -0.5)#0,1/np.sqrt(2),0,-1/np.sqrt(2)
         right_robot_start_pose = gymapi.Transform()
-        right_robot_start_pose.p = gymapi.Vec3(object_center[0] + 0.32, object_center[1] - 0.5, self.table_height + 0.52)
+        right_robot_start_pose.p = gymapi.Vec3(object_center[0] + 0.34, object_center[1] - 0.5, self.table_height + 0.52)
         right_robot_start_pose.r = gymapi.Quat(0.5,  0.5,  0.5, -0.5)
         object_start_pose = gymapi.Transform()
         object_start_pose.p = gymapi.Vec3(*self.dataset_object_init_pos)
@@ -1268,7 +1271,7 @@ class BiLeapHandGraspV1(VecTask):
         if vhacd_enabled:
             asset_options.vhacd_enabled = True
             asset_options.vhacd_params = gymapi.VhacdParams()
-            asset_options.vhacd_params.resolution = 100000
+            asset_options.vhacd_params.resolution = 300000
 
         if self.physics_engine == gymapi.SIM_PHYSX:
             asset_options.use_physx_armature = True
@@ -1339,7 +1342,7 @@ class BiLeapHandGraspV1(VecTask):
         if vhacd_enabled:
             asset_options.vhacd_enabled = True
             asset_options.vhacd_params = gymapi.VhacdParams()
-            asset_options.vhacd_params.resolution = 100000
+            asset_options.vhacd_params.resolution = 300000
             # asset_options.vhacd_params.concavity = 0.0025
             # asset_options.vhacd_params.alpha = 0.04
             # asset_options.vhacd_params.beta = 1.0
@@ -2062,7 +2065,7 @@ class BiLeapHandGraspV1(VecTask):
         u = (j_eef_T @ torch.inverse(j_eef @ j_eef_T + lmbda) @ dpose).view(self.num_envs, 6)
         return u
 
-    def visualize(self, replay_times=5, debug=False, vis_metrics=False, vis_mode='ref'):
+    def visualize(self, replay_times=5, debug=False, vis_metrics=True, vis_mode='ref'):
         def visualize_curves(data_dict):
             """
             Visualize each list in the dictionary as a curve in a 2xM matrix of subplots.
@@ -2070,9 +2073,11 @@ class BiLeapHandGraspV1(VecTask):
             Parameters:
             data_dict (dict): A dictionary where keys are labels and values are lists of data points.
             """
+            data_dict =  {key: data_dict[key] for key in sorted(data_dict.keys())}
             num_keys = len(data_dict)
-            num_columns = int(np.ceil(num_keys / 3))
-            fig, axs = plt.subplots(3, num_columns, figsize=(3*len(data_dict), 3*3))
+            num_row = 4
+            num_col = int(np.ceil(num_keys / num_row))
+            fig, axs = plt.subplots(num_row, num_col, figsize=(4*num_col, 3*num_row))
             axs = axs.flatten()
             for i, (key, values) in enumerate(data_dict.items()):
                 axs[i].plot(values, label=key)

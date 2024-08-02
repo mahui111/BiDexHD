@@ -191,7 +191,7 @@ class TACODataset:
             print("Data saved to sampled_taco_task_data.json")
         return total_data
 
-    def make_dataset(self, triplet="(empty, bowl, bowl)", save_dir="taco_dataset/sampled_data"):
+    def make_dataset(self, triplet="(empty, bowl, bowl)", save_dir="taco_dataset/sampled_data", vis_ref=False):
         total_dataset = []
         seqname_list = sorted(os.listdir(join(self.dataset_root, "Object_Poses", triplet)))
         for k, sequence_name in tqdm(enumerate(seqname_list), total=len(seqname_list)):
@@ -273,41 +273,44 @@ class TACODataset:
             smoothed_tool_pos = low_pass_filter(load_tool_poses[:, :3, 3])
             smoothed_left_pos = low_pass_filter(all_left_trans)
             smoothed_right_pos = low_pass_filter(all_right_trans)
+            # visualize_smoothed_trajectory(load_target_poses[:, :3, 3], smoothed_object_pos)
+            # visualize_smoothed_trajectory(load_tool_poses[:, :3, 3], smoothed_tool_pos)
+            # visualize_smoothed_trajectory(all_left_trans, smoothed_left_pos)
+            # visualize_smoothed_trajectory(all_right_trans, smoothed_right_pos)
 
+            '''[important!]: smooth trajectory'''
             load_target_poses[:, :3, 3] = smoothed_object_pos
             load_tool_poses[:, :3, 3] = smoothed_tool_pos
             all_left_trans = smoothed_left_pos
             all_right_trans = smoothed_right_pos
 
             # get key timesteps
-            # visualize_smoothed_trajectory(load_target_poses[:, :3, 3], smoothed_object_pos)
-            # visualize_smoothed_trajectory(load_tool_poses[:, :3, 3], smoothed_tool_pos)
-            # visualize_smoothed_trajectory(all_left_trans, smoothed_left_pos)
-            # visualize_smoothed_trajectory(all_right_trans, smoothed_right_pos)
             init_timestep = 1  # int(len(load_tool_poses)*0.1)
             end_timestep = int(len(load_tool_poses)*0.8)   
 
-            object_heights = load_target_poses[:, :3, 3][:, 2]
-            tool_heights = load_tool_poses[:, :3, 3][:, 2]
+            object_heights = smoothed_object_pos[:, 2]
+            tool_heights = smoothed_tool_pos[:, 2]
             percentage = 75
             ref_object_height = np.percentile(object_heights[object_heights>object_heights[init_timestep]], percentage)
             ref_tool_height = np.percentile(object_heights[tool_heights>tool_heights[init_timestep]], percentage)
             # find the first False
-            ref_object_timestep = np.where((object_heights<ref_object_height)==False)[0][0]
-            ref_tool_timestep = np.where((tool_heights<ref_tool_height)==False)[0][0]
-            ref_timestep = int(max(ref_object_timestep, ref_tool_timestep))
+            try:
+                ref_object_timestep = np.where((object_heights<ref_object_height)==False)[0][0]
+                ref_tool_timestep = np.where((tool_heights<ref_tool_height)==False)[0][0]
+                ref_timestep = int(max(ref_object_timestep, ref_tool_timestep))
+            except:
+                ref_timestep = 30
             print(f"task: {k} | init_timestep: {init_timestep} | ref_timestep: {ref_timestep} | end_timestep: {end_timestep}")
             # visualize the height curve of the object and tool
-            fig = plt.figure(figsize=(14, 7))
-            ax1 = fig.add_subplot(121)
-            ax1.plot(np.arange(len(object_heights)), object_heights, label='Object')
-            ax1.scatter(ref_timestep, object_heights[ref_timestep], color='red', s=50)
-            ax2 = fig.add_subplot(122)
-            ax2.plot(np.arange(len(tool_heights)), tool_heights, label='Tool')
-            ax2.scatter(ref_timestep, tool_heights[ref_timestep], color='red', s=50)
-            plt.show()
-            # print(f"ref_timestep: {ref_timestep} | ref_object_timestep: {ref_object_timestep}, ref_tool_timestep: {ref_tool_timestep}")
-            # continue
+            if vis_ref:
+                fig = plt.figure(figsize=(14, 7))
+                ax1 = fig.add_subplot(121)
+                ax1.plot(np.arange(len(object_heights)), object_heights, label='Object')
+                ax1.scatter(ref_timestep, object_heights[ref_timestep], color='red', s=50)
+                ax2 = fig.add_subplot(122)
+                ax2.plot(np.arange(len(tool_heights)), tool_heights, label='Tool')
+                ax2.scatter(ref_timestep, tool_heights[ref_timestep], color='red', s=50)
+                plt.show()
 
             # return all data
             total_data = dict(
