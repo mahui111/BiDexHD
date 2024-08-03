@@ -652,7 +652,7 @@ def compute_bvdex_stage1_rewards(
     )
 
 
-# @torch.jit.script
+@torch.jit.script
 def compute_bvdex_stage12_rewards(
     reset_buf,
     progress_buf,
@@ -719,8 +719,8 @@ def compute_bvdex_stage12_rewards(
     right_tool_hand_pos_dist = F.pairwise_distance(right_tool_pos_wrt_hand, ref_init_tool_hand_pos_diff)
     right_tool_hand_rot_dist = quat_diff_rad(right_tool_ori_wrt_hand, ref_init_tool_hand_rot_diff).abs()
 
-    left_ready_grasp = (left_object_hand_pos_dist <= 0.1) * (left_object_hand_rot_dist <= 0.3)
-    right_ready_grasp = (right_tool_hand_pos_dist <= 0.1) * (right_tool_hand_rot_dist <= 0.3)
+    left_ready_grasp = (left_object_hand_pos_dist <= 0.15) * (left_object_hand_rot_dist <= 0.3)
+    right_ready_grasp = (right_tool_hand_pos_dist <= 0.15) * (right_tool_hand_rot_dist <= 0.3)
 
     # stage 1: after hand approach object, lift_object
     ref_object_pos_dist = torch.norm(ref_object_pose[:, :3] - object_pose[:, :3], dim=-1)
@@ -786,19 +786,19 @@ def compute_bvdex_stage12_rewards(
         left_object_hand_posediff_rew = 0.3 * (left_object_hand_rot_rew + left_object_hand_pos_rew)
         right_tool_hand_posediff_rew = 0.3 * (right_tool_hand_rot_rew + right_tool_hand_pos_rew)
         '''
-        trans_scale, rot_eps = 10, 0.1
+        trans_scale, rot_eps = 5, 0.2
         # left_pos_idx = (rot_eps / trans_scale) / torch.max(left_object_hand_pos_dist, torch.tensor(rot_eps / trans_scale).to(actions.device))
-        left_object_hand_pos_rew = (1.0 / trans_scale) / (torch.abs(left_object_hand_pos_dist) + rot_eps / trans_scale)# * left_pos_idx
+        left_object_hand_pos_rew = 1 / (trans_scale * torch.abs(left_object_hand_pos_dist) + rot_eps)# * left_pos_idx
         # left_rot_idx = rot_eps / torch.max(left_object_hand_rot_dist, torch.tensor(rot_eps).to(actions.device))
         left_object_hand_rot_rew = 1.0 / (left_object_hand_rot_dist + rot_eps)# * left_rot_idx
-        left_object_hand_posediff_rew = 0.1 * (left_object_hand_rot_rew + 2 * left_object_hand_pos_rew)
+        left_object_hand_posediff_rew = 0.1 * left_object_hand_pos_rew + 0.1 * left_object_hand_rot_rew
 
         # trans_scale = 5  right is different from left
         # right_pos_idx = (rot_eps / trans_scale) / torch.max(right_tool_hand_pos_dist, torch.tensor(rot_eps / trans_scale).to(actions.device))
-        right_tool_hand_pos_rew = (1.0 / trans_scale) / (torch.abs(right_tool_hand_pos_dist) + rot_eps / trans_scale)#  * right_pos_idx
+        right_tool_hand_pos_rew = 1 / (trans_scale * torch.abs(right_tool_hand_pos_dist) + rot_eps)#  * right_pos_idx
         # right_rot_idx = rot_eps / torch.max(right_tool_hand_rot_dist, torch.tensor(rot_eps).to(actions.device))
         right_tool_hand_rot_rew = 1.0 / (right_tool_hand_rot_dist + rot_eps)#  * right_rot_idx
-        right_tool_hand_posediff_rew = 0.1 * (right_tool_hand_rot_rew + 2 * right_tool_hand_pos_rew)
+        right_tool_hand_posediff_rew = 0.1 * right_tool_hand_pos_rew + 0.1 * right_tool_hand_rot_rew
 
         info["left/object_hand_pos_rew"] = left_object_hand_pos_rew
         info["left/object_hand_rot_rew"] = left_object_hand_rot_rew

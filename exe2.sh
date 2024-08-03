@@ -8,5 +8,5 @@ task_id=$2
 python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=8192 triplet="$triplet" task_id=$task_id exp_name=ippo_Bbvdex_reward_oh_exp headless=True
 
 # evaluate
-# python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=1 triplet="$triplet" task_id=$task_id test=True checkpoint="'runs/(stir, spoon, pan)/task9/ippo_Bbvdex_reward_0oh_exp/model_1500.pt'"
+# python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=1 triplet="$triplet" task_id=$task_id test=True checkpoint="'runs/(stir, spoon, pan)/task9/ippo_Bbvdex_reward_oh_exp/model_2500.pt'"
 
