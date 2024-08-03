@@ -246,7 +246,7 @@ class IPPO(nn.Module):
             self.left_agent.optimizer.load_state_dict(left_optimizer_state_dict)
             self.right_agent.optimizer.load_state_dict(right_optimizer_state_dict)
         self.load_state_dict(saved_ckpt["model_state_dict"])
-        self.current_learning_iteration = 0
+        self.current_learning_iteration = int(left_optimizer_state_dict['state'][1]['step'].item()//20)
         self.train()
         print(f"Loaded checkpoint from {path}")
 
