@@ -1,6 +1,6 @@
 retargeting:
   type: position
-  urdf_path: assets/mjcf/leap_hand_description/leap_hand_left.urdf  #leap_hand/leap_hand_left.urdf
+  urdf_path: ../assets/rm65_leap_right/my_leap_left.urdf # assets/mjcf/leap_hand_description/leap_hand_left.urdf 
   wrist_link_name: "base"
 
   target_joint_names: null
