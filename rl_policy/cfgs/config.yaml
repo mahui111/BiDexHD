@@ -67,7 +67,7 @@ triplet: "(pour in some, teapot, cup)" #(stir, spoon, pan) (stir, spatula, pan) 
 exp_name: ""
 task_id: 1
 observationType: "full_no_vel" # can be "full_no_vel", "full"
-isObjectHandJointDiff: 1
+isMinReward: 1
 isStage2PosRewExp: 1
 
 

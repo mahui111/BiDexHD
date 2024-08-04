@@ -70,7 +70,7 @@ task:
   frequency: 2
   horizon: 2
   isStage2PosRewExp: ${isStage2PosRewExp}
-  isObjectHandJointDiff: ${isObjectHandJointDiff}
+  isMinReward: ${isMinReward}
   randomize: False
   randomization_params:
     frequency: 720   # Define how many simulation steps between generating new randomizations

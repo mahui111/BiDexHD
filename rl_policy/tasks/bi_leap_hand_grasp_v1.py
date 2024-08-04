@@ -672,7 +672,7 @@ def compute_bvdex_stage12_rewards(
     timestep, left_reach_ref_timestep, right_reach_ref_timestep,
     ref_object_pose, ref_init_object_pos_dist, ref_init_object_hand_pos_diff, ref_init_object_hand_rot_diff, ref_init_left_fingers_palm_pose,
     ref_tool_pose, ref_init_tool_pos_dist, ref_init_tool_hand_pos_diff, ref_init_tool_hand_rot_diff, ref_init_right_fingers_palm_pose,
-    is_object_hand_joint_diff: int, is_stage2_pos_rew_exp: int,
+    is_min_rew: int, is_stage2_pos_rew_exp: int,
 ):
     '''
     stage 1: reach a static ref object pose (linear reward)
@@ -761,52 +761,54 @@ def compute_bvdex_stage12_rewards(
     )
     
     # stage 2: hand-object joint pose difference reward only in stage 1, notice no grasp condition 
-    if is_object_hand_joint_diff:
-        '''
-        object_hand_rot_diff1 = quat_diff_theta(object_pose[:, 3:7], left_palm_pose[:, 3:7])
-        left_object_hand_rot_rew1 = - torch.abs((ref_init_object_hand_rot_diff - object_hand_rot_diff1))  # [0, -2pi]
-        left_object_hand_rot_rew1 = 0.5 + left_object_hand_rot_rew1 * (0.5 / torch.pi)  # [0.5, -0.5]
-        left_object_hand_rot_rew = torch.where(left_reach_ref_timestep == -1, left_object_hand_rot_rew1, torch.zeros_like(ref_object_pos_dist))
+    '''
+    object_hand_rot_diff1 = quat_diff_theta(object_pose[:, 3:7], left_palm_pose[:, 3:7])
+    left_object_hand_rot_rew1 = - torch.abs((ref_init_object_hand_rot_diff - object_hand_rot_diff1))  # [0, -2pi]
+    left_object_hand_rot_rew1 = 0.5 + left_object_hand_rot_rew1 * (0.5 / torch.pi)  # [0.5, -0.5]
+    left_object_hand_rot_rew = torch.where(left_reach_ref_timestep == -1, left_object_hand_rot_rew1, torch.zeros_like(ref_object_pos_dist))
 
-        tool_hand_rot_diff1 = quat_diff_theta(tool_pose[:, 3:7], right_palm_pose[:, 3:7])
-        right_tool_hand_rot_rew1 = - torch.abs((ref_init_tool_hand_rot_diff - tool_hand_rot_diff1))  # [0, -2pi]
-        right_tool_hand_rot_rew1 = 0.5 + right_tool_hand_rot_rew1 * (0.5 / torch.pi)  # [0.5, -0.5]
-        right_tool_hand_rot_rew = torch.where(right_reach_ref_timestep == -1, right_tool_hand_rot_rew1, torch.zeros_like(ref_tool_pos_dist))
+    tool_hand_rot_diff1 = quat_diff_theta(tool_pose[:, 3:7], right_palm_pose[:, 3:7])
+    right_tool_hand_rot_rew1 = - torch.abs((ref_init_tool_hand_rot_diff - tool_hand_rot_diff1))  # [0, -2pi]
+    right_tool_hand_rot_rew1 = 0.5 + right_tool_hand_rot_rew1 * (0.5 / torch.pi)  # [0.5, -0.5]
+    right_tool_hand_rot_rew = torch.where(right_reach_ref_timestep == -1, right_tool_hand_rot_rew1, torch.zeros_like(ref_tool_pos_dist))
 
-        object_hand_pos_diff1 = object_pos - left_palm_pose[:, :3]
-        # left_object_hand_pos_rew1 = - torch.abs(torch.norm(ref_init_object_hand_pos_diff,dim=-1) - torch.norm(object_hand_pos_diff1,dim=-1)) + 0.3 * F.cosine_similarity(ref_init_object_hand_pos_diff, object_hand_pos_diff1, dim=-1) 
-        left_object_hand_pos_rew1 = - torch.norm(ref_init_object_hand_pos_diff-object_hand_pos_diff1,dim=-1)
-        left_object_hand_pos_rew = torch.where(right_reach_ref_timestep == -1, left_object_hand_pos_rew1, torch.zeros_like(ref_object_pos_dist))
+    object_hand_pos_diff1 = object_pos - left_palm_pose[:, :3]
+    # left_object_hand_pos_rew1 = - torch.abs(torch.norm(ref_init_object_hand_pos_diff,dim=-1) - torch.norm(object_hand_pos_diff1,dim=-1)) + 0.3 * F.cosine_similarity(ref_init_object_hand_pos_diff, object_hand_pos_diff1, dim=-1) 
+    left_object_hand_pos_rew1 = - torch.norm(ref_init_object_hand_pos_diff-object_hand_pos_diff1,dim=-1)
+    left_object_hand_pos_rew = torch.where(right_reach_ref_timestep == -1, left_object_hand_pos_rew1, torch.zeros_like(ref_object_pos_dist))
 
-        tool_hand_pos_diff1 = tool_pos - right_palm_pose[:, :3]
-        # right_tool_hand_pos_rew1 = - torch.abs(torch.norm(ref_init_tool_hand_pos_diff,dim=-1) - torch.norm(tool_hand_pos_diff1,dim=-1)) + 0.3 * F.cosine_similarity(ref_init_tool_hand_pos_diff, tool_hand_pos_diff1, dim=-1)
-        right_tool_hand_pos_rew1 = - torch.norm(ref_init_tool_hand_pos_diff-tool_hand_pos_diff1,dim=-1)
-        right_tool_hand_pos_rew = torch.where(right_reach_ref_timestep == -1, right_tool_hand_pos_rew1, torch.zeros_like(ref_tool_pos_dist))
+    tool_hand_pos_diff1 = tool_pos - right_palm_pose[:, :3]
+    # right_tool_hand_pos_rew1 = - torch.abs(torch.norm(ref_init_tool_hand_pos_diff,dim=-1) - torch.norm(tool_hand_pos_diff1,dim=-1)) + 0.3 * F.cosine_similarity(ref_init_tool_hand_pos_diff, tool_hand_pos_diff1, dim=-1)
+    right_tool_hand_pos_rew1 = - torch.norm(ref_init_tool_hand_pos_diff-tool_hand_pos_diff1,dim=-1)
+    right_tool_hand_pos_rew = torch.where(right_reach_ref_timestep == -1, right_tool_hand_pos_rew1, torch.zeros_like(ref_tool_pos_dist))
 
-        left_object_hand_posediff_rew = 0.3 * (left_object_hand_rot_rew + left_object_hand_pos_rew)
-        right_tool_hand_posediff_rew = 0.3 * (right_tool_hand_rot_rew + right_tool_hand_pos_rew)
-        '''
-        trans_scale, rot_eps = 5, 0.2
-        # left_pos_idx = (rot_eps / trans_scale) / torch.max(left_object_hand_pos_dist, torch.tensor(rot_eps / trans_scale).to(actions.device))
-        left_object_hand_pos_rew = 1 / (trans_scale * torch.abs(left_object_hand_pos_dist) + rot_eps)# * left_pos_idx
-        # left_rot_idx = rot_eps / torch.max(left_object_hand_rot_dist, torch.tensor(rot_eps).to(actions.device))
-        left_object_hand_rot_rew = 1.0 / (left_object_hand_rot_dist + rot_eps)# * left_rot_idx
-        left_object_hand_posediff_rew = 0.1 * left_object_hand_pos_rew + 0.1 * left_object_hand_rot_rew
-
-        # trans_scale = 5  right is different from left
-        # right_pos_idx = (rot_eps / trans_scale) / torch.max(right_tool_hand_pos_dist, torch.tensor(rot_eps / trans_scale).to(actions.device))
-        right_tool_hand_pos_rew = 1 / (trans_scale * torch.abs(right_tool_hand_pos_dist) + rot_eps)#  * right_pos_idx
-        # right_rot_idx = rot_eps / torch.max(right_tool_hand_rot_dist, torch.tensor(rot_eps).to(actions.device))
-        right_tool_hand_rot_rew = 1.0 / (right_tool_hand_rot_dist + rot_eps)#  * right_rot_idx
-        right_tool_hand_posediff_rew = 0.1 * right_tool_hand_pos_rew + 0.1 * right_tool_hand_rot_rew
-
-        info["left/object_hand_pos_rew"] = left_object_hand_pos_rew
-        info["left/object_hand_rot_rew"] = left_object_hand_rot_rew
-        info["right/tool_hand_pos_rew"] = right_tool_hand_pos_rew
-        info["right/tool_hand_rot_rew"] = right_tool_hand_rot_rew
+    left_object_hand_posediff_rew = 0.3 * (left_object_hand_rot_rew + left_object_hand_pos_rew)
+    right_tool_hand_posediff_rew = 0.3 * (right_tool_hand_rot_rew + right_tool_hand_pos_rew)
+    '''
+    trans_scale, rot_eps = 3.5, 0.4
+    # left_pos_idx = (rot_eps / trans_scale) / torch.max(left_object_hand_pos_dist, torch.tensor(rot_eps / trans_scale).to(actions.device))
+    left_object_hand_pos_rew = 1.0 / (trans_scale * torch.abs(left_object_hand_pos_dist) + rot_eps)# * left_pos_idx
+    # left_rot_idx = rot_eps / torch.max(left_object_hand_rot_dist, torch.tensor(rot_eps).to(actions.device))
+    left_object_hand_rot_rew = 1.0 / (left_object_hand_rot_dist + rot_eps)# * left_rot_idx
+    if is_min_rew: 
+        left_object_hand_posediff_rew = 0.2 * torch.minimum(left_object_hand_pos_rew, left_object_hand_rot_rew)
     else:
-        left_object_hand_posediff_rew = torch.zeros_like(ref_object_pos_dist)
-        right_tool_hand_posediff_rew = torch.zeros_like(ref_tool_pos_dist)
+        left_object_hand_posediff_rew = 0.1 * (left_object_hand_pos_rew + left_object_hand_rot_rew)
+
+    # trans_scale = 5  right is different from left
+    # right_pos_idx = (rot_eps / trans_scale) / torch.max(right_tool_hand_pos_dist, torch.tensor(rot_eps / trans_scale).to(actions.device))
+    right_tool_hand_pos_rew = 1.0 / (trans_scale * torch.abs(right_tool_hand_pos_dist) + rot_eps)#  * right_pos_idx
+    # right_rot_idx = rot_eps / torch.max(right_tool_hand_rot_dist, torch.tensor(rot_eps).to(actions.device))
+    right_tool_hand_rot_rew = 1.0 / (right_tool_hand_rot_dist + rot_eps)#  * right_rot_idx
+    if is_min_rew: 
+        right_tool_hand_posediff_rew = 0.2 * torch.minimum(right_tool_hand_pos_rew, right_tool_hand_rot_rew) 
+    else:
+        right_tool_hand_posediff_rew = 0.1 * (right_tool_hand_pos_rew + right_tool_hand_rot_rew)
+
+    info["left/object_hand_pos_rew"] = left_object_hand_pos_rew
+    info["left/object_hand_rot_rew"] = left_object_hand_rot_rew
+    info["right/tool_hand_pos_rew"] = right_tool_hand_pos_rew
+    info["right/tool_hand_rot_rew"] = right_tool_hand_rot_rew
 
     # stage 3: lift near goal bonus
     left_bonus = torch.zeros_like(ref_object_pos_dist)
@@ -841,12 +843,12 @@ def compute_bvdex_stage12_rewards(
     # total reward
     left_approach_penalty = dist_reward_scale * left_fingertips_object_dist + 2 * dist_reward_scale * left_palm_object_dist
     right_approach_penalty = dist_reward_scale * right_fingers_tool_dist + 2 * dist_reward_scale * right_palm_object_dist
-    left_lift_to_refpose_reward = left_lift_object_pos_rew + 0.2 * left_lift_object_rot_rew
-    right_lift_to_refpose_reward = right_lift_tool_pos_rew + 0.2 * right_lift_tool_rot_rew 
+    left_lift_to_refpose_reward = 2 * left_lift_object_pos_rew + 0.2 * left_lift_object_rot_rew
+    right_lift_to_refpose_reward = 2 * right_lift_tool_pos_rew + 0.2 * right_lift_tool_rot_rew 
 
 
-    left_reward = left_lift_to_refpose_reward + left_object_hand_posediff_rew + left_bonus   # - left_approach_penalty +  - object_offset_penalty
-    right_reward = right_lift_to_refpose_reward + right_tool_hand_posediff_rew + right_bonus  # - right_approach_penalty +  - tool_offset_penalty
+    left_reward = left_object_hand_posediff_rew + left_lift_to_refpose_reward + left_bonus   # - left_approach_penalty +  - object_offset_penalty
+    right_reward = right_tool_hand_posediff_rew + right_lift_to_refpose_reward + right_bonus  # - right_approach_penalty +  - tool_offset_penalty
     reward = left_reward + right_reward
 
     # breakpoint()
@@ -945,7 +947,7 @@ class BiLeapHandGraspV1(VecTask):
         self.cfg = cfg
         self.mode = self.cfg["mode"]
         self.frequency, self.horizon = self.cfg["task"]['frequency'], self.cfg["task"]['horizon']
-        self.is_object_hand_joint_diff = self.cfg["task"]["isObjectHandJointDiff"]
+        self.is_min_rew = self.cfg["task"]["isMinReward"]
         self.is_stage2_pos_rew_exp = self.cfg["task"]["isStage2PosRewExp"]
 
         self.randomize = self.cfg["task"]["randomize"]
@@ -1713,7 +1715,7 @@ class BiLeapHandGraspV1(VecTask):
                 self.actions,
                 self.ref_object_pose, self.ref_init_object_pos_dist, self.ref_init_object_hand_rot_diff,
                 self.ref_tool_pose, self.ref_init_tool_pos_dist, self.ref_init_tool_hand_rot_diff,
-                self.is_object_hand_joint_diff,
+                self.is_min_rew,
             )
         elif mode == 's12':
             # ref_object_pose = self.ref_object_pose.repeat(self.num_envs, 1)
@@ -1751,7 +1753,7 @@ class BiLeapHandGraspV1(VecTask):
                 self.timestep, self.left_reach_ref_timestep, self.right_reach_ref_timestep,
                 ref_object_pose, self.ref_init_object_pos_dist, self.ref_init_object_hand_pos_diff, self.ref_init_object_hand_rot_diff,self.ref_init_left_fingers_palm_pose,
                 ref_tool_pose, self.ref_init_tool_pos_dist, self.ref_init_tool_hand_pos_diff, self.ref_init_tool_hand_rot_diff,self.ref_init_right_fingers_palm_pose,
-                self.is_object_hand_joint_diff, self.is_stage2_pos_rew_exp,
+                self.is_min_rew, self.is_stage2_pos_rew_exp,
             )
 
         self.extras.update(reward_info)
