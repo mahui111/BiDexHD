@@ -672,7 +672,7 @@ def compute_bvdex_stage12_rewards(
     timestep, left_reach_ref_timestep, right_reach_ref_timestep,
     ref_object_pose, ref_init_object_pos_dist, ref_init_object_hand_pos_diff, ref_init_object_hand_rot_diff, ref_init_left_fingers_palm_pose,
     ref_tool_pose, ref_init_tool_pos_dist, ref_init_tool_hand_pos_diff, ref_init_tool_hand_rot_diff, ref_init_right_fingers_palm_pose,
-    is_min_rew: int, is_stage2_pos_rew_exp: int,
+    is_stage1_min_rew: int, is_stage1_lin_rew:int, is_stage2_pos_rew_exp: int,
 ):
     '''
     stage 1: reach a static ref object pose (linear reward)
@@ -785,26 +785,36 @@ def compute_bvdex_stage12_rewards(
     left_object_hand_posediff_rew = 0.3 * (left_object_hand_rot_rew + left_object_hand_pos_rew)
     right_tool_hand_posediff_rew = 0.3 * (right_tool_hand_rot_rew + right_tool_hand_pos_rew)
     '''
-    trans_scale, rot_eps = 3.5, 0.4
-    # left_pos_idx = (rot_eps / trans_scale) / torch.max(left_object_hand_pos_dist, torch.tensor(rot_eps / trans_scale).to(actions.device))
-    left_object_hand_pos_rew = 1.0 / (trans_scale * torch.abs(left_object_hand_pos_dist) + rot_eps)# * left_pos_idx
-    # left_rot_idx = rot_eps / torch.max(left_object_hand_rot_dist, torch.tensor(rot_eps).to(actions.device))
-    left_object_hand_rot_rew = 1.0 / (left_object_hand_rot_dist + rot_eps)# * left_rot_idx
-    if is_min_rew: 
-        left_object_hand_posediff_rew = 0.2 * torch.minimum(left_object_hand_pos_rew, left_object_hand_rot_rew)
-    else:
-        left_object_hand_posediff_rew = 0.1 * (left_object_hand_pos_rew + left_object_hand_rot_rew)
+    if not is_stage1_lin_rew: 
+        trans_scale, rot_eps = 3.5, 0.4
+        # left_pos_idx = (rot_eps / trans_scale) / torch.max(left_object_hand_pos_dist, torch.tensor(rot_eps / trans_scale).to(actions.device))
+        left_object_hand_pos_rew = 1.0 / (trans_scale * torch.abs(left_object_hand_pos_dist) + rot_eps)# * left_pos_idx
+        # left_rot_idx = rot_eps / torch.max(left_object_hand_rot_dist, torch.tensor(rot_eps).to(actions.device))
+        left_object_hand_rot_rew = 1.0 / (left_object_hand_rot_dist + rot_eps)# * left_rot_idx
+        if is_stage1_min_rew: 
+            left_object_hand_posediff_rew = 0.2 * torch.minimum(left_object_hand_pos_rew, left_object_hand_rot_rew)
+        else:
+            left_object_hand_posediff_rew = 0.1 * (left_object_hand_pos_rew + left_object_hand_rot_rew)
 
-    # trans_scale = 5  right is different from left
-    # right_pos_idx = (rot_eps / trans_scale) / torch.max(right_tool_hand_pos_dist, torch.tensor(rot_eps / trans_scale).to(actions.device))
-    right_tool_hand_pos_rew = 1.0 / (trans_scale * torch.abs(right_tool_hand_pos_dist) + rot_eps)#  * right_pos_idx
-    # right_rot_idx = rot_eps / torch.max(right_tool_hand_rot_dist, torch.tensor(rot_eps).to(actions.device))
-    right_tool_hand_rot_rew = 1.0 / (right_tool_hand_rot_dist + rot_eps)#  * right_rot_idx
-    if is_min_rew: 
-        right_tool_hand_posediff_rew = 0.2 * torch.minimum(right_tool_hand_pos_rew, right_tool_hand_rot_rew) 
-    else:
-        right_tool_hand_posediff_rew = 0.1 * (right_tool_hand_pos_rew + right_tool_hand_rot_rew)
-
+        # right_pos_idx = (rot_eps / trans_scale) / torch.max(right_tool_hand_pos_dist, torch.tensor(rot_eps / trans_scale).to(actions.device))
+        right_tool_hand_pos_rew = 1.0 / (trans_scale * torch.abs(right_tool_hand_pos_dist) + rot_eps)#  * right_pos_idx
+        # right_rot_idx = rot_eps / torch.max(right_tool_hand_rot_dist, torch.tensor(rot_eps).to(actions.device))
+        right_tool_hand_rot_rew = 1.0 / (right_tool_hand_rot_dist + rot_eps)#  * right_rot_idx
+        if is_stage1_min_rew: 
+            right_tool_hand_posediff_rew = 0.2 * torch.minimum(right_tool_hand_pos_rew, right_tool_hand_rot_rew) 
+        else:
+            right_tool_hand_posediff_rew = 0.1 * (right_tool_hand_pos_rew + right_tool_hand_rot_rew)
+    else:  # linear reward
+        left_object_hand_pos_rew = - left_object_hand_pos_dist
+        left_object_hand_rot_rew = - 0.33 * left_object_hand_rot_dist
+        right_tool_hand_pos_rew = - right_tool_hand_pos_dist
+        right_tool_hand_rot_rew = - 0.33 * right_tool_hand_rot_dist
+        if is_stage1_min_rew: 
+            left_object_hand_posediff_rew = torch.minimum(left_object_hand_pos_rew, left_object_hand_rot_rew)
+            right_tool_hand_posediff_rew = torch.minimum(right_tool_hand_pos_rew, right_tool_hand_rot_rew)
+        else:
+            left_object_hand_posediff_rew = (left_object_hand_pos_rew + left_object_hand_rot_rew) / 2
+            right_tool_hand_posediff_rew = (right_tool_hand_pos_rew + right_tool_hand_rot_rew) / 2
     info["left/object_hand_pos_rew"] = left_object_hand_pos_rew
     info["left/object_hand_rot_rew"] = left_object_hand_rot_rew
     info["right/tool_hand_pos_rew"] = right_tool_hand_pos_rew
@@ -934,6 +944,82 @@ def compute_bvdex_stage12_rewards(
 
 
 class BiLeapHandGraspV1(VecTask):
+    def get_obs_idx(self,):
+        cnt = 0
+        lidx, ridx = [], []
+
+        if 'dofps' in self.obs_type:  # dof pos, 44 
+            num_robot_dofs = 44
+            lidx.extend(list(range(cnt, cnt + num_robot_dofs//2)))
+            ridx.extend(list(range(cnt + num_robot_dofs//2, cnt + num_robot_dofs)))
+            cnt += num_robot_dofs
+
+        if 'dofvel' in self.obs_type:  # dof vel, 44
+            num_robot_dofs = 44
+            lidx.extend(list(range(cnt, cnt + num_robot_dofs//2)))
+            ridx.extend(list(range(cnt + num_robot_dofs//2, cnt + num_robot_dofs)))
+            cnt += num_robot_dofs
+
+        if 'ftps' in self.obs_type:  # fingertip pos, 3 * 4 * 2
+            num_ft_states = 4 * 3
+            lidx.extend(list(range(cnt, cnt + num_ft_states)))
+            ridx.extend(list(range(cnt + num_ft_states, cnt + 2 * num_ft_states)))
+            cnt += 2 * num_ft_states
+
+        if 'ftstate' in self.obs_type:  # fingertip state, 13 * 4 * 2
+            num_ft_states = 4 * 13
+            lidx.extend(list(range(cnt, cnt + num_ft_states)))
+            ridx.extend(list(range(cnt + num_ft_states, cnt + 2 * num_ft_states)))
+            cnt += 2 * num_ft_states
+
+        if 'lastact' in self.obs_type:  # last action, 44
+            num_actions = 44
+            lidx.extend(list(range(cnt, cnt + num_actions//2)))
+            ridx.extend(list(range(cnt + num_actions//2, cnt + num_actions)))
+            cnt += num_actions
+
+        if 'objpose' in self.obs_type:  # object pose, 7 * 2
+            obj_dim = 7
+            lidx.extend(list(range(cnt, cnt + obj_dim)))
+            ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
+            cnt += 2 * obj_dim
+
+        if 'objstate' in self.obs_type:  # object state, pose, linvel, angvel. 13 * 2
+            obj_dim = 13
+            lidx.extend(list(range(cnt, cnt + obj_dim)))
+            ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
+            cnt += 2 * obj_dim
+        
+        if 'palmps' in self.obs_type:  # palm pos, 3 * 2
+            obj_dim = 3
+            lidx.extend(list(range(cnt, cnt + obj_dim)))
+            ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
+            cnt += 2 * obj_dim
+
+        if 'palmpose' in self.obs_type:  # palm pose, 7 * 2
+            obj_dim = 7
+            lidx.extend(list(range(cnt, cnt + obj_dim)))
+            ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
+            cnt += 2 * obj_dim
+
+        if 'palmstate' in self.obs_type: # palm state, 13 * 2
+            obj_dim = 13
+            lidx.extend(list(range(cnt, cnt + obj_dim)))
+            ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
+            cnt += 2 * obj_dim
+
+        if 'relps' in self.obs_type:  # relative pos to object center, 15 * 2
+            relpos_dim = 3 * (4 + 1)
+            lidx.extend(list(range(cnt, cnt + relpos_dim)))
+            ridx.extend(list(range(cnt + relpos_dim, cnt + 2 * relpos_dim)))
+            cnt += 2 * relpos_dim
+
+        return lidx, ridx
+
+    def get_obs_num(self,):
+        lidx, ridx = self.get_obs_idx()
+        return len(lidx) + len(ridx)
+
     def __init__(
         self,
         cfg,
@@ -947,7 +1033,8 @@ class BiLeapHandGraspV1(VecTask):
         self.cfg = cfg
         self.mode = self.cfg["mode"]
         self.frequency, self.horizon = self.cfg["task"]['frequency'], self.cfg["task"]['horizon']
-        self.is_min_rew = self.cfg["task"]["isMinReward"]
+        self.is_stage1_min_rew = self.cfg["task"]["isStage1MinReward"]
+        self.is_stage1_lin_rew = self.cfg["task"]["isStage1LinReward"]
         self.is_stage2_pos_rew_exp = self.cfg["task"]["isStage2PosRewExp"]
 
         self.randomize = self.cfg["task"]["randomize"]
@@ -991,23 +1078,15 @@ class BiLeapHandGraspV1(VecTask):
         # self.thumb_offset = self.cfg["env"]["thumb_offset"]
         
         self.obs_type = self.cfg["env"]["observationType"]
-        self.multi_task = self.cfg["env"]["multiTask"]
 
         assert self.arm_controller in ["ik", "qpos"]
-        assert self.obs_type in ["full_no_vel", "full", "full_state"]
-
-        # need to set the number of observations according to the robot
-        self.num_obs_dict = {
-            "full_no_vel": 226,
-            "full": 318,
-        }
 
         self.use_vel_obs = False
         self.fingertip_obs = True
         self.asymmetric_obs = self.cfg["env"]["asymmetric_observations"]
 
-        self.cfg["env"]["numObservations"] = self.num_obs_dict[self.obs_type]
-        self.cfg["env"]["numStates"] = self.num_obs_dict[self.obs_type] if self.asymmetric_obs else 0
+        self.cfg["env"]["numObservations"] = self.get_obs_num()
+        self.cfg["env"]["numStates"] = 0
         self.cfg["env"]["numActions"] = 44
 
         if self.arm_controller == "ik":  # use rotation 6D representation
@@ -1715,7 +1794,7 @@ class BiLeapHandGraspV1(VecTask):
                 self.actions,
                 self.ref_object_pose, self.ref_init_object_pos_dist, self.ref_init_object_hand_rot_diff,
                 self.ref_tool_pose, self.ref_init_tool_pos_dist, self.ref_init_tool_hand_rot_diff,
-                self.is_min_rew,
+                self.is_stage1_min_rew,
             )
         elif mode == 's12':
             # ref_object_pose = self.ref_object_pose.repeat(self.num_envs, 1)
@@ -1753,7 +1832,7 @@ class BiLeapHandGraspV1(VecTask):
                 self.timestep, self.left_reach_ref_timestep, self.right_reach_ref_timestep,
                 ref_object_pose, self.ref_init_object_pos_dist, self.ref_init_object_hand_pos_diff, self.ref_init_object_hand_rot_diff,self.ref_init_left_fingers_palm_pose,
                 ref_tool_pose, self.ref_init_tool_pos_dist, self.ref_init_tool_hand_pos_diff, self.ref_init_tool_hand_rot_diff,self.ref_init_right_fingers_palm_pose,
-                self.is_min_rew, self.is_stage2_pos_rew_exp,
+                self.is_stage1_min_rew, self.is_stage1_lin_rew, self.is_stage2_pos_rew_exp,
             )
 
         self.extras.update(reward_info)
@@ -1824,70 +1903,83 @@ class BiLeapHandGraspV1(VecTask):
 
         self.timestep[:] += 1
 
-        if self.obs_type == "full_no_vel":
-            self.compute_full_observations(no_vel=True)
-        elif self.obs_type == "full":
-            return self.compute_full_observations()
-        elif self.obs_type == "full_state":
-            self.compute_full_state()  # useless
+        return self.compute_full_observations()
 
-    def compute_full_observations(self, no_vel=False):
-        # dof state, pos vel 44 * 2 
+    def compute_full_observations(self):
         cnt = 0
-        self.obs_buf[:, cnt : cnt + self.num_robot_dofs] = unscale(
-            self.robot_dof_pos,
-            self.robot_dof_lower_limits,
-            self.robot_dof_upper_limits,
-        )
-        self.obs_buf[:, self.num_robot_dofs : 2 * self.num_robot_dofs] = self.vel_obs_scale * self.robot_dof_vel
 
-        # fingertip state 
-        cnt += 2 * self.num_robot_dofs
-        if not no_vel:  # 13 * 4 * 2
-            num_ft_states = len(self.fingertips) * 13
-            self.obs_buf[:, cnt : cnt + num_ft_states] = self.left_fingertip_state.reshape(self.num_envs, num_ft_states)
-            self.obs_buf[:, cnt + num_ft_states : cnt + 2 * num_ft_states] = self.right_fingertip_state.reshape(self.num_envs, num_ft_states)
-        else:  # 3 * 4 * 2
+        if 'dofps' in self.obs_type:  # dof pos, 44 
+            self.obs_buf[:, cnt : cnt + self.num_robot_dofs] = unscale(
+                self.robot_dof_pos,
+                self.robot_dof_lower_limits,
+                self.robot_dof_upper_limits,
+            )
+            cnt += self.num_robot_dofs
+
+        if 'dofvel' in self.obs_type:  # dof vel, 44
+            self.obs_buf[:, cnt : cnt + self.num_robot_dofs] = self.vel_obs_scale * self.robot_dof_vel
+            cnt += self.num_robot_dofs
+
+        if 'ftps' in self.obs_type:  # fingertip pos, 3 * 4 * 2
             num_ft_states = len(self.fingertips) * 3
             idxs = (np.arange(len(self.fingertips))[:, None] * 13 + np.array([0, 1, 2])).flatten()
             self.obs_buf[:, cnt : cnt + num_ft_states] = self.left_fingertip_state.reshape(self.num_envs, -1)[...,idxs]
             self.obs_buf[:, cnt + num_ft_states : cnt + 2 * num_ft_states] = self.right_fingertip_state.reshape(self.num_envs, -1)[...,idxs]
+            cnt += 2 * num_ft_states
 
-        # action observations, 44
-        cnt += 2 * num_ft_states
-        self.obs_buf[:, cnt : cnt + self.num_actions] = self.actions
+        if 'ftstate' in self.obs_type:  # fingertip state, 13 * 4 * 2
+            num_ft_states = len(self.fingertips) * 13
+            self.obs_buf[:, cnt : cnt + num_ft_states] = self.left_fingertip_state.reshape(self.num_envs, num_ft_states)
+            self.obs_buf[:, cnt + num_ft_states : cnt + 2 * num_ft_states] = self.right_fingertip_state.reshape(self.num_envs, num_ft_states)
+            cnt += 2 * num_ft_states
 
-        # object state, pose, linvel, angvel. 13 
-        # tool state, pose, linvel, angvel. 13
-        cnt += self.num_actions
-        obj_dim = 13
-        self.obs_buf[:, cnt : cnt + 7] = self.object_pose
-        self.obs_buf[:, cnt + 7 : cnt + 10] = self.object_linvel
-        self.obs_buf[:, cnt + 10 : cnt + 13] = self.object_angvel
-        self.obs_buf[:, cnt + 13 : cnt + 20] = self.tool_pose
-        self.obs_buf[:, cnt + 20 : cnt + 23] = self.tool_linvel
-        self.obs_buf[:, cnt + 23 : cnt + 26] = self.tool_angvel
+        if 'lastact' in self.obs_type:  # last action, 44
+            self.obs_buf[:, cnt : cnt + self.num_actions] = self.actions
+            cnt += self.num_actions
 
-        # wrist state, 13 * 2
-        cnt += 2 * obj_dim
-        if not no_vel:  # 13 * 2
-            wrist_dim = 13
+        if 'objpose' in self.obs_type:  # object pose, 7 * 2
+            obj_dim = 7
+            self.obs_buf[:, cnt : cnt + 7] = self.object_pose
+            self.obs_buf[:, cnt + 7 : cnt + 14] = self.tool_pose
+            cnt += 2 * obj_dim
+
+        if 'objstate' in self.obs_type:  # object state, pose, linvel, angvel. 13 * 2
+            obj_dim = 13
+            self.obs_buf[:, cnt : cnt + 7] = self.object_pose
+            self.obs_buf[:, cnt + 7 : cnt + 10] = self.object_linvel
+            self.obs_buf[:, cnt + 10 : cnt + 13] = self.object_angvel
+            self.obs_buf[:, cnt + 13 : cnt + 20] = self.tool_pose
+            self.obs_buf[:, cnt + 20 : cnt + 23] = self.tool_linvel
+            self.obs_buf[:, cnt + 23 : cnt + 26] = self.tool_angvel
+            cnt += 2 * obj_dim
+        
+        if 'palmps' in self.obs_type:  # palm pos, 3 * 2
+            obj_dim = 3
+            self.obs_buf[:, cnt : cnt + 3] = self.left_palm_pos
+            self.obs_buf[:, cnt + 3 : cnt + 6] = self.right_palm_pos
+            cnt += 2 * obj_dim
+
+        if 'palmpose' in self.obs_type:  # palm pose, 7 * 2
+            obj_dim = 7
+            self.obs_buf[:, cnt : cnt + 7] = self.left_palm_pose
+            self.obs_buf[:, cnt + 7 : cnt + 14] = self.right_palm_pose
+            cnt += 2 * obj_dim
+
+        if 'palmstate' in self.obs_type: # palm state, 13 * 2
+            obj_dim = 13
             self.obs_buf[:, cnt : cnt + 13] = self.left_palm_state
             self.obs_buf[:, cnt + 13 : cnt + 26] = self.right_palm_state
-        else:  # 7 * 2
-            wrist_dim = 7
-            self.obs_buf[:, cnt : cnt + 7] = self.left_palm_state[:,:7]
-            self.obs_buf[:, cnt + 7 : cnt + 14] = self.right_palm_state[:,:7]
+            cnt += 2 * obj_dim
 
-        # relative pos to object center, 15 * 2
-        cnt += 2 * wrist_dim
-        self.obs_buf[:, cnt : cnt + 3] = self.object_pos - self.left_palm_pos
-        self.obs_buf[:, cnt + 3 : cnt + 15] = (self.object_pos.unsqueeze(1) - self.left_fingertip_pos).reshape(-1,12)
-        self.obs_buf[:, cnt + 15: cnt + 18] = self.tool_pos - self.right_palm_pos
-        self.obs_buf[:, cnt + 18 : cnt + 30] = (self.tool_pos.unsqueeze(1) - self.right_fingertip_pos).reshape(-1,12)
+        if 'relps' in self.obs_type:  # relative pos to object center, 15 * 2
+            self.obs_buf[:, cnt : cnt + 3] = self.object_pos - self.left_palm_pos
+            self.obs_buf[:, cnt + 3 : cnt + 15] = (self.object_pos.unsqueeze(1) - self.left_fingertip_pos).reshape(-1,12)
+            self.obs_buf[:, cnt + 15: cnt + 18] = self.tool_pos - self.right_palm_pos
+            self.obs_buf[:, cnt + 18 : cnt + 30] = (self.tool_pos.unsqueeze(1) - self.right_fingertip_pos).reshape(-1,12)
+            cnt += 30
 
         # assert dim
-        assert cnt + 30 == self.obs_buf.shape[1]
+        assert cnt == self.obs_buf.shape[1]
 
         return self.obs_buf
 
@@ -1926,92 +2018,6 @@ class BiLeapHandGraspV1(VecTask):
 
         # print(left_pos_err, right_pos_err, left_rot_err, right_rot_err)
         return self.robot_dof_pos[:, self.both_arm_dof_indices] + torch.cat([left_delta_qpos, right_delta_qpos], -1)
-
-    def compute_full_state(self):  # useless
-        if self.asymmetric_obs:
-            # dof state: pos, vel, force. 3 * 29 = 87
-            self.states_buf[:, 0 : self.num_robot_dofs] = unscale(
-                self.robot_dof_pos,
-                self.robot_dof_lower_limits,
-                self.robot_dof_upper_limits,
-            )
-            self.states_buf[:, self.num_robot_dofs : 2 * self.num_robot_dofs] = (
-                self.vel_obs_scale * self.robot_dof_vel
-            )
-            self.states_buf[:, 2 * self.num_robot_dofs : 3 * self.num_robot_dofs] = (
-                self.force_torque_obs_scale * self.dof_force_tensor
-            )
-
-            # object state: pos, rot, linvel, angvel. 13 (87+13=100)
-            obj_obs_start = 3 * self.num_robot_dofs
-            self.states_buf[:, obj_obs_start : obj_obs_start + 7] = self.object_pose
-            self.states_buf[:, obj_obs_start + 7 : obj_obs_start + 10] = (
-                self.object_linvel
-            )
-            self.states_buf[:, obj_obs_start + 10 : obj_obs_start + 13] = (
-                self.object_angvel
-            )
-
-            # fingertip observations, state(pose and vel) + force-torque sensors 13 * 5 + 6 * 5 = 95 (100+95=195)
-            num_ft_states = len(self.fingertips) * 13
-            num_ft_force_torques = len(self.fingertips) * 6
-
-            ft_obs_start = obj_obs_start + 13
-            self.states_buf[:, ft_obs_start : ft_obs_start + num_ft_states] = (
-                self.left_fingertip_state.reshape(self.num_envs, num_ft_states)
-            )
-            self.states_buf[
-                :,
-                ft_obs_start
-                + num_ft_states : ft_obs_start
-                + num_ft_states
-                + num_ft_force_torques,
-            ] = self.vec_sensor_tensor
-
-            # action observations, 29 (195+29=224)
-            obs_end = ft_obs_start + num_ft_states + num_ft_force_torques
-            self.states_buf[:, obs_end : obs_end + self.num_actions] = self.actions
-
-        else:
-            # dof state: pos, vel, force. 3 * 29 = 87
-            self.obs_buf[:, 0 : self.num_robot_dofs] = unscale(
-                self.robot_dof_pos,
-                self.robot_dof_lower_limits,
-                self.robot_dof_upper_limits,
-            )
-            self.obs_buf[:, self.num_robot_dofs : 2 * self.num_robot_dofs] = (
-                self.vel_obs_scale * self.robot_dof_vel
-            )
-            self.obs_buf[:, 2 * self.num_robot_dofs : 3 * self.num_robot_dofs] = (
-                self.force_torque_obs_scale * self.dof_force_tensor
-            )
-            # object state: pos, rot, linvel, angvel. 13 (87+13=100)
-            obj_obs_start = 3 * self.num_robot_dofs
-            self.obs_buf[:, obj_obs_start : obj_obs_start + 7] = self.object_pose
-            self.obs_buf[:, obj_obs_start + 7 : obj_obs_start + 10] = self.object_linvel
-            self.obs_buf[:, obj_obs_start + 10 : obj_obs_start + 13] = (
-                self.object_angvel
-            )
-
-            # fingertip observations, state(pose and vel) + force-torque sensors 13 * 5 + 6 * 5 = 95 (100+95=195)
-            num_ft_states = len(self.fingertips) * 13
-            num_ft_force_torques = len(self.fingertips) * 6
-
-            ft_obs_start = obj_obs_start + 13
-            self.obs_buf[:, ft_obs_start : ft_obs_start + num_ft_states] = (
-                self.left_fingertip_state.reshape(self.num_envs, num_ft_states)
-            )
-            self.obs_buf[
-                :,
-                ft_obs_start
-                + num_ft_states : ft_obs_start
-                + num_ft_states
-                + num_ft_force_torques,
-            ] = self.vec_sensor_tensor
-
-            # action observations, 29 (195+29=224)
-            obs_end = ft_obs_start + num_ft_states + num_ft_force_torques
-            self.obs_buf[:, obs_end : obs_end + self.num_actions] = self.actions
 
     def reset_idx(self, env_ids):
         # randomization can happen only at reset time, since it can reset actor positions on GPU

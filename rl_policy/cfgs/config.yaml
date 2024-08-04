@@ -66,8 +66,11 @@ mode: train  # debug  visualize
 triplet: "(pour in some, teapot, cup)" #(stir, spoon, pan) (stir, spatula, pan) (smear, eraser, plate) (stir-fry, spatula, pan) (empty, bowl, bowl) (pour in some, bowl, bowl)
 exp_name: ""
 task_id: 1
-observationType: "full_no_vel" # can be "full_no_vel", "full"
-isMinReward: 1
+# observationType: 'dofps+dofvel+ftstate+lastact+objstate+palmstate+relps'  # 'full'
+# observationType: 'dofps+dofvel+ftps+lastact+objstate+palmpose+relps'  # 'full_no_vel'
+observationType: 'dofps+ftps+lastact+objpose+palmps'  # orders: ['dofps', 'dofvel', 'ftps', 'ftstate', 'lastact', 'objpose', 'objstate', 'palmps', 'palmpose', 'palmstate', 'relps']
+isStage1MinReward: 0
+isStage1LinReward: 1
 isStage2PosRewExp: 1
 
 

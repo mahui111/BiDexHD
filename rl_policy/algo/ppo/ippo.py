@@ -197,12 +197,9 @@ class IPPO(nn.Module):
             train_param,
             is_vision,
         )
-        if train_param["observationType"] == 'full':
-            self.left_obs_indices = list(range(0,22))+list(range(44,66))+list(range(88,140))+list(range(192,214))+list(range(236,249)) + list(range(262,275)) + list(range(288,303))
-            self.right_obs_indices = list(range(22,44))+list(range(66,88))+list(range(140,192))+list(range(214,236))+list(range(249,262)) + list(range(275,288)) + list(range(303,318))
-        elif train_param["observationType"] == 'full_no_vel':
-            self.left_obs_indices = list(range(0,22))+list(range(44,66))+list(range(88,100))+list(range(112,134))+list(range(156, 169)) + list(range(182,189)) + list(range(196,211))
-            self.right_obs_indices = list(range(22,44))+list(range(66,88))+list(range(100,112))+list(range(134,156))+list(range(169,182)) + list(range(189,196)) + list(range(211,226))
+        # self.left_obs_indices = list(range(0,22))+list(range(44,66))+list(range(88,100))+list(range(112,134))+list(range(156, 169)) + list(range(182,189)) + list(range(196,211))
+        # self.right_obs_indices = list(range(22,44))+list(range(66,88))+list(range(100,112))+list(range(134,156))+list(range(169,182)) + list(range(189,196)) + list(range(211,226))
+        self.left_obs_indices, self.right_obs_indices = vec_env.get_obs_idx()
         assert self.left_agent.single_observation_space_shape[0] == len(self.left_obs_indices)
         assert self.right_agent.single_observation_space_shape[0] == len(self.right_obs_indices)
 
