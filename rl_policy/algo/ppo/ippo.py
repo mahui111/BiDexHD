@@ -312,7 +312,7 @@ class IPPO(nn.Module):
                         next_obs = next_obs_dict["obs"]
                     next_states = self.vec_env.get_state()
                     # Record the transition
-                    left_rews = infos["left/reward"]
+                    left_rews = infos["left_reward"]
                     self.left_agent.storage.add_transitions(
                         left_obs,
                         current_states,
@@ -324,7 +324,7 @@ class IPPO(nn.Module):
                         left_mu,
                         left_sigma,
                     )
-                    right_rews = infos["right/reward"]
+                    right_rews = infos["right_reward"]
                     self.right_agent.storage.add_transitions(
                         right_obs,
                         current_states,
