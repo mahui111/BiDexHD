@@ -3,7 +3,7 @@
         "save_name": "taco_dataset/sampled_data/(empty, bowl, bowl)-20230927_022.json",
         "key_steps": {
             "init": 1,
-            "ref": 29,
+            "ref": 50,
             "end": 156
         },
         "tool": {
@@ -34171,7 +34171,7 @@
         "save_name": "taco_dataset/sampled_data/(empty, bowl, bowl)-20231013_119.json",
         "key_steps": {
             "init": 1,
-            "ref": 19,
+            "ref": 18,
             "end": 105
         },
         "tool": {
@@ -62289,7 +62289,7 @@
         "save_name": "taco_dataset/sampled_data/(empty, bowl, bowl)-20231013_139.json",
         "key_steps": {
             "init": 1,
-            "ref": 45,
+            "ref": 24,
             "end": 106
         },
         "tool": {
@@ -76953,7 +76953,7 @@
         "save_name": "taco_dataset/sampled_data/(empty, bowl, bowl)-20231013_144.json",
         "key_steps": {
             "init": 1,
-            "ref": 33,
+            "ref": 32,
             "end": 108
         },
         "tool": {
@@ -91947,7 +91947,7 @@
         "save_name": "taco_dataset/sampled_data/(empty, bowl, bowl)-20231013_154.json",
         "key_steps": {
             "init": 1,
-            "ref": 27,
+            "ref": 26,
             "end": 103
         },
         "tool": {
@@ -106171,7 +106171,7 @@
         "save_name": "taco_dataset/sampled_data/(empty, bowl, bowl)-20231013_159.json",
         "key_steps": {
             "init": 1,
-            "ref": 33,
+            "ref": 32,
             "end": 89
         },
         "tool": {
@@ -118525,7 +118525,7 @@
         "save_name": "taco_dataset/sampled_data/(empty, bowl, bowl)-20231013_164.json",
         "key_steps": {
             "init": 1,
-            "ref": 34,
+            "ref": 33,
             "end": 88
         },
         "tool": {
