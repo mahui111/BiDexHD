@@ -738,8 +738,8 @@ def compute_bvdex_stage12_rewards(
     left_oh_pos_ready, right_oh_pos_ready = left_object_hand_pos_dist <= 0.15, right_tool_hand_pos_dist <= 0.15
     left_oh_rot_ready, right_oh_rot_ready = left_object_hand_rot_dist <= 0.3, right_tool_hand_rot_dist <= 0.3
 
-    left_ready_grasp = torch.logical_or(left_oh_pos_ready, is_grasp_left)
-    right_ready_grasp = torch.logical_or(right_oh_pos_ready, is_grasp_right)
+    left_ready_grasp = left_oh_pos_ready # torch.logical_or(left_oh_pos_ready, is_grasp_left)
+    right_ready_grasp = right_oh_pos_ready #torch.logical_or(right_oh_pos_ready, is_grasp_right)
 
     # stage 1: after hand approach object, lift_object
     ref_object_pos_diff = torch.abs(ref_object_pose[:, :3] - object_pose[:, :3])
@@ -821,7 +821,8 @@ def compute_bvdex_stage12_rewards(
         left_object_hand_rot_rew = - 0.3 * left_object_hand_rot_dist# 0.2 / (left_object_hand_rot_dist + rot_eps)
         right_tool_hand_pos_rew = - right_tool_hand_pos_dist
         right_tool_hand_rot_rew = - 0.3 * right_tool_hand_rot_dist#0.2 / (right_tool_hand_rot_dist + rot_eps)
-        left_object_hand_pos_rew, left_object_hand_rot_rew, right_tool_hand_pos_rew, right_tool_hand_rot_rew = left_object_hand_pos_rew.clip(max=-0.2), left_object_hand_rot_rew.clip(max=-0.25), right_tool_hand_pos_rew.clip(max=-0.2), right_tool_hand_rot_rew.clip(max=-0.25)
+        left_object_hand_pos_rew, left_object_hand_rot_rew, right_tool_hand_pos_rew, right_tool_hand_rot_rew = left_object_hand_pos_rew.clip(max=-0.15), left_object_hand_rot_rew.clip(max=-0.15), right_tool_hand_pos_rew.clip(max=-0.15), right_tool_hand_rot_rew.clip(max=-0.15)
+        # left_object_hand_pos_rew, left_object_hand_rot_rew, right_tool_hand_pos_rew, right_tool_hand_rot_rew = left_object_hand_pos_rew.clip(max=-0.2), left_object_hand_rot_rew.clip(max=-0.25), right_tool_hand_pos_rew.clip(max=-0.2), right_tool_hand_rot_rew.clip(max=-0.25)
     left_object_hand_pose_rew = torch.minimum(left_object_hand_pos_rew, left_object_hand_rot_rew)
     right_tool_hand_pose_rew = torch.minimum(right_tool_hand_pos_rew, right_tool_hand_rot_rew)
 
