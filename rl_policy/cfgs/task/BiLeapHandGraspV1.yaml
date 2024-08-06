@@ -69,7 +69,7 @@ task:
   task_id: ${...task_id}
   frequency: 2
   horizon: 2
-  isStage1MinReward: ${isStage1MinReward}
+  isStage1HOReward: ${isStage1HOReward}
   isStage1LinReward: ${isStage1LinReward}
   isStage2PosRewExp: ${isStage2PosRewExp}
   randomize: False
