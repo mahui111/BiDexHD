@@ -11,7 +11,7 @@ params:
   test: ${...test}
   resume: 0
   # check for potential saves every this many iterations
-  save_interval: 400
+  save_interval: 500
   print_log: True
 
   # rollout params

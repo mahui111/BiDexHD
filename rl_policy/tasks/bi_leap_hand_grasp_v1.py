@@ -804,17 +804,18 @@ def compute_bvdex_stage12_rewards(
     right_tool_hand_posediff_rew = 0.3 * (right_tool_hand_rot_rew + right_tool_hand_pos_rew)
     '''
     if is_stage1_hand_object_rew:
-        if not is_stage1_lin_rew:  # TODO: clip
+        if not is_stage1_lin_rew:
             trans_scale, rot_eps = 3.5, 0.1
             # left_pos_idx = (rot_eps / trans_scale) / torch.max(left_object_hand_pos_dist, torch.tensor(rot_eps / trans_scale).to(actions.device))
             left_object_hand_pos_rew = 1.0 / (trans_scale * torch.abs(left_object_hand_pos_dist) + rot_eps)# * left_pos_idx
             # left_rot_idx = rot_eps / torch.max(left_object_hand_rot_dist, torch.tensor(rot_eps).to(actions.device))
             left_object_hand_rot_rew = 1.0 / (left_object_hand_rot_dist + rot_eps)# * left_rot_idx
-
+            left_object_hand_pos_rew, left_object_hand_rot_rew = 0.3 * left_object_hand_pos_rew.clip(max=1.5), 0.3 * left_object_hand_rot_rew.clip(max=1.5)
             # right_pos_idx = (rot_eps / trans_scale) / torch.max(right_tool_hand_pos_dist, torch.tensor(rot_eps / trans_scale).to(actions.device))
             right_tool_hand_pos_rew = 1.0 / (trans_scale * torch.abs(right_tool_hand_pos_dist) + rot_eps)#  * right_pos_idx
             # right_rot_idx = rot_eps / torch.max(right_tool_hand_rot_dist, torch.tensor(rot_eps).to(actions.device))
             right_tool_hand_rot_rew = 1.0 / (right_tool_hand_rot_dist + rot_eps)#  * right_rot_idx
+            right_tool_hand_pos_rew, right_tool_hand_rot_rew = 0.3 * right_tool_hand_pos_rew.clip(max=1.5), 0.3 * right_tool_hand_rot_rew.clip(max=1.5)
         else:  # linear reward
             left_object_hand_pos_rew = - left_object_hand_pos_dist
             left_object_hand_rot_rew = - 0.3 * left_object_hand_rot_dist# 0.2 / (left_object_hand_rot_dist + rot_eps)
@@ -926,10 +927,10 @@ def compute_bvdex_stage12_rewards(
     info["right_ref_tool_pos_dist"] = ref_tool_pos_dist
 
     # level 2
-    info["left_left_approach_penalty"] = left_approach_penalty
+    info["left_approach_penalty"] = left_approach_penalty
     info["left_lift_to_refpose_reward"] = left_lift_to_refpose_reward
 
-    info["right_right_approach_penalty"] = right_approach_penalty
+    info["right_approach_penalty"] = right_approach_penalty
     info["right_lift_to_refpose_reward"] = right_lift_to_refpose_reward
     
     # level 3
@@ -2272,7 +2273,7 @@ class BiLeapHandGraspV1(VecTask):
         u = (j_eef_T @ torch.inverse(j_eef @ j_eef_T + lmbda) @ dpose).view(self.num_envs, 6)
         return u
 
-    def visualize(self, replay_times=3, debug=False, vis_metrics=True, vis_mode='ref', append_data=True):
+    def visualize(self, replay_times=3, debug=False, vis_metrics=False, vis_mode='ref', append_data=True):
         def visualize_curves(data_dict):
             """
             Visualize each list in the dictionary as a curve in a 2xM matrix of subplots.

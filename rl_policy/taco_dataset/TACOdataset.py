@@ -727,8 +727,9 @@ class BiRetargetor:
             right_ref_value = right_joint_pos[right_indices, :]
         else:
             raise NotImplementedError
-        left_qpos = self.left_retargetor.retarget(left_ref_value)
-        right_qpos = self.right_retargetor.retarget(right_ref_value)
+        for _ in range(10):
+            left_qpos = self.left_retargetor.retarget(left_ref_value)
+            right_qpos = self.right_retargetor.retarget(right_ref_value)
         left_palm_pose = left_qpos[:3].tolist() + R.from_euler('zyx',left_qpos[3:6][::-1]).as_quat().tolist()   
         right_palm_pose = right_qpos[:3].tolist() + R.from_euler('zyx',right_qpos[3:6][::-1]).as_quat().tolist()
         left_fingers_qpos = left_qpos[self.left_retarget_idxs]
@@ -790,7 +791,7 @@ if __name__ == "__main__":
     parser.add_argument("--mano_model_path", type=str, default="/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/taco_dataset/manopth/mano/models")
     parser.add_argument("--triplet", type=str, default='(smear, eraser, plate)')
     parser.add_argument("--viz_sapien", action="store_true")
-    parser.add_argument("--optimize_wrist", type=bool, default=True)
+    parser.add_argument("--optimize_wrist", type=int, default=1)
     parser.add_argument("--mode", type=str, default="make_dataset")  # make_task / make_dataset
     args = parser.parse_args()
     
