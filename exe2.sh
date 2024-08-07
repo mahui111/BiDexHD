@@ -5,12 +5,12 @@ task_id=$2
 # python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=1 triplet="$triplet" task_id=$task_id test=True mode=visualize
 
 # train
-python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=6144 triplet="$triplet" task_id=$task_id exp_name=reinplement headless=True #checkpoint="'\
+# python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=6144 triplet="$triplet" task_id=$task_id exp_name=reinplement headless=True #checkpoint="'\
 # /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(empty, bowl, bowl)/task0/ippo_Bbvdex_reward_linmin_exp_fall1/model_400.pt\
 # '"
 
 # evaluate
-# python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=1 triplet="$triplet" task_id=$task_id test=True checkpoint="'\
-# /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(stir, spoon, pan)/debug/task9/ippo_Bbvdex_reward_0.3ho_exp/model_8500.pt\
-# '"
+python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=1 triplet="$triplet" task_id=$task_id test=True checkpoint="'\
+/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(smear, eraser, plate)/task2/reinplement/model_9000.pt\
+'"
 

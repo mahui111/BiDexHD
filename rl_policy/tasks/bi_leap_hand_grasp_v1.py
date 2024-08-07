@@ -708,7 +708,7 @@ def compute_bvdex_stage12_rewards(
     is_grasp_right = ((right_fingers_tool_dist <= 0.12 * num_fingers) + (right_palm_object_dist <= 0.12)).float()
 
 
-    # useless above, start: hand object relative pose to encourage getting close to object and keep certain pose
+    # hand object relative pose to encourage getting close to object and keep certain pose
     left_object_pos_wrt_palm, left_object_ori_wrt_palm = compute_relative_pose(
         left_palm_pose[:, :3], left_palm_pose[:, 3:7], object_pose[:, :3], object_pose[:, 3:7], 
     )
@@ -735,11 +735,11 @@ def compute_bvdex_stage12_rewards(
     right_tool_hand_pos_dist = (right_tool_palm_pos_dist + right_tool_fingers_pos_dist) / 2
     right_tool_hand_rot_dist = (right_tool_palm_rot_dist + right_tool_fingers_rot_dist) / 2
     
-    left_oh_pos_ready, right_oh_pos_ready = left_object_hand_pos_dist <= 0.15, right_tool_hand_pos_dist <= 0.15
-    left_oh_rot_ready, right_oh_rot_ready = left_object_hand_rot_dist <= 0.3, right_tool_hand_rot_dist <= 0.3
+    # left_oh_pos_ready, right_oh_pos_ready = left_object_hand_pos_dist <= 0.15, right_tool_hand_pos_dist <= 0.15
+    # left_oh_rot_ready, right_oh_rot_ready = left_object_hand_rot_dist <= 0.3, right_tool_hand_rot_dist <= 0.3
 
-    left_ready_grasp = left_oh_pos_ready # torch.logical_or(left_oh_pos_ready, is_grasp_left)
-    right_ready_grasp = right_oh_pos_ready #torch.logical_or(right_oh_pos_ready, is_grasp_right)
+    # left_ready_grasp = left_oh_pos_ready # torch.logical_or(left_oh_pos_ready, is_grasp_left)
+    # right_ready_grasp = right_oh_pos_ready #torch.logical_or(right_oh_pos_ready, is_grasp_right)
 
     # stage 1: after hand approach object, lift_object
     ref_object_pos_dist = torch.norm(ref_object_pose[:, :3] - object_pose[:, :3], dim=-1)
@@ -810,12 +810,12 @@ def compute_bvdex_stage12_rewards(
             left_object_hand_pos_rew = 1.0 / (trans_scale * torch.abs(left_object_hand_pos_dist) + rot_eps)# * left_pos_idx
             # left_rot_idx = rot_eps / torch.max(left_object_hand_rot_dist, torch.tensor(rot_eps).to(actions.device))
             left_object_hand_rot_rew = 1.0 / (left_object_hand_rot_dist + rot_eps)# * left_rot_idx
-            left_object_hand_pos_rew, left_object_hand_rot_rew = 0.3 * left_object_hand_pos_rew.clip(max=1.5), 0.3 * left_object_hand_rot_rew.clip(max=1.5)
+            left_object_hand_pos_rew, left_object_hand_rot_rew = 0.1 * left_object_hand_pos_rew.clip(max=1.5), 0.1 * left_object_hand_rot_rew.clip(max=1.5)
             # right_pos_idx = (rot_eps / trans_scale) / torch.max(right_tool_hand_pos_dist, torch.tensor(rot_eps / trans_scale).to(actions.device))
             right_tool_hand_pos_rew = 1.0 / (trans_scale * torch.abs(right_tool_hand_pos_dist) + rot_eps)#  * right_pos_idx
             # right_rot_idx = rot_eps / torch.max(right_tool_hand_rot_dist, torch.tensor(rot_eps).to(actions.device))
             right_tool_hand_rot_rew = 1.0 / (right_tool_hand_rot_dist + rot_eps)#  * right_rot_idx
-            right_tool_hand_pos_rew, right_tool_hand_rot_rew = 0.3 * right_tool_hand_pos_rew.clip(max=1.5), 0.3 * right_tool_hand_rot_rew.clip(max=1.5)
+            right_tool_hand_pos_rew, right_tool_hand_rot_rew = 0.1 * right_tool_hand_pos_rew.clip(max=1.5), 0.1 * right_tool_hand_rot_rew.clip(max=1.5)
         else:  # linear reward
             left_object_hand_pos_rew = - left_object_hand_pos_dist
             left_object_hand_rot_rew = - 0.3 * left_object_hand_rot_dist# 0.2 / (left_object_hand_rot_dist + rot_eps)
@@ -832,9 +832,6 @@ def compute_bvdex_stage12_rewards(
     else:
         left_object_hand_pose_rew = torch.zeros_like(ref_object_pos_dist)
         right_tool_hand_pose_rew = torch.zeros_like(ref_tool_pos_dist)
-
-    info["left_object_hand_pose_rew"] = left_object_hand_pose_rew
-    info["right_tool_hand_pose_rew"] = right_tool_hand_pose_rew
 
     # left_lift_object_hand_rot_rew = torch.where(
     #     left_ready_grasp > 0,
@@ -874,8 +871,6 @@ def compute_bvdex_stage12_rewards(
     # fall penalty
     left_is_fall = (object_pose[:, 2] <= table_height).float()
     right_is_fall = (tool_pose[:, 2] <= table_height).float()
-    info["left_is_fall"] = left_is_fall
-    info["right_is_fall"] = right_is_fall
 
     # total reward
     left_approach_penalty = dist_reward_scale * left_fingertips_object_dist + 2 * dist_reward_scale * left_palm_object_dist
@@ -899,15 +894,14 @@ def compute_bvdex_stage12_rewards(
     info["left_object_palm_rot_dist"] = left_object_palm_rot_dist
     info["left_object_fingers_pos_dist"] = left_object_fingers_pos_dist
     info["left_object_fingers_rot_dist"] = left_object_fingers_rot_dist
-    info["left_oh_pos_ready"] = left_oh_pos_ready
-    info["left_oh_rot_ready"] = left_oh_rot_ready
-    info["left_ready_grasp"] = left_ready_grasp
+    # info["left_oh_pos_ready"] = left_oh_pos_ready
+    # info["left_oh_rot_ready"] = left_oh_rot_ready
+    # info["left_ready_grasp"] = left_ready_grasp
     info["left_is_grasp"] = is_grasp_left
     info["left_fingertips_object_dist"] = left_fingertips_object_dist
     info["left_palm_object_dist"] = left_palm_object_dist
     info["left_lift_object_pos_rew"] = left_lift_object_pos_rew
     info["left_lift_object_rot_rew"] = left_lift_object_rot_rew
-    info["left_bonus"] = left_bonus
     info["left_ref_object_pos_dist"] = ref_object_pos_dist
 
     info["right_successes"] = right_successes
@@ -915,23 +909,26 @@ def compute_bvdex_stage12_rewards(
     info["right_tool_palm_rot_dist"] = right_tool_palm_rot_dist
     info["right_tool_fingers_pos_dist"] = right_tool_fingers_pos_dist
     info["right_tool_fingers_rot_dist"] = right_tool_fingers_rot_dist
-    info["right_oh_pos_ready"] = right_oh_pos_ready
-    info["right_oh_rot_ready"] = right_oh_rot_ready
-    info["right_ready_grasp"] = right_ready_grasp
+    # info["right_oh_pos_ready"] = right_oh_pos_ready
+    # info["right_oh_rot_ready"] = right_oh_rot_ready
+    # info["right_ready_grasp"] = right_ready_grasp
     info["right_is_grasp"] = is_grasp_right
     info["right_fingers_tool_dist"] = right_fingers_tool_dist
     info["right_palm_tool_dist"] = right_palm_object_dist
     info["right_lift_tool_pos_rew"] = right_lift_tool_pos_rew
     info["right_lift_tool_rot_rew"] = right_lift_tool_rot_rew
-    info["right_bonus"] = right_bonus
     info["right_ref_tool_pos_dist"] = ref_tool_pos_dist
 
     # level 2
     info["left_approach_penalty"] = left_approach_penalty
     info["left_lift_to_refpose_reward"] = left_lift_to_refpose_reward
+    info["left_object_hand_pose_rew"] = left_object_hand_pose_rew
+    info["left_bonus"] = left_bonus
 
     info["right_approach_penalty"] = right_approach_penalty
     info["right_lift_to_refpose_reward"] = right_lift_to_refpose_reward
+    info["right_tool_hand_pose_rew"] = right_tool_hand_pose_rew
+    info["right_bonus"] = right_bonus
     
     # level 3
     info["left_reward"] = left_reward
@@ -2273,7 +2270,7 @@ class BiLeapHandGraspV1(VecTask):
         u = (j_eef_T @ torch.inverse(j_eef @ j_eef_T + lmbda) @ dpose).view(self.num_envs, 6)
         return u
 
-    def visualize(self, replay_times=3, debug=False, vis_metrics=False, vis_mode='ref', append_data=True):
+    def visualize(self, replay_times=3, debug=False, vis_metrics=True, vis_mode='ref', append_data=True):
         def visualize_curves(data_dict):
             """
             Visualize each list in the dictionary as a curve in a 2xM matrix of subplots.
