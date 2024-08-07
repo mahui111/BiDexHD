@@ -19,7 +19,6 @@ def build_runner(cfg, env):
 
     train_param = cfg.train.params
     is_testing = cfg.test  # train_param["test"]
-    is_vision = False
     ckpt_path = cfg.checkpoint
 
     if not is_testing:
@@ -45,7 +44,7 @@ def build_runner(cfg, env):
         train_param=train_param,
         log_dir=log_dir,
         apply_reset=False,
-        is_vision=is_vision,
+        is_vision='Point' in train_param['policy']['backbone_type'],
     )
 
     if is_testing and ckpt_path != "":

@@ -14,7 +14,7 @@ import torch
 import imageio
 import pickle
 from tqdm import tqdm
-# import open3d as o3d
+import open3d as o3d
 from scipy.spatial.transform import Rotation as R
 # from pytransform3d import transformations as pt
 # from sapien.asset import create_dome_envmap
@@ -24,9 +24,8 @@ from dex_retargeting import yourdfpy as urdf
 from dex_retargeting.constants import RobotName, RetargetingType, HandType, get_default_config_path
 from dex_retargeting.retargeting_config import RetargetingConfig
 from dex_retargeting.seq_retarget import SeqRetargeting
-from manopth.manopth.manolayer import ManoLayer
 
-class PyramidVisualizer:
+class Visualizer3D:
     def reset(self):
         #create a default coordinate frame  
         self.geometries = [o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)]
@@ -122,7 +121,7 @@ class TACODataset:
         
         # visualize vertices and trans
         if is_visualize:
-            visualizer = PyramidVisualizer()
+            visualizer = Visualizer3D()
             visualizer.visualize_point_clouds(
                 np.concatenate([left_hand_vertices[0],all_left_trans[0].reshape(-1,3)]), 
                 colors=np.concatenate([len(left_hand_vertices[0])*[[0, 0, 1]],[[1, 0.,0.]]])
@@ -351,9 +350,8 @@ class TACODataset:
             * hand_joints: a numpy array, shape = (N_frame, 21, 3)
             * (optional) hand_faces: a numpy array, shape = (N_face, 3)
         """
-
+        from manopth.manopth.manolayer import ManoLayer
         betas = torch.from_numpy(mano_beta).unsqueeze(0).to(torch.float32).to(device)  # (1, 10)
-
         mano_layer = ManoLayer(mano_root=self.mano_model_path, use_pca=False, ncomps=45, side=side, center_idx=0)
         mano_layer.to(device)
 

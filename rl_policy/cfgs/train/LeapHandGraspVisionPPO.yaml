@@ -1,10 +1,12 @@
 params:
-  name: "ppo"
+  name: ${algo}
   log_dir: './runs' 
-  
   policy: # only works for MlpPolicy right now
-    backbone_type: ''
-    freeze_backbone: False
+    backbone_type: 'PointNetBackbone'
+    numDownsample: ${numDownsample}
+    numEachPoint: ${numEachPoint}
+    pcEmbDim: 128
+    freeze_backbone: False  # useless now
     pi_hid_sizes: [1024, 1024, 512, 512]
     vf_hid_sizes: [1024, 1024, 512, 512]
     activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
@@ -12,15 +14,15 @@ params:
   test: ${...test}
   resume: 0
   # check for potential saves every this many iterations
-  save_interval: 500 # 500
+  save_interval: 500
   print_log: True
 
   # rollout params
-  max_iterations: 10000
+  max_iterations: 1000000
 
   # training params
   cliprange: 0.2
-  ent_coef: 0
+  ent_coef: 0.0001
   nsteps: 8
   noptepochs: 5
   nminibatches: 4 # this is per agent

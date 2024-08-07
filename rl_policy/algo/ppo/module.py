@@ -4,10 +4,7 @@ import torch
 import torch.nn as nn
 from torch.distributions import MultivariateNormal
 from typing import Optional
-from ..pn_utils.maniskill_learn.networks.backbones.pointnet import getPointNet
-from ..pn_utils.maniskill_learn.networks.backbones.pointnet import (
-    getPointNetWithInstanceInfo,
-)
+from ..pn_utils.maniskill_learn.networks.backbones.pointnet import getPointNet, getPointNetWithInstanceInfo
 from typing import List, Optional, Tuple
 
 
@@ -19,7 +16,6 @@ class PointNetBackbone(nn.Module):
         pretrained_model_path: Optional[str] = None,
     ):
         super().__init__()
-        # self.save_hyperparameters()
         self.pc_dim = pc_dim
         self.feature_dim = feature_dim
         self.backbone = getPointNet(
@@ -28,35 +24,30 @@ class PointNetBackbone(nn.Module):
 
         if pretrained_model_path is not None:
             print("Loading pretrained model from:", pretrained_model_path)
-            state_dict = torch.load(pretrained_model_path, map_location="cpu")[
-                "state_dict"
-            ]
-            missing_keys, unexpected_keys = self.load_state_dict(
-                state_dict,
-                strict=False,
-            )
+            state_dict = torch.load(pretrained_model_path, map_location="cpu")["state_dict"]
+            missing_keys, unexpected_keys = self.load_state_dict(state_dict,strict=False,)
             if len(missing_keys) > 0:
                 print("missing_keys:", missing_keys)
             if len(unexpected_keys) > 0:
                 print("unexpected_keys:", unexpected_keys)
 
-    def forward(self, input_pc):
-        others = {}
-        return self.backbone(input_pc), others
+    def forward(self, input_obs):
+        pc_with_mask = torch.cat([input_obs['pc'], input_obs['mask']], dim=-1)
+        return self.backbone(pc_with_mask)
 
 
 class TransPointNetBackbone(nn.Module):
     def __init__(
         self,
-        pc_dim: int = 6,
-        feature_dim: int = 128,
-        state_dim: int = 191 + 29,
+        pc_dim: int,
+        feature_dim: int,
+        state_dim: int,
         use_seg: bool = True,
     ):
         super().__init__()
 
         cfg = {}
-        cfg["state_dim"] = 191 + 29
+        cfg["state_dim"] = state_dim
         cfg["feature_dim"] = feature_dim
         cfg["pc_dim"] = pc_dim
         cfg["output_dim"] = feature_dim
@@ -67,14 +58,12 @@ class TransPointNetBackbone(nn.Module):
 
         self.transpn = getPointNetWithInstanceInfo(cfg)
 
-    def forward(self, input_pc):
-        others = {}
-        input_pc["pc"] = torch.cat([input_pc["pc"], input_pc["mask"]], dim=-1)
-        return self.transpn(input_pc), others
+    def forward(self, input_obs):
+        input_obs["pc"] = torch.cat([input_obs["pc"], input_obs["mask"]], dim=-1)
+        return self.transpn(input_obs)
 
 
 class ActorCritic(nn.Module):
-
     def __init__(
         self,
         obs_shape,
@@ -92,7 +81,7 @@ class ActorCritic(nn.Module):
         self.backbone_type = model_cfg["backbone_type"]
         self.freeze_backbone = model_cfg["freeze_backbone"]
 
-        if model_cfg is None:
+        if model_cfg is None:  # default
             actor_hidden_dim = [256, 256, 256]
             critic_hidden_dim = [256, 256, 256]
             activation = get_activation("selu")
@@ -102,18 +91,26 @@ class ActorCritic(nn.Module):
             activation = get_activation(model_cfg["activation"])
 
         self.num_obs = obs_shape[0]
-
         if self.use_pc:
-            self.num_obs = 191 + 29  # (robot_state)
-            if self.backbone_type == "pn":
-                self.backbone = PointNetBackbone(pc_dim=8, feature_dim=128)
-            elif self.backbone_type == "transpn":
-                self.backbone = TransPointNetBackbone(pc_dim=6, feature_dim=128)
+            self.num_downsample = model_cfg["numDownsample"]
+            self.pc_emb_dim = model_cfg["pcEmbDim"]
+            self.each_point_dim = model_cfg["numEachPoint"]
+            self.num_pc = self.num_downsample * self.each_point_dim
+            self.num_robot_state = self.num_obs - self.num_pc - self.num_downsample * 2
+            self.num_obs = self.num_robot_state + self.pc_emb_dim
+            if self.backbone_type == "PointNetBackbone":
+                self.backbone = PointNetBackbone(
+                    pc_dim=self.each_point_dim + 2,
+                    feature_dim=self.pc_emb_dim,
+                )
+            elif self.backbone_type == "TransPointNetBackbone":
+                self.backbone = TransPointNetBackbone(
+                    pc_dim=self.each_point_dim,
+                    feature_dim=self.pc_emb_dim,
+                    state_dim=self.num_robot_state,
+                )
             else:
-                print("no such backbone")
-                exit(123)
-            print(self.backbone)
-            self.num_obs += 128
+                raise ValueError(f"Invalid backbone type: {self.backbone_type}")
 
         actor_layers = []
         critic_layers = []
@@ -167,69 +164,29 @@ class ActorCritic(nn.Module):
 
     def forward(self):
         raise NotImplementedError
+    
+    def get_pc_observation(self, observations):
+        robot_state = observations[:, :self.num_robot_state]
+        pc = observations[:, -self.num_pc:].reshape(-1, 1024, self.each_point_dim)
+        mask = observations[:, self.num_robot_state: self.num_robot_state + 2 * self.num_downsample].reshape(-1, 1024, 2)
+        input_data = dict(pc=pc, mask=mask)
+        if self.backbone_type == "TransPointNetBackbone":
+            input_data.update(dict(state=robot_state,))
+        pc_feature = self.backbone(input_data).reshape(-1, self.pc_emb_dim)
+        observations = torch.cat([robot_state, pc_feature], dim=1)
+        return observations
 
     def act(self, observations, states):
-
-        if self.use_pc and not self.freeze_backbone:
-            if self.backbone_type == "transpn":
-                pc = observations[:, 300 : 300 + 6144].reshape(-1, 1024, 6)
-                mask = observations[:, 300 + 6144 :].reshape(-1, 1024, 2)
-                data = {
-                    "pc": pc,
-                    "state": torch.cat(
-                        [observations[:, :191], observations[:, 207:236]], dim=1
-                    ),
-                    "mask": mask,
-                }
-                pc_feature = self.backbone(data)[0].reshape(-1, 128)
-            else:
-                pc = observations[:, 300 : 300 + 6144].reshape(-1, 1024, 6)
-                mask = observations[:, 300 + 6144 :].reshape(-1, 1024, 2)
-                pc_with_mask = torch.cat([pc, mask], dim=-1)
-                pc_feature = self.backbone(pc_with_mask)[0].reshape(-1, 128)
-            observations = torch.cat(
-                [observations[:, :191], observations[:, 207:236], pc_feature], dim=1
-            )
-            actions_mean = self.actor(observations)
-        elif self.use_pc and self.freeze_backbone:
-            with torch.no_grad():
-                if self.backbone_type == "transpn":
-                    pc = observations[:, 300 : 300 + 6144].reshape(-1, 1024, 6)
-                    mask = observations[:, 300 + 6144 :].reshape(-1, 1024, 2)
-                    data = {
-                        "pc": pc,
-                        "state": torch.cat(
-                            [observations[:, :191], observations[:, 207:236]], dim=1
-                        ),
-                        "mask": mask,
-                    }
-                    pc_feature = self.backbone(data)[0].reshape(-1, 128)
-                else:
-                    pc = observations[:, 300 : 300 + 6144].reshape(-1, 1024, 6)
-                    mask = observations[:, 300 + 6144 :].reshape(-1, 1024, 2)
-                    pc_with_mask = torch.cat([pc, mask], dim=-1)
-                    pc_feature = self.backbone(pc_with_mask)[0].reshape(-1, 128)
-            observations = torch.cat(
-                [observations[:, :191], observations[:, 207:236], pc_feature], dim=1
-            )
-            actions_mean = self.actor(observations)
-        else:
-            actions_mean = self.actor(observations[:, : self.num_obs])
-        # actions_mean = self.actor(observations)
-
+        if self.use_pc:
+            observations = self.get_pc_observation(observations)
+        
+        actions_mean = self.actor(observations)
         covariance = torch.diag(self.log_std.exp() * self.log_std.exp())
         distribution = MultivariateNormal(actions_mean, scale_tril=covariance)
 
         actions = distribution.sample()
         actions_log_prob = distribution.log_prob(actions)
-
-        if not self.use_pc:
-            observations = observations[:, : self.num_obs]
-
-        if self.asymmetric:
-            value = self.critic(states)
-        else:
-            value = self.critic(observations)
+        value = self.critic(states) if self.asymmetric else self.critic(observations)
 
         return (
             actions.detach(),
@@ -240,99 +197,15 @@ class ActorCritic(nn.Module):
         )
 
     def act_inference(self, observations):
-        if self.use_pc and not self.freeze_backbone:
-            if self.backbone_type == "transpn":
-                pc = observations[:, 300 : 300 + 6144].reshape(-1, 1024, 6)
-                mask = observations[:, 300 + 6144 :].reshape(-1, 1024, 2)
-                data = {
-                    "pc": pc,
-                    "state": torch.cat(
-                        [observations[:, :191], observations[:, 207:236]], dim=1
-                    ),
-                    "mask": mask,
-                }
-                pc_feature = self.backbone(data)[0].reshape(-1, 128)
-            else:
-                pc = observations[:, 300 : 300 + 6144].reshape(-1, 1024, 6)
-                mask = observations[:, 300 + 6144 :].reshape(-1, 1024, 2)
-                pc_with_mask = torch.cat([pc, mask], dim=-1)
-                pc_feature = self.backbone(pc_with_mask)[0].reshape(-1, 128)
-            observations = torch.cat(
-                [observations[:, :191], observations[:, 207:236], pc_feature], dim=1
-            )
-            actions_mean = self.actor(observations)
-        elif self.use_pc and self.freeze_backbone:
-            with torch.no_grad():
-                if self.backbone_type == "transpn":
-                    pc = observations[:, 300 : 300 + 6144].reshape(-1, 1024, 6)
-                    mask = observations[:, 300 + 6144 :].reshape(-1, 1024, 2)
-                    data = {
-                        "pc": pc,
-                        "state": torch.cat(
-                            [observations[:, :191], observations[:, 207:236]], dim=1
-                        ),
-                        "mask": mask,
-                    }
-                    pc_feature = self.backbone(data)[0].reshape(-1, 128)
-                else:
-                    pc = observations[:, 300 : 300 + 6144].reshape(-1, 1024, 6)
-                    mask = observations[:, 300 + 6144 :].reshape(-1, 1024, 2)
-                    pc_with_mask = torch.cat([pc, mask], dim=-1)
-                    pc_feature = self.backbone(pc_with_mask)[0].reshape(-1, 128)
-            observations = torch.cat(
-                [observations[:, :191], observations[:, 207:236], pc_feature], dim=1
-            )
-            actions_mean = self.actor(observations)
-        else:
-            actions_mean = self.actor(observations[:, : self.num_obs])
+        if self.use_pc:
+            observations = self.get_pc_observation(observations)
+        actions_mean = self.actor(observations)
         return actions_mean.detach()
 
     def evaluate(self, observations, states, actions):
         if self.use_pc and not self.freeze_backbone:
-            if self.backbone_type == "transpn":
-                pc = observations[:, 300 : 300 + 6144].reshape(-1, 1024, 6)
-                mask = observations[:, 300 + 6144 :].reshape(-1, 1024, 2)
-                data = {
-                    "pc": pc,
-                    "state": torch.cat(
-                        [observations[:, :191], observations[:, 207:236]], dim=1
-                    ),
-                    "mask": mask,
-                }
-                pc_feature = self.backbone(data)[0].reshape(-1, 128)
-            else:
-                pc = observations[:, 300 : 300 + 6144].reshape(-1, 1024, 6)
-                mask = observations[:, 300 + 6144 :].reshape(-1, 1024, 2)
-                pc_with_mask = torch.cat([pc, mask], dim=-1)
-                pc_feature = self.backbone(pc_with_mask)[0].reshape(-1, 128)
-            observations = torch.cat(
-                [observations[:, :191], observations[:, 207:236], pc_feature], dim=1
-            )
-            actions_mean = self.actor(observations)
-        elif self.use_pc and self.freeze_backbone:
-            with torch.no_grad():
-                if self.backbone_type == "transpn":
-                    pc = observations[:, 300 : 300 + 6144].reshape(-1, 1024, 6)
-                    mask = observations[:, 300 + 6144 :].reshape(-1, 1024, 2)
-                    data = {
-                        "pc": pc,
-                        "state": torch.cat(
-                            [observations[:, :191], observations[:, 207:236]], dim=1
-                        ),
-                        "mask": mask,
-                    }
-                    pc_feature = self.backbone(data)[0].reshape(-1, 128)
-                else:
-                    pc = observations[:, 300 : 300 + 6144].reshape(-1, 1024, 6)
-                    mask = observations[:, 300 + 6144 :].reshape(-1, 1024, 2)
-                    pc_with_mask = torch.cat([pc, mask], dim=-1)
-                    pc_feature = self.backbone(pc_with_mask)[0].reshape(-1, 128)
-            observations = torch.cat(
-                [observations[:, :191], observations[:, 207:236], pc_feature], dim=1
-            )
-            actions_mean = self.actor(observations)
-        else:
-            actions_mean = self.actor(observations[:, : self.num_obs])
+            observations = self.get_pc_observation(observations)
+        actions_mean = self.actor(observations)
 
         covariance = torch.diag(self.log_std.exp() * self.log_std.exp())
         distribution = MultivariateNormal(actions_mean, scale_tril=covariance)
@@ -340,13 +213,7 @@ class ActorCritic(nn.Module):
         actions_log_prob = distribution.log_prob(actions)
         entropy = distribution.entropy()
 
-        if not self.use_pc:
-            observations = observations[:, : self.num_obs]
-
-        if self.asymmetric:
-            value = self.critic(states)
-        else:
-            value = self.critic(observations)
+        value = self.critic(states) if self.asymmetric else self.critic(observations)
 
         return (
             actions_log_prob,

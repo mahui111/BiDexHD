@@ -1,7 +1,7 @@
-import os, json
+import os, json, sys
 import random
-import pickle
-import cv2
+# import pickle
+# import cv2
 import torch
 import numpy as np
 from torch.nn import functional as F
@@ -10,11 +10,103 @@ from pprint import pprint
 from collections import defaultdict
 import matplotlib.pyplot as plt
 
+
 from isaacgym import gymtorch
 from isaacgym import gymapi
 from isaacgymenvs.utils.torch_jit_utils import *
 from isaacgymenvs.tasks.base.vec_task import VecTask
 
+sys.path.append('Pointnet2_PyTorch/pointnet2_ops_lib')
+from pointnet2_ops import pointnet2_utils
+sys.path.append('../')
+from taco_dataset import Visualizer3D
+
+def mov(tensor, device):
+    return torch.from_numpy(tensor.cpu().numpy()).to(device)
+
+# modify: now only checks for depth_bar, moves z_p z_n check out
+def depth_image_to_point_cloud_GPU_batch(
+    camera_depth_tensor_batch, camera_rgb_tensor_batch,
+    camera_seg_tensor_batch, camera_view_matrix_inv_batch,
+    camera_proj_matrix_batch, u, v, width: float, height: float,
+    depth_bar: float, device: torch.device,
+    # z_p_bar: float = 3.0,
+    # z_n_bar: float = 0.3,
+):
+    
+    batch_num = camera_depth_tensor_batch.shape[0]
+
+    depth_buffer_batch = mov(camera_depth_tensor_batch, device=device)
+    rgb_buffer_batch = mov(camera_rgb_tensor_batch, device=device) / 255.0
+    seg_buffer_batch = mov(camera_seg_tensor_batch, device=device)
+
+    # Get the camera view matrix and invert it to transform points from camera to world space
+    vinv_batch = camera_view_matrix_inv_batch
+
+    # Get the camera projection matrix and get the necessary scaling
+    # coefficients for deprojection
+
+    proj_batch = camera_proj_matrix_batch
+    fu_batch = 2 / proj_batch[:, 0, 0]
+    fv_batch = 2 / proj_batch[:, 1, 1]
+
+    centerU = width / 2
+    centerV = height / 2
+
+    Z_batch = depth_buffer_batch
+
+    Z_batch = torch.nan_to_num(Z_batch, posinf=1e10, neginf=-1e10)
+
+    X_batch = -(u.view(1, u.shape[-2], u.shape[-1]) - centerU) / width * Z_batch * fu_batch.view(-1, 1, 1)
+    Y_batch = (v.view(1, v.shape[-2], v.shape[-1]) - centerV) / height * Z_batch * fv_batch.view(-1, 1, 1)
+
+    R_batch = rgb_buffer_batch[..., 0].view(batch_num, 1, -1)
+    G_batch = rgb_buffer_batch[..., 1].view(batch_num, 1, -1)
+    B_batch = rgb_buffer_batch[..., 2].view(batch_num, 1, -1)
+    S_batch = seg_buffer_batch.view(batch_num, 1, -1)
+
+    valid_depth_batch = Z_batch.view(batch_num, -1) > -depth_bar
+
+    Z_batch = Z_batch.view(batch_num, 1, -1)
+    X_batch = X_batch.view(batch_num, 1, -1)
+    Y_batch = Y_batch.view(batch_num, 1, -1)
+    O_batch = torch.ones((X_batch.shape), device=device)
+
+    position_batch = torch.cat((X_batch, Y_batch, Z_batch, O_batch, R_batch, G_batch, B_batch, S_batch), dim=1)
+    # (b, N, 8)
+    position_batch = position_batch.permute(0, 2, 1)
+    position_batch[..., 0:4] = position_batch[..., 0:4] @ vinv_batch
+
+    points_batch = position_batch[..., [0, 1, 2, 4, 5, 6, 7]]
+    valid_batch = valid_depth_batch  # * valid_z_p_batch * valid_z_n_batch
+
+    # visualize
+    # visualizer3d = Visualizer3D()
+    # vis_points = points_batch[0].cpu().numpy()
+    # visualizer3d.visualize_point_clouds(vis_points[..., :3], colors=vis_points[..., 3:6])
+    # visualizer3d.draw()
+    return points_batch, valid_batch
+
+
+def sample_points(points, sample_num, sample_method, device):
+    if sample_method == 'random':
+        raise NotImplementedError
+
+    elif sample_method == "furthest_batch":
+        idx = pointnet2_utils.furthest_point_sample(points[:, :, :3].contiguous(), sample_num).long()
+        idx = idx.view(*idx.shape, 1).repeat_interleave(points.shape[-1], dim=2)
+        sampled_points = torch.gather(points, dim=1, index=idx)
+
+    elif sample_method == 'furthest':
+        eff_points = points[points[:, 2] > 0.04]
+        eff_points_xyz = eff_points.contiguous()
+        if eff_points.shape[0] < sample_num:
+            eff_points = points[:, 0:3].contiguous()
+        sampled_points_id = pointnet2_utils.furthest_point_sample(eff_points_xyz.reshape(1, *eff_points_xyz.shape), sample_num)
+        sampled_points = eff_points.index_select(0, sampled_points_id[0].long())
+    else:
+        assert False
+    return sampled_points
 
 @torch.jit.script
 def standardize_quaternion(quaternions: torch.Tensor) -> torch.Tensor:
@@ -976,7 +1068,7 @@ def compute_bvdex_stage12_rewards(
 
 
 
-class BiLeapHandGraspV1(VecTask):
+class BiLeapHandGraspVision(VecTask):
     def get_obs_idx_num(self,):
         cnt = 0
         lidx, ridx = [], []
@@ -1047,7 +1139,28 @@ class BiLeapHandGraspV1(VecTask):
             ridx.extend(list(range(cnt + relpos_dim, cnt + 2 * relpos_dim)))
             cnt += 2 * relpos_dim
 
-        return lidx, ridx, len(lidx) + len(ridx)
+        num_obs = len(lidx) + len(ridx)
+        if 'pointcloud' in self.obs_type:
+            self.num_pc_downsample = self.cfg['env']['vision']['pointclouds']['numDownsample']  # mask  (1024*4,)
+            self.num_each_pt = self.cfg['env']['vision']['pointclouds']['numEachPoint']
+            self.num_pc_flatten = self.num_pc_downsample * self.num_each_pt                     # pointcloud storage (1024,6)
+            
+            # left, object mask for lidx
+            lidx.extend(list(range(cnt, cnt + 2 * self.num_pc_downsample)))
+            cnt += 2 * self.num_pc_downsample
+            # right, tool mask for ridx
+            ridx.extend(list(range(cnt, cnt + 2 * self.num_pc_downsample)))
+            cnt += 2 * self.num_pc_downsample
+            num_obs += 4 * self.num_pc_downsample
+            
+            # public pointclouds for both
+            lidx.extend(list(range(cnt, cnt + self.num_pc_flatten)))
+            ridx.extend(list(range(cnt, cnt + self.num_pc_flatten)))
+            cnt += self.num_pc_flatten
+            num_obs += self.num_pc_flatten
+            
+        
+        return lidx, ridx, num_obs
 
     def __init__(
         self,
@@ -1115,7 +1228,6 @@ class BiLeapHandGraspV1(VecTask):
         self.asymmetric_obs = self.cfg["env"]["asymmetric_observations"]
 
         self.cfg["env"]["numObservations"] = self.get_obs_idx_num()[-1]
-        print(f'number of observation: {self.cfg["env"]["numObservations"]}')
         self.cfg["env"]["numStates"] = 0
         self.cfg["env"]["numActions"] = 44
 
@@ -1141,6 +1253,27 @@ class BiLeapHandGraspV1(VecTask):
             "arm_joint5",
             "arm_joint6",
         ]
+        
+        # vision
+        self.segmentation_id = {
+            'table': 1,
+            'left': 2,
+            'right': 3,
+            'object': 4,
+            'tool': 5
+        }
+        self.camera_depth_tensor_list = []
+        self.camera_rgb_tensor_list = []
+        self.camera_seg_tensor_list = []
+        self.camera_vinv_mat_list = []
+        self.camera_proj_mat_list = []
+        self.camera_handles = []
+        self.num_cameras = len(self.cfg['env']['vision']['camera']['eye'])
+        self._cfg_camera_props()
+        self.camera_v2, self.camera_u2 = torch.meshgrid(torch.arange(0, self.camera_props.height), torch.arange(0, self.camera_props.width), indexing='ij')
+        
+        self.depth_bar = self.cfg['env']['vision']['bar']['depth']
+        self.num_pc_presample = self.cfg['env']['vision']['pointclouds']['numPresample']
         super().__init__(
             self.cfg,
             rl_device,
@@ -1150,7 +1283,9 @@ class BiLeapHandGraspV1(VecTask):
             virtual_screen_capture,
             force_render,
         )
-
+        self.camera_u2 = to_torch(self.camera_u2, device=self.device)
+        self.camera_v2 = to_torch(self.camera_v2, device=self.device)
+        self.env_origin = to_torch(self.env_origin, device=self.device)
         control_freq_inv = self.cfg["env"].get("controlFrequencyInv", 1)
         if self.reset_time > 0.0:
             self.max_episode_length = int(
@@ -1236,7 +1371,7 @@ class BiLeapHandGraspV1(VecTask):
         link_id = object_dict["id"]
         xyz = ' '.join(map(str, object_dict["xyz"])) if "xyz" in object_dict else '0 0 0'
         rpy = ' '.join(map(str, object_dict["rpy"])) if "rpy" in object_dict else '0 0 0'
-        # TODO: modify the scale of object here
+        # modify the scale of object here
         scale = ' '.join(map(str, object_dict["scale"])) if "scale" in object_dict else "0.01 0.01 0.01"
         link_section = f"""
 <robot name="objects_{link_id}">
@@ -1295,17 +1430,17 @@ class BiLeapHandGraspV1(VecTask):
         self.num_robot_shapes = self.gym.get_asset_rigid_shape_count(left_asset) + self.gym.get_asset_rigid_shape_count(right_asset)
         self.num_robot_dofs = self.gym.get_asset_dof_count(left_asset) + self.gym.get_asset_dof_count(right_asset)
         self.robot_dof_default_pos = torch.zeros(self.num_robot_dofs, dtype=torch.float, device=self.device)  
-        self.robot_dof_default_pos = to_torch(
-            [-3.1607e-01,  8.4610e-01,  1.4001e+00,  3.5564e-01, -1.3125e+00,
-         -1.8572e+00,  2.2706e-01, -1.6649e-01,  1.9526e-02,  1.5409e-03,
-         -9.0773e-01, -6.5300e-03,  8.8499e-01, -8.7347e-03,  3.1680e-01,
-         -1.0434e-01,  1.5260e-02,  1.1576e-03,  3.3686e-01,  2.1855e-01,
-         -8.9838e-03, -7.9493e-03,  1.9438e-02,  2.0076e+00, -1.3161e+00,
-         -1.7472e+00, -1.2241e+00, -2.2140e-01,  3.2061e-01, -7.7190e-02,
-          2.5068e-02, -1.1859e-04,  8.4012e-01,  3.6734e-03,  1.2371e+00,
-         -1.1532e-03,  3.4611e-01, -3.1577e-01,  3.9981e-01,  3.0040e-01,
-          3.3800e-01, -6.1035e-01,  5.3127e-01,  5.0080e-01], 
-        device=self.device)
+        # self.robot_dof_default_pos = to_torch(
+        #     [ 2.6396e-01,  2.5209e-01,  2.1412e+00,  7.3334e-01, -1.3495e+00,
+        #  -1.2485e+00,  1.4559e-02, -2.9828e-01,  9.1046e-01,  8.6533e-01,
+        #  -1.1081e+00,  1.5081e-02,  1.3430e+00, -5.7619e-03,  4.8028e-01,
+        #   1.0533e-01,  1.1771e-02,  2.3770e-03,  5.2847e-01,  2.7517e-01,
+        #   9.2905e-03,  1.1253e-03,  8.7288e-01,  2.2177e+00, -1.1985e+00,
+        #  -1.6249e+00,  6.2858e-01, -8.3031e-01,  3.1325e-01,  6.1444e-02,
+        #   2.2033e-02, -5.7871e-03,  5.2441e-01,  3.1776e-03,  1.3648e+00,
+        #   4.5659e-03,  4.3381e-01,  2.8884e-02,  3.6321e-02,  9.6377e-04,
+        #   3.9599e-01, -1.1753e-01,  2.0954e-01,  1.3920e-01], 
+        # device=self.device)
         self.robot_dof_default_vel = torch.zeros(self.num_robot_dofs, dtype=torch.float, device=self.device)  
         # update right handles & dof_indices
         self.right_palm_handle += self.num_robot_bodies//2
@@ -1334,6 +1469,14 @@ class BiLeapHandGraspV1(VecTask):
         # side_panel_asset, side_panel_start_pose = self._prepare_side_panel_asset()
         self.table_height = self.table_start_pose.p.z*2
         self.goal_height = self.table_height + 0.3
+        
+        self.x_n_bar = self.cfg['env']['vision']['bar']['x_n']
+        self.x_p_bar = self.cfg['env']['vision']['bar']['x_p']
+        self.y_n_bar = self.cfg['env']['vision']['bar']['y_n']
+        self.y_p_bar = self.cfg['env']['vision']['bar']['y_p']
+        self.z_n_bar = min(self.cfg['env']['vision']['bar']['z_n'], self.table_height)
+        self.z_p_bar = self.cfg['env']['vision']['bar']['z_p']
+        self._cfg_camera_pose(0, 0, self.table_height)
 
         # initialize pose
         object_center = (self.dataset_object_init_pos + self.dataset_tool_init_pos) / 2
@@ -1350,12 +1493,24 @@ class BiLeapHandGraspV1(VecTask):
         tool_start_pose.p = gymapi.Vec3(*self.dataset_tool_init_pos)
         tool_start_pose.r = gymapi.Quat(*self.dataset_tool_init_quat)
 
+        # add lights
+        light_positions = [
+            # gymapi.Vec3(object_center[0] - 0.34, object_center[1], self.table_height + 0.5),
+            # gymapi.Vec3(object_center[0] + 0.34, object_center[1], self.table_height + 0.5),
+            # gymapi.Vec3(right_robot_start_pose.p.x, right_robot_start_pose.p.y, self.table_height + 0.1),
+            # gymapi.Vec3(object_start_pose.p.x, object_start_pose.p.y, object_start_pose.p.z + 0.5),
+        ]
+        light_intensity = gymapi.Vec3(0.6, 0.6, 0.6)
+        light_ambient = gymapi.Vec3(0.4, 0.4, 0.4)
+        for l in range(len(light_positions)):
+            self.gym.set_light_parameters(self.sim, l, light_intensity, light_ambient, light_positions[l])
 
-        self.envs, self.cameras = [], []
+        self.envs = []
         self.left_robot_indices, self.right_robot_indices = [], []
         self.object_indices, self.tool_indices = [], []
         self.left_start_states, self.right_start_states = [], []
         self.object_init_states, self.tool_init_states = [], []
+        self.env_origin = torch.zeros((self.num_envs, 3), dtype=torch.float)
 
         if self.arm_controller == "ik":
             self.eef_idx = []
@@ -1370,8 +1525,8 @@ class BiLeapHandGraspV1(VecTask):
                 self.gym.begin_aggregate(env_ptr, max_agg_bodies, max_agg_shapes, True)
 
             # create robot actor
-            left_robot_actor = self.gym.create_actor(env_ptr, left_asset, left_robot_start_pose, "left", i, -1, 0)
-            right_robot_actor = self.gym.create_actor(env_ptr, right_asset, right_robot_start_pose, "right", i, -1, 0)
+            left_robot_actor = self.gym.create_actor(env_ptr, left_asset, left_robot_start_pose, "left", i, -1, self.segmentation_id['left'])
+            right_robot_actor = self.gym.create_actor(env_ptr, right_asset, right_robot_start_pose, "right", i, -1, self.segmentation_id['right'])
             self.left_start_states.append(
                 [
                     left_robot_start_pose.p.x,
@@ -1412,7 +1567,7 @@ class BiLeapHandGraspV1(VecTask):
             self.right_robot_indices.append(self.gym.get_actor_index(env_ptr, right_robot_actor, gymapi.DOMAIN_SIM))
 
             # add object
-            object_handle = self.gym.create_actor(env_ptr, object_asset, object_start_pose, "object", i, -1, 0)
+            object_handle = self.gym.create_actor(env_ptr, object_asset, object_start_pose, "object", i, -1, self.segmentation_id['object'])
             self.object_init_states.append(
                 [
                     object_start_pose.p.x,
@@ -1434,7 +1589,7 @@ class BiLeapHandGraspV1(VecTask):
             self.object_indices.append(object_idx)
 
             # add tool
-            tool_handle = self.gym.create_actor(env_ptr, tool_asset, tool_start_pose, "tool", i, -1, 0)
+            tool_handle = self.gym.create_actor(env_ptr, tool_asset, tool_start_pose, "tool", i, -1, self.segmentation_id['tool'])
             self.tool_init_states.append(
                 [
                     tool_start_pose.p.x,
@@ -1460,14 +1615,15 @@ class BiLeapHandGraspV1(VecTask):
             table_actor = self.gym.create_actor(env_ptr, table_asset, self.table_start_pose, "table", i, -1, 0)
             # side_panel_actor = self.gym.create_actor(env_ptr, side_panel_asset, side_panel_start_pose, "side_panel", i, -1, 0)
 
-            # add camera
-            if self.cfg['env']['enableCameraSensors']:
-                camera_props = gymapi.CameraProperties()
-                camera_props.width = self.cfg['env']['imageWidth']
-                camera_props.height = self.cfg['env']['imageHeight']
-                camera_ptr = self.gym.create_camera_sensor(env_ptr, camera_props)
-                self.gym.set_camera_location(camera_ptr, env_ptr, gymapi.Vec3(*self.cfg['env']['cameraPosition']), gymapi.Vec3(*self.cfg['env']['cameraTarget']))
-                self.cameras.append(camera_ptr)
+            # vision
+            self._load_cameras(env_ptr, i, self.camera_props, self.camera_eye_list, self.camera_lookat_list)
+            # if self.cfg['env']['enableCameraSensors']:
+            #     camera_props = gymapi.CameraProperties()
+            #     camera_props.width = self.cfg['env']['imageWidth']
+            #     camera_props.height = self.cfg['env']['imageHeight']
+            #     camera_ptr = self.gym.create_camera_sensor(env_ptr, camera_props)
+            #     self.gym.set_camera_location(camera_ptr, env_ptr, gymapi.Vec3(*self.cfg['env']['cameraPosition']), gymapi.Vec3(*self.cfg['env']['cameraTarget']))
+            #     self.cameras.append(camera_ptr)
 
             # enable DOF force sensors, if needed
             if self.obs_type == "full_state" or self.asymmetric_obs:
@@ -1764,6 +1920,73 @@ class BiLeapHandGraspV1(VecTask):
 
         return side_panel_asset, side_panel_start_pose
 
+    def _cfg_camera_props(self):
+        self.camera_props = gymapi.CameraProperties()
+        self.camera_props.width = self.cfg['env']['vision']['camera']['width']
+        self.camera_props.height = self.cfg['env']['vision']['camera']['height']
+        self.camera_props.enable_tensors = True
+        return
+
+    def _cfg_camera_pose(self, table_x, table_y, table_z):
+        self.camera_eye_list = []
+        self.camera_lookat_list = []
+        camera_eye_list = self.cfg['env']['vision']['camera']['eye']
+        camera_lookat_list = self.cfg['env']['vision']['camera']['lookat']
+        table_centor = np.array([table_x, table_y, table_z])
+        for i in range(self.num_cameras):
+            camera_eye = np.array(camera_eye_list[i]) + table_centor
+            camera_lookat = np.array(camera_lookat_list[i]) + table_centor
+            self.camera_eye_list.append(gymapi.Vec3(*list(camera_eye)))
+            self.camera_lookat_list.append(gymapi.Vec3(*list(camera_lookat)))
+        return
+    
+    def _load_cameras(self, env_ptr, env_id, camera_props, camera_eye_list, camera_lookat_list):
+        camera_handles = []
+        depth_tensors = []
+        rgb_tensors = []
+        seg_tensors = []
+        vinv_mats = []
+        proj_mats = []
+
+        origin = self.gym.get_env_origin(env_ptr)
+        self.env_origin[env_id][0] = origin.x
+        self.env_origin[env_id][1] = origin.y
+        self.env_origin[env_id][2] = origin.z
+
+        for i in range(self.num_cameras):
+            camera_handle = self.gym.create_camera_sensor(env_ptr, camera_props)
+
+            camera_eye = camera_eye_list[i]
+            camera_lookat = camera_lookat_list[i]
+            self.gym.set_camera_location(camera_handle, env_ptr, camera_eye, camera_lookat)
+            raw_depth_tensor = self.gym.get_camera_image_gpu_tensor(self.sim, env_ptr, camera_handle, gymapi.IMAGE_DEPTH)
+            depth_tensor = gymtorch.wrap_tensor(raw_depth_tensor)
+            depth_tensors.append(depth_tensor)
+
+            raw_rgb_tensor = self.gym.get_camera_image_gpu_tensor(self.sim, env_ptr, camera_handle, gymapi.IMAGE_COLOR)
+            rgb_tensor = gymtorch.wrap_tensor(raw_rgb_tensor)
+            rgb_tensors.append(rgb_tensor)
+
+            raw_seg_tensor = self.gym.get_camera_image_gpu_tensor(self.sim, env_ptr, camera_handle, gymapi.IMAGE_SEGMENTATION)
+            seg_tensor = gymtorch.wrap_tensor(raw_seg_tensor)
+            seg_tensors.append(seg_tensor)
+
+            vinv_mat = torch.inverse((to_torch(self.gym.get_camera_view_matrix(self.sim, env_ptr, camera_handle), device=self.device)))
+            vinv_mats.append(vinv_mat)
+
+            proj_mat = to_torch(self.gym.get_camera_proj_matrix(self.sim, env_ptr, camera_handle), device=self.device)
+            proj_mats.append(proj_mat)
+
+            camera_handles.append(camera_handle)
+
+        self.camera_depth_tensor_list.append(depth_tensors)
+        self.camera_rgb_tensor_list.append(rgb_tensors)
+        self.camera_seg_tensor_list.append(seg_tensors)
+        self.camera_vinv_mat_list.append(vinv_mats)
+        self.camera_proj_mat_list.append(proj_mats)
+
+        return
+    
     def compute_reward(self, mode):
         if mode == 'grasp':
             (
@@ -2004,10 +2227,121 @@ class BiLeapHandGraspV1(VecTask):
             self.obs_buf[:, cnt + 18 : cnt + 30] = (self.tool_pos.unsqueeze(1) - self.right_fingertip_pos).reshape(-1,12)
             cnt += 30
 
+        if 'pointcloud' in self.obs_type:
+            points_fps, others = self._collect_pointclouds()
+            self.obs_buf[:, cnt: cnt + self.num_pc_flatten].copy_(points_fps.reshape(self.num_envs, self.num_pc_flatten)) 
+            cnt += self.num_pc_flatten
+            mask_left = others["mask_left"]
+            mask_object = others["mask_object"]
+            self.obs_buf[:, cnt: cnt + self.num_pc_downsample].copy_(mask_left)
+            self.obs_buf[:, cnt + self.num_pc_downsample: cnt + 2 * self.num_pc_downsample].copy_(mask_object)
+            cnt += 2 * self.num_pc_downsample
+            mask_right = others["mask_right"]
+            mask_tool = others["mask_tool"]
+            self.obs_buf[:, cnt: cnt + self.num_pc_downsample].copy_(mask_right)
+            self.obs_buf[:, cnt + self.num_pc_downsample: cnt + 2 * self.num_pc_downsample].copy_(mask_tool)
+            cnt += 2 * self.num_pc_downsample
+            
         # assert dim
         assert cnt == self.obs_buf.shape[1]
 
         return self.obs_buf
+    
+    def _collect_pointclouds(self):
+        self.gym.render_all_camera_sensors(self.sim)
+        self.gym.start_access_image_tensors(self.sim)
+        depth_tensor = torch.stack([torch.stack(i) for i in self.camera_depth_tensor_list])
+        rgb_tensor = torch.stack([torch.stack(i) for i in self.camera_rgb_tensor_list])
+        seg_tensor = torch.stack([torch.stack(i) for i in self.camera_seg_tensor_list])
+        vinv_mat = torch.stack([torch.stack(i) for i in self.camera_vinv_mat_list])
+        proj_matrix = torch.stack([torch.stack(i) for i in self.camera_proj_mat_list])
+
+        point_list = []
+        valid_list = []
+        for i in range(self.num_cameras):
+            # (num_envs, num_pts, 7) (num_envs, num_pts)
+            point, valid = depth_image_to_point_cloud_GPU_batch(depth_tensor[:, i], rgb_tensor[:, i], seg_tensor[:, i],
+                                                                vinv_mat[:, i], proj_matrix[:, i],
+                                                                self.camera_u2, self.camera_v2, self.camera_props.width,
+                                                                self.camera_props.height, self.depth_bar, self.device,
+                                                                # self.z_p_bar, self.z_n_bar
+                                                                )
+            point_list.append(point)
+            valid_list.append(valid)
+
+            # print(f'camera {i}, ', valid.sum(dim=1))
+
+        points = torch.cat(point_list, dim=1)  # (num_envs, 65536 * num_cameras, 7)
+        depth_mask = torch.cat(valid_list, dim=1)  # (num_envs, 65536 * num_cameras)
+        points[:, :, :3] -= self.env_origin.view(self.num_envs, 1, 3)
+        # if self.headless:
+        #     points[:, :, :3] -= self.env_origin.view(self.num_envs, 1, 3) * 2
+        # else:
+        #     points[:, :, :3] -= self.env_origin.view(self.num_envs, 1, 3)
+        x_mask = (points[:, :, 0] > self.x_n_bar) * (points[:, :, 0] < self.x_p_bar)
+        y_mask = (points[:, :, 1] > self.y_n_bar) * (points[:, :, 1] < self.y_p_bar)
+        z_mask = (points[:, :, 2] > self.z_n_bar) * (points[:, :, 2] < self.z_p_bar)
+        
+        valid = depth_mask * x_mask * y_mask * z_mask  # (num_envs, 65536 * 3)
+
+        now, points_list = 0, []
+        valid_points = points[valid]  # (num_valid_pts_total, 7)
+        # presample, make num_pts equal for each env
+        for env_id, point_num in enumerate(valid.sum(dim=1)):
+            if point_num == 0:
+                print(f'env{env_id}_____point_num = 0_____')
+                continue
+            points_all = valid_points[now: now + point_num]
+            random_ids = torch.randint(0, points_all.shape[0], (self.num_pc_presample,), device=self.device, dtype=torch.long)
+            points_all_rnd = points_all[random_ids]
+            points_list.append(points_all_rnd)
+            now += point_num
+        
+        assert len(points_list) == self.num_envs, f'{self.num_envs - len(points_list)} envs have 0 point'
+        
+        points_batch = torch.stack(points_list)  # (num_envs, num_pc_presample)
+        num_sample_dict = self.cfg['env']['vision']['pointclouds']
+        if 'numSample' not in num_sample_dict:  # sample N points, then seg for each segmentation
+            points_fps = sample_points(points_batch, sample_num=self.num_pc_downsample, sample_method='furthest_batch', device=self.device)
+        else:  # sample fixed points for each segmentation separately
+            num_sample_dict = num_sample_dict['numSample']
+            assert num_sample_dict['left'] + num_sample_dict['right'] + num_sample_dict['object'] + num_sample_dict['tool'] == self.num_pc_downsample
+            zeros = torch.zeros((self.num_envs, self.num_pc_presample), device=self.device).to(torch.long)
+            idx = torch.arange(self.num_envs * self.num_pc_presample, device=self.device).view(self.num_envs, self.num_pc_presample).to(torch.long)
+            left_idx = torch.where(points_batch[:, :, 6] == self.segmentation_id['left'], idx, zeros)
+            left_pc = points_batch.view(-1, 7)[left_idx]
+            object_idx = torch.where(points_batch[:, :, 6] == self.segmentation_id['object'], idx, zeros)
+            object_pc = points_batch.view(-1, 7)[object_idx]
+            right_idx = torch.where(points_batch[:, :, 6] == self.segmentation_id['right'], idx, zeros)
+            right_pc = points_batch.view(-1, 7)[right_idx]
+            tool_idx = torch.where(points_batch[:, :, 6] == self.segmentation_id['tool'], idx, zeros)
+            tool_pc = points_batch.view(-1, 7)[tool_idx]
+            left_fps = sample_points(left_pc, sample_num=num_sample_dict['left'], sample_method='furthest_batch', device=self.device)
+            object_fps = sample_points(object_pc, sample_num=num_sample_dict['object'], sample_method='furthest_batch', device=self.device)
+            right_fps = sample_points(right_pc, sample_num=num_sample_dict['right'], sample_method='furthest_batch', device=self.device)
+            tool_fps = sample_points(tool_pc, sample_num=num_sample_dict['tool'], sample_method='furthest_batch', device=self.device)
+            points_fps = torch.cat([left_fps, object_fps, right_fps, tool_fps], dim=1)
+        
+        mask_left = (points_fps[:,:,6] == self.segmentation_id["left"])
+        mask_object = (points_fps[:,:,6] == self.segmentation_id["object"])
+        mask_right = (points_fps[:,:,6] == self.segmentation_id["right"])
+        mask_tool = (points_fps[:,:,6] == self.segmentation_id["tool"])
+        
+        others = {}
+        others["mask_left"] = mask_left
+        others["mask_object"] = mask_object 
+        others["mask_right"] = mask_right
+        others["mask_tool"] = mask_tool
+        # if self.repose_z:
+        #     pc_xyz = self.unpose_pc(points_fps[:, :, 0:3])
+        #     pc_rgb = points_fps[:, :, 3:6]
+
+        #     points_fps = torch.cat([pc_xyz, pc_rgb], dim=-1)
+        # else:
+        #     points_fps = points_fps[:, :, 0:6]
+        points_fps = points_fps[:, :, 0:6]
+        self.gym.end_access_image_tensors(self.sim)
+        return points_fps, others
 
     def calculate_ik(self, target_left_pose, target_right_pose):
         '''
@@ -2067,8 +2401,6 @@ class BiLeapHandGraspV1(VecTask):
             gymtorch.unwrap_tensor(objects_indices.to(torch.int32)),
             len(objects_indices),
         )
-        # TODO
-        
 
         # reset robot
         delta_max = self.robot_dof_upper_limits - self.robot_dof_default_pos
@@ -2328,11 +2660,6 @@ class BiLeapHandGraspV1(VecTask):
 
                 
                 if debug:
-                    # save image
-                    if self.cfg['env']['enableCameraSensors']:
-                        self.gym.render_all_camera_sensors(self.sim)
-                        color_image = self.gym.get_camera_image(self.sim, self.envs[0], self.cameras[0], gymapi.IMAGE_COLOR)
-                        cv2.imwrite(os.path.join(self.cfg['env']['imageSaveDir'], f'{i}.jpg'), color_image)
                     print('-'*50, f'step:{i}', '-'*50,)
                     print('actions:', self.actions)
                     print('object state:', self.root_state_tensor[self.object_indices],)
@@ -2344,9 +2671,7 @@ class BiLeapHandGraspV1(VecTask):
                     for k,v in metrics.items():  # for visualize metrics
                         metric_collector[k].append(v.float().mean().item())
 
-                if random.random() < 0.1:
-                    print(self.robot_dof_pos)
-                    breakpoint()
+                
             if vis_metrics:
                 visualize_curves(metric_collector)
 

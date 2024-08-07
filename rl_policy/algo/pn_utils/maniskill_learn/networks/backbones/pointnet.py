@@ -989,8 +989,6 @@ def getPointNetWithInstanceInfoDex(cfg):
 
     stack_frame = 1
     num_heads = 4
-    F = cfg["feature_dim"]
-
     # import pdb
     # pdb.set_trace()
     nn_cfg=dict(
