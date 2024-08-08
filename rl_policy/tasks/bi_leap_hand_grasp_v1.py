@@ -1295,17 +1295,17 @@ class BiLeapHandGraspV1(VecTask):
         self.num_robot_shapes = self.gym.get_asset_rigid_shape_count(left_asset) + self.gym.get_asset_rigid_shape_count(right_asset)
         self.num_robot_dofs = self.gym.get_asset_dof_count(left_asset) + self.gym.get_asset_dof_count(right_asset)
         self.robot_dof_default_pos = torch.zeros(self.num_robot_dofs, dtype=torch.float, device=self.device)  
-        self.robot_dof_default_pos = to_torch(
-            [-3.1607e-01,  8.4610e-01,  1.4001e+00,  3.5564e-01, -1.3125e+00,
-         -1.8572e+00,  2.2706e-01, -1.6649e-01,  1.9526e-02,  1.5409e-03,
-         -9.0773e-01, -6.5300e-03,  8.8499e-01, -8.7347e-03,  3.1680e-01,
-         -1.0434e-01,  1.5260e-02,  1.1576e-03,  3.3686e-01,  2.1855e-01,
-         -8.9838e-03, -7.9493e-03,  1.9438e-02,  2.0076e+00, -1.3161e+00,
-         -1.7472e+00, -1.2241e+00, -2.2140e-01,  3.2061e-01, -7.7190e-02,
-          2.5068e-02, -1.1859e-04,  8.4012e-01,  3.6734e-03,  1.2371e+00,
-         -1.1532e-03,  3.4611e-01, -3.1577e-01,  3.9981e-01,  3.0040e-01,
-          3.3800e-01, -6.1035e-01,  5.3127e-01,  5.0080e-01], 
-        device=self.device)
+        # self.robot_dof_default_pos = to_torch(
+        #     [-3.1607e-01,  8.4610e-01,  1.4001e+00,  3.5564e-01, -1.3125e+00,
+        #  -1.8572e+00,  2.2706e-01, -1.6649e-01,  1.9526e-02,  1.5409e-03,
+        #  -9.0773e-01, -6.5300e-03,  8.8499e-01, -8.7347e-03,  3.1680e-01,
+        #  -1.0434e-01,  1.5260e-02,  1.1576e-03,  3.3686e-01,  2.1855e-01,
+        #  -8.9838e-03, -7.9493e-03,  1.9438e-02,  2.0076e+00, -1.3161e+00,
+        #  -1.7472e+00, -1.2241e+00, -2.2140e-01,  3.2061e-01, -7.7190e-02,
+        #   2.5068e-02, -1.1859e-04,  8.4012e-01,  3.6734e-03,  1.2371e+00,
+        #  -1.1532e-03,  3.4611e-01, -3.1577e-01,  3.9981e-01,  3.0040e-01,
+        #   3.3800e-01, -6.1035e-01,  5.3127e-01,  5.0080e-01], 
+        # device=self.device)
         self.robot_dof_default_vel = torch.zeros(self.num_robot_dofs, dtype=torch.float, device=self.device)  
         # update right handles & dof_indices
         self.right_palm_handle += self.num_robot_bodies//2
