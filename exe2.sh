@@ -5,12 +5,12 @@ task_id=$2
 # python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=1 triplet="$triplet" task_id=$task_id test=True mode=visualize
 
 # train
-python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=6144 triplet="$triplet" task_id=$task_id exp_name=noobj headless=True observationType="dofps+dofvel+ftps+lastact+palmpose" #checkpoint="'\
+python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=6000 triplet="$triplet" task_id=$task_id exp_name=reimplement headless=True observationType="dofps+dofvel+ftps+lastact+palmpose" #checkpoint="'\
 # /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(empty, bowl, bowl)/task0/ippo_Bbvdex_reward_linmin_exp_fall1/model_400.pt\
 # '"
 
 # evaluate
 # python main.py task=BiLeapHandGraspV1 train=LeapHandGraspPPO algo=ippo num_envs=1 triplet="$triplet" task_id=$task_id test=True checkpoint="'\
-# /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(brush, brush, bowl)/task1/reinplement/model_3500.pt\
+# /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(pour in some, teapot, cup)/task1/noobj/model_19500.pt\
 # '"
 

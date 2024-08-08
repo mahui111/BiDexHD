@@ -2344,9 +2344,9 @@ class BiLeapHandGraspV1(VecTask):
                     for k,v in metrics.items():  # for visualize metrics
                         metric_collector[k].append(v.float().mean().item())
 
-                if random.random() < 0.1:
-                    print(self.robot_dof_pos)
-                    breakpoint()
+                # if random.random() < 0.1:
+                #     print(self.robot_dof_pos)
+                #     breakpoint()
             if vis_metrics:
                 visualize_curves(metric_collector)
 
