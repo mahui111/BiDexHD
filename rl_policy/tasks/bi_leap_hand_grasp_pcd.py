@@ -9,6 +9,9 @@ from scipy.spatial.transform import Rotation as R
 from pprint import pprint
 from collections import defaultdict
 import matplotlib.pyplot as plt
+import trimesh
+from urdfpy import URDF
+import open3d as o3d
 
 from isaacgym import gymtorch
 from isaacgym import gymapi
@@ -941,8 +944,25 @@ def compute_bvdex_stage12_rewards(
     )
 
 
+def read_pointcloud_from_urdf(urdf_file, num_sample=1024):
+    robot = URDF.load(urdf_file)
+    all_points = []
+    for link in robot.links:
+        for visual in link.visuals:
+            if visual.geometry.mesh is not None:
+                mesh = trimesh.load_mesh(os.path.join(urdf_file, '..', visual.geometry.mesh.filename))
+                points = mesh.sample(num_sample) 
+                all_points.append(points)
+    all_points = np.vstack(all_points)
+    return all_points
 
-class BiLeapHandGraspV2(VecTask):
+
+def get_pointcloud_from_src(asset_dir, device):
+    object_pc = read_pointcloud_from_urdf(os.path.join(asset_dir, "object.urdf"))
+    tool_pc = read_pointcloud_from_urdf(os.path.join(asset_dir, "tool.urdf"))
+    return torch.tensor(object_pc, dtype=torch.float32).to(device), torch.tensor(tool_pc, dtype=torch.float32).to(device)
+
+class BiLeapHandGraspPCD(VecTask):
     def get_obs_idx_num(self,):
         cnt = 0
         lidx, ridx = [], []
