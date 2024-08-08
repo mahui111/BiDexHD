@@ -249,80 +249,16 @@ class TACODataset:
             load_tool_poses = np.load(join(object_pose_dir, "tool_" + tool_name + ".npy"))
             load_target_poses = np.load(join(object_pose_dir, "target_" + target_name + ".npy"))
         
-            # TODO: smooth trajectory
-            def low_pass_filter(data, cutoff=2.0, fs=20, order=5):
-                nyquist = 0.5 * fs
-                normal_cutoff = cutoff / nyquist
-                b, a = butter(order, normal_cutoff, btype='low', analog=False)
-                y = filtfilt(b, a, data, axis=0)
-                return y
-
-            def visualize_ax(ax, trajectory, label, color, highlight=-1):
-                ax.plot(*trajectory.T, label=label, color=color)
-                ax.scatter(*trajectory[:5].T, color='green', s=50)
-                ax.scatter(*trajectory[-5:].T, color='black', s=50)
-                if highlight >=0 and highlight < len(trajectory):
-                    ax.scatter(*trajectory[highlight:highlight+2], color='cyan', s=50)
-                ax.set_title(label)
-                ax.set_xlabel('X')
-                ax.set_ylabel('Y')
-                ax.set_zlabel('Z')
-                ax.legend()
-
-
-            def visualize_smoothed_trajectory(trajectory, smoothed_trajectory):
-                # Plot the original and smoothed trajectories in 3D
-                fig = plt.figure(figsize=(14, 7))
-
-                ax1 = fig.add_subplot(121, projection='3d')
-                visualize_ax(ax1, trajectory, 'Original', 'b')
-                ax2 = fig.add_subplot(122, projection='3d')
-                visualize_ax(ax2, smoothed_trajectory, 'Smoothed', 'r')
-                plt.show()
-            
-            smoothed_object_pos = low_pass_filter(load_target_poses[:, :3, 3])
-            smoothed_tool_pos = low_pass_filter(load_tool_poses[:, :3, 3])
-            smoothed_left_pos = low_pass_filter(all_left_trans)
-            smoothed_right_pos = low_pass_filter(all_right_trans)
-            # visualize_smoothed_trajectory(load_target_poses[:, :3, 3], smoothed_object_pos)
-            # visualize_smoothed_trajectory(load_tool_poses[:, :3, 3], smoothed_tool_pos)
-            # visualize_smoothed_trajectory(all_left_trans, smoothed_left_pos)
-            # visualize_smoothed_trajectory(all_right_trans, smoothed_right_pos)
-
-            '''[important!]: smooth trajectory'''
+            '''smooth trajectory'''
             if not self.optimize_wrist:
-                load_target_poses[:, :3, 3] = smoothed_object_pos
-                load_tool_poses[:, :3, 3] = smoothed_tool_pos
-                all_left_trans = smoothed_left_pos
-                all_right_trans = smoothed_right_pos
+                load_target_poses[:, :3, 3] = self.low_pass_filter(load_target_poses[:, :3, 3])
+                load_tool_poses[:, :3, 3] = self.low_pass_filter(load_tool_poses[:, :3, 3])
+                all_left_trans = self.low_pass_filter(all_left_trans)
+                all_right_trans = self.low_pass_filter(all_right_trans)
 
             # get key timesteps
-            init_timestep = 1  # int(len(load_tool_poses)*0.1)
-            end_timestep = int(len(load_tool_poses)*0.8)   
-
-            object_heights = smoothed_object_pos[:, 2]
-            tool_heights = smoothed_tool_pos[:, 2]
-            percentage = 75
-            ref_object_height = np.percentile(object_heights[object_heights>object_heights[init_timestep]], percentage)
-            ref_tool_height = np.percentile(object_heights[tool_heights>tool_heights[init_timestep]], percentage)
-            # find the first False
-            try:
-                ref_object_timestep = np.where((object_heights<ref_object_height)==False)[0][0]
-                ref_tool_timestep = np.where((tool_heights<ref_tool_height)==False)[0][0]
-                ref_timestep = int(max(ref_object_timestep, ref_tool_timestep))
-            except:
-                ref_timestep = 30
+            init_timestep, ref_timestep, end_timestep = self.get_key_timesteps(load_target_poses, load_tool_poses, percentage=75, vis_ref=vis_ref)
             print(f"task: {k} | init_timestep: {init_timestep} | ref_timestep: {ref_timestep} | end_timestep: {end_timestep}")
-            # visualize the height curve of the object and tool
-            if vis_ref:
-                fig = plt.figure(figsize=(14, 7))
-                ax1 = fig.add_subplot(121)
-                ax1.plot(np.arange(len(object_heights)), object_heights, label='Object')
-                ax1.scatter(ref_timestep, object_heights[ref_timestep], color='red', s=50)
-                ax2 = fig.add_subplot(122)
-                ax2.plot(np.arange(len(tool_heights)), tool_heights, label='Tool')
-                ax2.scatter(ref_timestep, tool_heights[ref_timestep], color='red', s=50)
-                plt.show()
 
             # return all data
             total_data = dict(
@@ -338,6 +274,140 @@ class TACODataset:
         with open(os.path.join(save_dir,f"{triplet}.json"), "w") as f:
             json.dump(total_dataset, f, indent=4)
         return total_dataset
+
+    def make_mano_dataset(self, triplet="(empty, bowl, bowl)", save_dir="taco_dataset/task_data", num_finger=4):
+        total_dataset = []
+        seqname_list = sorted(os.listdir(join(self.dataset_root, "Object_Poses", triplet)))
+        for k, sequence_name in enumerate(seqname_list):
+            object_pose_dir = join(self.dataset_root, "Object_Poses", triplet, sequence_name)
+            hand_pose_dir = join(self.dataset_root, "Hand_Poses", triplet, sequence_name)
+            for file_name in os.listdir(object_pose_dir):
+                if file_name.startswith("tool_"):
+                    tool_name = file_name.split(".")[0].split("_")[-1]
+                elif file_name.startswith("target_"):
+                    target_name = file_name.split(".")[0].split("_")[-1]
+            print(f"tool: {tool_name}, target: {target_name}")
+            
+            # get object trajectory
+            object_Tposes = np.load(join(object_pose_dir, "target_" + target_name + ".npy"))
+            object_pos = object_Tposes[:, :3, 3]
+            object_quat = R.from_matrix(object_Tposes[:, :3, :3]).as_quat()
+            tool_Tposes = np.load(join(object_pose_dir, "tool_" + tool_name + ".npy"))
+            tool_pos = tool_Tposes[:, :3, 3]
+            tool_quat = R.from_matrix(tool_Tposes[:, :3, :3]).as_quat()
+            
+            # get hand key points (N,21,3)
+            if num_finger == 4:
+                fingertip_idx = [4, 8, 12, 16]
+            elif num_finger == 5:
+                fingertip_idx = [4, 8, 12, 16, 20]
+            left_hand_vertices, all_left_joint_pos, all_left_theta, all_left_trans = self.mano_params_to_hand_info(join(hand_pose_dir, "left_hand.pkl"), mano_beta=pickle.load(open(join(hand_pose_dir, "left_hand_shape.pkl"), "rb"))["hand_shape"].reshape(10).detach().cpu().numpy(), side="left", max_cnt=None, return_pose=True, return_faces=False,)
+            left_palm_pos = all_left_trans
+            left_palm_quat = R.from_rotvec(all_left_theta[:,0:3]).as_quat()
+            left_fingertip_pos = all_left_joint_pos[:,fingertip_idx]  # (N, 4, 3)
+
+            right_hand_vertices, all_right_joint_pos, all_right_theta, all_right_trans = self.mano_params_to_hand_info(join(hand_pose_dir, "right_hand.pkl"), mano_beta=pickle.load(open(join(hand_pose_dir, "right_hand_shape.pkl"), "rb"))["hand_shape"].reshape(10).detach().cpu().numpy(), side="right", max_cnt=None, return_pose=True, return_faces=False,)
+            right_palm_pos = all_right_trans
+            right_palm_quat = R.from_rotvec(all_right_theta[:,0:3]).as_quat()
+            right_fingertip_pos = all_right_joint_pos[:,fingertip_idx]  # (N, 4, 3)
+            # visualize the hand key points
+            # visualizer = Visualizer3D()
+            # for l in range(1,num_finger):
+            #     visualizer.visualize_point_clouds(left_fingertip_pos[0,:l])
+            #     visualizer.visualize_point_clouds(right_fingertip_pos[0,:l])
+            #     visualizer.draw(True)
+
+            # get key timesteps
+            init_timestep, ref_timestep, end_timestep = self.get_key_timesteps(object_Tposes, tool_Tposes, percentage=75)
+            print(f"task: {k} | init_timestep: {init_timestep} | ref_timestep: {ref_timestep} | end_timestep: {end_timestep}")
+
+            # return all data
+            total_data = dict(
+                save_name=os.path.join(save_dir, f'{triplet}-{sequence_name}.json'),
+                key_steps=dict(init=init_timestep, ref=ref_timestep, end=end_timestep),
+                left=dict(
+                    palm=dict(pos=left_palm_pos.tolist(), quat=left_palm_quat.tolist()),
+                    fingertip=dict(pos=left_fingertip_pos.tolist()), 
+                    object=dict(id=target_name, pos=object_pos.tolist(), quat=object_quat.tolist()),
+                ),
+                right=dict(
+                    palm=dict(pos=right_palm_pos.tolist(), quat=right_palm_quat.tolist()),
+                    fingertip=dict(pos=right_fingertip_pos.tolist()), 
+                    tool=dict(id=tool_name, pos=tool_pos.tolist(), quat=tool_quat.tolist()),
+                ),
+            )
+            total_dataset.append(total_data)
+
+        with open(os.path.join(save_dir, f"{triplet}.json"), "w") as f:
+            json.dump(total_dataset, f, indent=4)
+        return total_dataset
+
+    def get_key_timesteps(self, object_poses, tool_poses, percentage=75, vis_ref=False):
+        def visualize_ax(ax, trajectory, label, color, highlight=-1):
+            ax.plot(*trajectory.T, label=label, color=color)
+            ax.scatter(*trajectory[:5].T, color='green', s=50)
+            ax.scatter(*trajectory[-5:].T, color='black', s=50)
+            if highlight >=0 and highlight < len(trajectory):
+                ax.scatter(*trajectory[highlight:highlight+2], color='cyan', s=50)
+            ax.set_title(label)
+            ax.set_xlabel('X')
+            ax.set_ylabel('Y')
+            ax.set_zlabel('Z')
+            ax.legend()
+
+        def visualize_smoothed_trajectory(trajectory, smoothed_trajectory):
+            # Plot the original and smoothed trajectories in 3D
+            fig = plt.figure(figsize=(14, 7))
+
+            ax1 = fig.add_subplot(121, projection='3d')
+            visualize_ax(ax1, trajectory, 'Original', 'b')
+            ax2 = fig.add_subplot(122, projection='3d')
+            visualize_ax(ax2, smoothed_trajectory, 'Smoothed', 'r')
+            plt.show()
+        
+        smoothed_object_pos = self.low_pass_filter(object_poses[:, :3, 3])
+        smoothed_tool_pos = self.low_pass_filter(tool_poses[:, :3, 3])
+        # visualize_smoothed_trajectory(load_target_poses[:, :3, 3], smoothed_object_pos)
+        # visualize_smoothed_trajectory(load_tool_poses[:, :3, 3], smoothed_tool_pos)
+        # visualize_smoothed_trajectory(all_left_trans, smoothed_left_pos)
+        # visualize_smoothed_trajectory(all_right_trans, smoothed_right_pos)
+
+        # get key timesteps
+        init_timestep = 1  # int(len(load_tool_poses)*0.1)
+        end_timestep = int(len(tool_poses)*0.8)   
+
+        object_heights = smoothed_object_pos[:, 2]
+        tool_heights = smoothed_tool_pos[:, 2]
+        percentage = 75
+        ref_object_height = np.percentile(object_heights[object_heights>object_heights[init_timestep]], percentage)
+        ref_tool_height = np.percentile(object_heights[tool_heights>tool_heights[init_timestep]], percentage)
+        # find the first False
+        try:
+            ref_object_timestep = np.where((object_heights<ref_object_height)==False)[0][0]
+            ref_tool_timestep = np.where((tool_heights<ref_tool_height)==False)[0][0]
+            ref_timestep = int(max(ref_object_timestep, ref_tool_timestep))
+        except:
+            ref_timestep = init_timestep + int(0.2 * end_timestep)
+        # visualize the height curve of the object and tool
+        if vis_ref:
+            fig = plt.figure(figsize=(14, 7))
+            ax1 = fig.add_subplot(121)
+            ax1.plot(np.arange(len(object_heights)), object_heights, label='Object')
+            ax1.scatter(ref_timestep, object_heights[ref_timestep], color='red', s=50)
+            ax2 = fig.add_subplot(122)
+            ax2.plot(np.arange(len(tool_heights)), tool_heights, label='Tool')
+            ax2.scatter(ref_timestep, tool_heights[ref_timestep], color='red', s=50)
+            plt.show()
+        
+        return init_timestep, ref_timestep, end_timestep
+
+    @staticmethod    
+    def low_pass_filter(data, cutoff=2.0, fs=20, order=5):  # smooth trajectory
+        nyquist = 0.5 * fs
+        normal_cutoff = cutoff / nyquist
+        b, a = butter(order, normal_cutoff, btype='low', analog=False)
+        y = filtfilt(b, a, data, axis=0)
+        return y
 
     def mano_params_to_hand_info(self, hand_pose_path, mano_beta=None, side="right", max_cnt=None, return_pose=False, return_faces=False, device="cuda:0"):
         """
@@ -798,6 +868,8 @@ if __name__ == "__main__":
         taco_dataset.visualize_robot_and_mano(args.triplet,'right')
     if args.mode == "make_dataset":
         sampled_taco_dataset = taco_dataset.make_dataset(args.triplet)
+    elif args.mode == "make_mano_dataset":
+        sampled_taco_mano_dataset = taco_dataset.make_mano_dataset(args.triplet)
     elif args.mode == "make_task":
         sampled_taco_task_data = taco_dataset.make_task(args.triplet, is_visualize=False)
     

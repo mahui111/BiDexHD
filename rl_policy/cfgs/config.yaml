@@ -69,9 +69,9 @@ task_id: 1
 # orders: ['dofps', 'dofvel', 'ftps', 'ftstate', 'lastact', 'objpose', 'objstate', 'palmps', 'palmpose', 'palmstate', 'relps']
 # observationType: 'dofps+dofvel+ftstate+lastact+objstate+palmstate+relps'  # 'full'
 # observationType: 'dofps+ftps+lastact+objpose+palmpose'  # minimal  
-# observationType: 'dofps+dofvel+ftps+lastact+objstate+palmpose+relps'  # 'full_no_vel'
+observationType: 'dofps+dofvel+ftps+lastact+objstate+palmpose+relps'  # 'full_no_vel'
 # observationType: 'dofps+ftps+lastact+palmps+pointcloud'  # 'visual'
-observationType: "dofps+ftps+lastact+palmpose"     # 'noobj'
+# observationType: "dofps+ftps+lastact+objpose"     # 'pcd'
 isStage1HOReward: 0
 isStage1LinReward: 0
 isStage2PosRewExp: 1
