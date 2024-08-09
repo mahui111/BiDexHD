@@ -1,5 +1,5 @@
 # used to create the object
-name: BiLeapHandGraspV2
+name: BiLeapHandGraspPCD
 mode: ${mode}
 physics_engine: ${..physics_engine}
 
@@ -61,10 +61,10 @@ env:
   enableCameraSensors: False
   cameraPosition: [0.0, -2.0, 1.0]
   cameraTarget: [0.0, 0.0, 0.5]
-  imageWidth: 128
-  imageHeight: 128
-  imageSaveDir: "/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/taco_dataset/sampled_data"
-
+  vision:
+    pointclouds:
+      numDownsample: 1024
+      numEachPoint: 3
 task:
   task_id: ${...task_id}
   frequency: 2

@@ -3,7 +3,7 @@
 task_name: ${task.name}
 # experiment name. defaults to name of training config
 experiment: ''
-algo: 'ppo'
+algo: 'ippo'
 # if set to positive integer, overrides the default number of environments
 num_envs: 8192
 
@@ -69,15 +69,16 @@ task_id: 1
 # orders: ['dofps', 'dofvel', 'ftps', 'ftstate', 'lastact', 'objpose', 'objstate', 'palmps', 'palmpose', 'palmstate', 'relps']
 # observationType: 'dofps+dofvel+ftstate+lastact+objstate+palmstate+relps'  # 'full'
 # observationType: 'dofps+ftps+lastact+objpose+palmpose'  # minimal  
-observationType: 'dofps+dofvel+ftps+lastact+objstate+palmpose+relps'  # 'full_no_vel'
-# observationType: 'dofps+ftps+lastact+palmps+pointcloud'  # 'visual'
-# observationType: "dofps+ftps+lastact+objpose"     # 'pcd'
+# observationType: 'dofps+dofvel+ftps+lastact+objstate+palmpose+relps'  # 'full_no_vel'
+# observationType: 'dofps+ftps+lastact+palmps+camerapc'  # 'camera'
+# observationType: "dofps+ftps+lastact+palmps+meshpc"     # 'pcd'
+observationType: 'dofps+dofvel+ftps+lastact+objstate+palmpose+relps+meshpc'  # 'dagger'
 isStage1HOReward: 0
 isStage1LinReward: 0
 isStage2PosRewExp: 1
 
 # vision
-numDownsample: 1024
-numEachPoint: 6
+numDownsample: 512
+numEachPoint: 3
 
 

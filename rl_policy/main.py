@@ -32,20 +32,32 @@ def build_runner(cfg, env):
         log_dir = None
 
     if train_param.name == "ppo":
-        trainer_class = ppo.PPO
+        runner = ppo.PPO(
+            vec_env=env,
+            train_param=train_param,
+            log_dir=log_dir,
+            apply_reset=False,
+            is_vision='Point' in train_param['policy']['backbone_type'],
+        )
     elif train_param.name == "ippo":
-        trainer_class = ppo.IPPO
+        runner = ppo.IPPO(
+            vec_env=env,
+            train_param=train_param,
+            log_dir=log_dir,
+            apply_reset=False,
+            is_vision='Point' in train_param['policy']['backbone_type'],
+        )
+    elif train_param.name == "dagger":
+        from algo import dagger
+        runner = dagger.Dagger(
+            vec_env=env,
+            train_param=train_param,
+            expert_class=ppo.IPPO,
+            log_dir=log_dir,
+        )
     else:
         raise ValueError("Unrecognized algorithm!")
-    print(f"Using {trainer_class.__name__} for training")
-    runner = trainer_class(
-        vec_env=env,
-        actor_critic_class=ppo.ActorCritic,
-        train_param=train_param,
-        log_dir=log_dir,
-        apply_reset=False,
-        is_vision='Point' in train_param['policy']['backbone_type'],
-    )
+    
 
     if is_testing and ckpt_path != "":
         print(f"Loading model from {ckpt_path}")

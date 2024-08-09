@@ -7,12 +7,13 @@ params:
     numEachPoint: ${numEachPoint}
     pcEmbDim: 128
     useSeg: False
-    freeze_backbone: False  # useless now
+    freeze_backbone: False
     pi_hid_sizes: [1024, 1024, 512, 512]
     vf_hid_sizes: [1024, 1024, 512, 512]
     activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
 
   test: ${...test}
+  checkpoint: ${...checkpoint}
   resume: 0
   # check for potential saves every this many iterations
   save_interval: 500
@@ -34,4 +35,21 @@ params:
   gamma: 0.96
   lam: 0.95
   init_noise_std: 0.8
+
+  log_interval: 1
+  asymmetric: False
+
+  value_loss:
+    apply: True
+    use_clipped_value_loss: True
+    value_loss_coef: 0.1
+    clip_range: 0.2
+
+  expert: [
+    {
+      name: '0',
+      path: '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(pour in some, teapot, cup)/task1/reinplement/model_2800.pt',
+    },
+  ]
+  expertObservationType: "dofps+dofvel+ftps+lastact+objstate+palmpose+relps"
   

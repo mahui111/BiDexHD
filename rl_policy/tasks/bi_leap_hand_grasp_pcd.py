@@ -1,4 +1,4 @@
-import os, json
+import os, json, sys
 import random
 import pickle
 import cv2
@@ -18,6 +18,8 @@ from isaacgym import gymapi
 from isaacgymenvs.utils.torch_jit_utils import *
 from isaacgymenvs.tasks.base.vec_task import VecTask
 
+sys.path.append('../')
+from taco_dataset import Visualizer3D
 
 @torch.jit.script
 def standardize_quaternion(quaternions: torch.Tensor) -> torch.Tensor:
@@ -240,12 +242,12 @@ def transformation_inverse(quat: torch.Tensor, pos: torch.Tensor):
     return quat, -quat_apply(quat, pos)
 
 @torch.jit.script
-def transformation_apply(quat: torch.Tensor, pos: torch.Tensor, vec: torch.Tensor) -> torch.Tensor:
+def transformation_apply(pos: torch.Tensor, quat: torch.Tensor, vec: torch.Tensor) -> torch.Tensor:
     """Apply a transformation to a vector.
 
     Args:
-        quat: Quaternion of the transformation.
         pos: Position of the transformation.
+        quat: Quaternion of the transformation.
         vec: Vector to transform.
 
     Returns:
@@ -957,83 +959,94 @@ def read_pointcloud_from_urdf(urdf_file, num_sample=1024):
     return all_points
 
 
-def get_pointcloud_from_src(asset_dir, device):
-    object_pc = read_pointcloud_from_urdf(os.path.join(asset_dir, "object.urdf"))
-    tool_pc = read_pointcloud_from_urdf(os.path.join(asset_dir, "tool.urdf"))
-    return torch.tensor(object_pc, dtype=torch.float32).to(device), torch.tensor(tool_pc, dtype=torch.float32).to(device)
+def get_pointcloud_from_src(asset_dir, device, num_sample=1024):
+    object_pc = read_pointcloud_from_urdf(os.path.join(asset_dir, "object.urdf"), num_sample)
+    tool_pc = read_pointcloud_from_urdf(os.path.join(asset_dir, "tool.urdf"), num_sample)
+    return torch.tensor(object_pc, dtype=torch.float32).to(device).unsqueeze(0), torch.tensor(tool_pc, dtype=torch.float32).to(device).unsqueeze(0)
+
 
 class BiLeapHandGraspPCD(VecTask):
-    def get_obs_idx_num(self,):
+    def get_obs_idx_num(self,obs_type=''):
+        if obs_type == '':
+            obs_type = self.obs_type
         cnt = 0
         lidx, ridx = [], []
 
-        if 'dofps' in self.obs_type:  # dof pos, 44 
+        if 'dofps' in obs_type:  # dof pos, 44 
             num_robot_dofs = 44
             lidx.extend(list(range(cnt, cnt + num_robot_dofs//2)))
             ridx.extend(list(range(cnt + num_robot_dofs//2, cnt + num_robot_dofs)))
             cnt += num_robot_dofs
 
-        if 'dofvel' in self.obs_type:  # dof vel, 44
+        if 'dofvel' in obs_type:  # dof vel, 44
             num_robot_dofs = 44
             lidx.extend(list(range(cnt, cnt + num_robot_dofs//2)))
             ridx.extend(list(range(cnt + num_robot_dofs//2, cnt + num_robot_dofs)))
             cnt += num_robot_dofs
 
-        if 'ftps' in self.obs_type:  # fingertip pos, 3 * 4 * 2
+        if 'ftps' in obs_type:  # fingertip pos, 3 * 4 * 2
             num_ft_states = 4 * 3
             lidx.extend(list(range(cnt, cnt + num_ft_states)))
             ridx.extend(list(range(cnt + num_ft_states, cnt + 2 * num_ft_states)))
             cnt += 2 * num_ft_states
 
-        if 'ftstate' in self.obs_type:  # fingertip state, 13 * 4 * 2
+        if 'ftstate' in obs_type:  # fingertip state, 13 * 4 * 2
             num_ft_states = 4 * 13
             lidx.extend(list(range(cnt, cnt + num_ft_states)))
             ridx.extend(list(range(cnt + num_ft_states, cnt + 2 * num_ft_states)))
             cnt += 2 * num_ft_states
 
-        if 'lastact' in self.obs_type:  # last action, 44
+        if 'lastact' in obs_type:  # last action, 44
             num_actions = 44
             lidx.extend(list(range(cnt, cnt + num_actions//2)))
             ridx.extend(list(range(cnt + num_actions//2, cnt + num_actions)))
             cnt += num_actions
 
-        if 'objpose' in self.obs_type:  # object pose, 7 * 2
+        if 'objpose' in obs_type:  # object pose, 7 * 2
             obj_dim = 7
             lidx.extend(list(range(cnt, cnt + obj_dim)))
             ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
             cnt += 2 * obj_dim
 
-        if 'objstate' in self.obs_type:  # object state, pose, linvel, angvel. 13 * 2
+        if 'objstate' in obs_type:  # object state, pose, linvel, angvel. 13 * 2
             obj_dim = 13
             lidx.extend(list(range(cnt, cnt + obj_dim)))
             ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
             cnt += 2 * obj_dim
         
-        if 'palmps' in self.obs_type:  # palm pos, 3 * 2
+        if 'palmps' in obs_type:  # palm pos, 3 * 2
             obj_dim = 3
             lidx.extend(list(range(cnt, cnt + obj_dim)))
             ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
             cnt += 2 * obj_dim
 
-        if 'palmpose' in self.obs_type:  # palm pose, 7 * 2
+        if 'palmpose' in obs_type:  # palm pose, 7 * 2
             obj_dim = 7
             lidx.extend(list(range(cnt, cnt + obj_dim)))
             ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
             cnt += 2 * obj_dim
 
-        if 'palmstate' in self.obs_type: # palm state, 13 * 2
+        if 'palmstate' in obs_type: # palm state, 13 * 2
             obj_dim = 13
             lidx.extend(list(range(cnt, cnt + obj_dim)))
             ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
             cnt += 2 * obj_dim
 
-        if 'relps' in self.obs_type:  # relative pos to object center, 15 * 2
+        if 'relps' in obs_type:  # relative pos to object center, 15 * 2
             relpos_dim = 3 * (4 + 1)
             lidx.extend(list(range(cnt, cnt + relpos_dim)))
             ridx.extend(list(range(cnt + relpos_dim, cnt + 2 * relpos_dim)))
             cnt += 2 * relpos_dim
 
-        return lidx, ridx, len(lidx) + len(ridx)
+        if 'meshpc' in obs_type:  # point cloud from object mesh
+            self.num_pc_downsample = self.cfg['env']['vision']['pointclouds']['numDownsample']
+            self.num_each_pt = self.cfg['env']['vision']['pointclouds']['numEachPoint']
+            self.num_pc_flatten = self.num_pc_downsample * self.num_each_pt
+            lidx.extend(list(range(cnt, cnt + self.num_pc_flatten)))
+            ridx.extend(list(range(cnt + self.num_pc_flatten, cnt + 2 * self.num_pc_flatten)))
+            cnt += 2 * self.num_pc_flatten
+        breakpoint()
+        return lidx, ridx, cnt
 
     def __init__(
         self,
@@ -1395,13 +1408,13 @@ class BiLeapHandGraspPCD(VecTask):
             # side_panel_actor = self.gym.create_actor(env_ptr, side_panel_asset, side_panel_start_pose, "side_panel", i, -1, 0)
 
             # add camera
-            if self.cfg['env']['enableCameraSensors']:
-                camera_props = gymapi.CameraProperties()
-                camera_props.width = self.cfg['env']['imageWidth']
-                camera_props.height = self.cfg['env']['imageHeight']
-                camera_ptr = self.gym.create_camera_sensor(env_ptr, camera_props)
-                self.gym.set_camera_location(camera_ptr, env_ptr, gymapi.Vec3(*self.cfg['env']['cameraPosition']), gymapi.Vec3(*self.cfg['env']['cameraTarget']))
-                self.cameras.append(camera_ptr)
+            # if self.cfg['env']['enableCameraSensors']:
+            #     camera_props = gymapi.CameraProperties()
+            #     camera_props.width = self.cfg['env']['imageWidth']
+            #     camera_props.height = self.cfg['env']['imageHeight']
+            #     camera_ptr = self.gym.create_camera_sensor(env_ptr, camera_props)
+            #     self.gym.set_camera_location(camera_ptr, env_ptr, gymapi.Vec3(*self.cfg['env']['cameraPosition']), gymapi.Vec3(*self.cfg['env']['cameraTarget']))
+            #     self.cameras.append(camera_ptr)
 
             # enable DOF force sensors, if needed
             if self.obs_type == "full_state" or self.asymmetric_obs:
@@ -1625,6 +1638,8 @@ class BiLeapHandGraspPCD(VecTask):
         self._create_urdf(self.sampled_taco_task_data['right']['tool']['id'], self.sampled_taco_task_data['left']['object']['id'], object_mesh_path)
         object_asset = self._prepare_object_asset(object_mesh_path, 'object.urdf', vhacd_enabled)
         tool_asset = self._prepare_object_asset(object_mesh_path, 'tool.urdf', vhacd_enabled)
+        # sample object pointcloud from mesh
+        self.object_meshpc, self.tool_meshpc = get_pointcloud_from_src(object_mesh_path, self.device, self.num_pc_downsample)
         return object_asset, tool_asset
 
     def _prepare_table_asset(self):
@@ -1822,7 +1837,7 @@ class BiLeapHandGraspPCD(VecTask):
 
         self.timestep[:] += 1
 
-        return self.compute_full_observations()
+        self.compute_full_observations()
 
     def compute_full_observations(self):
         cnt = 0
@@ -1897,10 +1912,16 @@ class BiLeapHandGraspPCD(VecTask):
             self.obs_buf[:, cnt + 18 : cnt + 30] = (self.tool_pos.unsqueeze(1) - self.right_fingertip_pos).reshape(-1,12)
             cnt += 30
 
+        if 'meshpc' in self.obs_type:  # mesh point cloud, 1024 * 2
+            # visualizer = Visualizer3D()
+            # visualizer.visualize_point_clouds(self.object_meshpc[0].detach().cpu().numpy())
+            # visualizer.visualize_point_clouds(self.tool_meshpc[0].detach().cpu().numpy())
+            # visualizer.draw(True)
+            self.obs_buf[:, cnt : cnt + self.num_pc_flatten] = transformation_apply(self.object_pos[:,None,:], self.object_rot[:,None,:], self.object_meshpc).view(-1, self.num_pc_flatten)
+            self.obs_buf[:, cnt + self.num_pc_flatten : cnt + 2 * self.num_pc_flatten] = transformation_apply(self.tool_pos[:,None,:], self.tool_rot[:,None,:], self.tool_meshpc).view(-1, self.num_pc_flatten)
+            cnt += 2 * self.num_pc_flatten
         # assert dim
         assert cnt == self.obs_buf.shape[1]
-
-        return self.obs_buf
 
     def calculate_ik(self, target_left_pose, target_right_pose):
         '''

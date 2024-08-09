@@ -1140,7 +1140,7 @@ class BiLeapHandGraspVision(VecTask):
             cnt += 2 * relpos_dim
 
         num_obs = len(lidx) + len(ridx)
-        if 'pointcloud' in self.obs_type:
+        if 'camerapc' in self.obs_type:
             self.num_pc_downsample = self.cfg['env']['vision']['pointclouds']['numDownsample']  # mask  (1024*4,)
             self.num_each_pt = self.cfg['env']['vision']['pointclouds']['numEachPoint']
             self.num_pc_flatten = self.num_pc_downsample * self.num_each_pt                     # pointcloud storage (1024,6)
@@ -1158,7 +1158,6 @@ class BiLeapHandGraspVision(VecTask):
             ridx.extend(list(range(cnt, cnt + self.num_pc_flatten)))
             cnt += self.num_pc_flatten
             num_obs += self.num_pc_flatten
-            
         
         return lidx, ridx, num_obs
 
@@ -2227,7 +2226,7 @@ class BiLeapHandGraspVision(VecTask):
             self.obs_buf[:, cnt + 18 : cnt + 30] = (self.tool_pos.unsqueeze(1) - self.right_fingertip_pos).reshape(-1,12)
             cnt += 30
 
-        if 'pointcloud' in self.obs_type:
+        if 'camerapc' in self.obs_type:
             points_fps, others = self._collect_pointclouds()
             self.obs_buf[:, cnt: cnt + self.num_pc_flatten].copy_(points_fps.reshape(self.num_envs, self.num_pc_flatten)) 
             cnt += self.num_pc_flatten

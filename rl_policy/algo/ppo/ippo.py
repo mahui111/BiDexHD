@@ -1,34 +1,24 @@
-from datetime import datetime
 import os
-import os.path as osp
-from pickle import FALSE
 import time
-from turtle import done
-
-from matplotlib.patches import FancyArrow
-
 from gym.spaces import Space
-
 import numpy as np
 import statistics
-import copy
 from collections import deque
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
-from .storage import RolloutStorage
+from ..common import RolloutStorage, ActorCritic
 
 
 class IPPOAgent(nn.Module):
     def __init__(
         self,
         vec_env,
-        actor_critic_class,
         train_param,
         is_vision=False,
+        obs_type="",
     ):
         super(IPPOAgent, self).__init__()
         # PPO parameters
@@ -45,7 +35,6 @@ class IPPOAgent(nn.Module):
         self.use_clipped_value_loss = train_param.get("use_clipped_value_loss", False)
         self.init_noise_std = train_param.get("init_noise_std", 0.3)
 
-        self.model_cfg = train_param.policy
         self.sampler = train_param.get("sampler", "sequential")
         self.is_vision = is_vision
 
@@ -62,15 +51,16 @@ class IPPOAgent(nn.Module):
 
         # PPO components
         self.vec_env = vec_env
-        self.single_observation_space_shape = (self.observation_space.shape[0]//2,) if not is_vision else ((self.observation_space.shape[0]+train_param['policy']['numDownsample'] * train_param['policy']['numEachPoint'])//2,)
+        single_observation_space_dim = self.observation_space.shape[0]//2 if not obs_type else vec_env.get_obs_idx_num(obs_type)[-1]//2 # (self.observation_space.shape[0]+train_param['policy']['numDownsample'] * train_param['policy']['numEachPoint'])//2
+        self.single_observation_space_shape = (single_observation_space_dim,)
         self.single_action_space_shape = (self.action_space.shape[0]//2,)
 
-        self.actor_critic = actor_critic_class(
+        self.actor_critic = ActorCritic(
             self.single_observation_space_shape,
             self.state_space.shape,
             self.single_action_space_shape,
             self.init_noise_std,
-            self.model_cfg,
+            train_param.policy,
             asymmetric=self.asymmetric,
             use_pc=self.is_vision,
         )
@@ -167,11 +157,12 @@ class IPPO(nn.Module):
     def __init__(
         self,
         vec_env,
-        actor_critic_class,
         train_param,
         log_dir="run",
         apply_reset=False,
         is_vision=False,
+        obs_type="",
+        **kwargs
     ):
         super(IPPO, self).__init__()
         # environment parameters
@@ -186,21 +177,17 @@ class IPPO(nn.Module):
         # agent
         self.left_agent = IPPOAgent(
             vec_env,
-            actor_critic_class,
             train_param,
             is_vision,
+            obs_type,
         )
         self.right_agent = IPPOAgent(
             vec_env,
-            actor_critic_class,
             train_param,
             is_vision,
+            obs_type,
         )
-        # self.left_obs_indices = list(range(0,22))+list(range(44,66))+list(range(88,100))+list(range(112,134))+list(range(156, 169)) + list(range(182,189)) + list(range(196,211))
-        # self.right_obs_indices = list(range(22,44))+list(range(66,88))+list(range(100,112))+list(range(134,156))+list(range(169,182)) + list(range(189,196)) + list(range(211,226))
-        self.left_obs_indices, self.right_obs_indices = vec_env.get_obs_idx_num()[:-1]
-        assert self.left_agent.single_observation_space_shape[0] == len(self.left_obs_indices)
-        assert self.right_agent.single_observation_space_shape[0] == len(self.right_obs_indices)
+        self.left_obs_indices, self.right_obs_indices = vec_env.get_obs_idx_num(obs_type,)[:-1]
 
         # training params
         self.tot_timesteps = 0
@@ -215,7 +202,7 @@ class IPPO(nn.Module):
         
         # Log
         self.log_dir = log_dir
-        if not self.is_testing:
+        if not self.is_testing and not obs_type:
             self.writer = SummaryWriter(log_dir=self.log_dir, flush_secs=10)
 
     def test(self, path):
@@ -267,9 +254,9 @@ class IPPO(nn.Module):
                     # Compute the action
                     left_actions = self.left_agent.actor_critic.act_inference(current_obs[:, self.left_obs_indices])
                     right_actions = self.right_agent.actor_critic.act_inference(current_obs[:, self.right_obs_indices])
-                    left_actions = torch.cat((left_actions, right_actions), dim=1)
+                    actions = torch.cat((left_actions, right_actions), dim=1)
                     # Step the vec_environment
-                    next_obs_dict, rews, dones, infos = self.vec_env.step(left_actions)
+                    next_obs_dict, rews, dones, infos = self.vec_env.step(actions)
                     next_obs = next_obs_dict["obs"]
                     current_obs.copy_(next_obs)
                 if i == self.vec_env.max_episode_length - 2:

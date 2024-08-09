@@ -1802,7 +1802,7 @@ class BiLeapHandGraspV2(VecTask):
 
         self.timestep[:] += 1
 
-        return self.compute_full_observations()
+        self.compute_full_observations()
 
     def compute_full_observations(self):
         cnt = 0
@@ -1879,8 +1879,6 @@ class BiLeapHandGraspV2(VecTask):
 
         # assert dim
         assert cnt == self.obs_buf.shape[1]
-
-        return self.obs_buf
 
     def calculate_ik(self, target_left_pose, target_right_pose):
         '''

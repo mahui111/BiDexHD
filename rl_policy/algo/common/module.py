@@ -18,10 +18,7 @@ class PointNetBackbone(nn.Module):
         super().__init__()
         self.pc_dim = pc_dim
         self.feature_dim = feature_dim
-        self.backbone = getPointNet(
-            {"input_feature_dim": self.pc_dim, "feat_dim": self.feature_dim}
-        )
-
+        self.backbone = getPointNet({"input_feature_dim": self.pc_dim, "feat_dim": self.feature_dim})
         if pretrained_model_path is not None:
             print("Loading pretrained model from:", pretrained_model_path)
             state_dict = torch.load(pretrained_model_path, map_location="cpu")["state_dict"]
@@ -32,9 +29,10 @@ class PointNetBackbone(nn.Module):
                 print("unexpected_keys:", unexpected_keys)
 
     def forward(self, input_obs):
-        pc_with_mask = torch.cat([input_obs['pc'], input_obs['mask']], dim=-1)
-        return self.backbone(pc_with_mask)
-
+        if 'mask' in input_obs:
+            return self.backbone(torch.cat([input_obs['pc'], input_obs['mask']], dim=-1))
+        else:
+            return self.backbone(input_obs['pc'])
 
 class TransPointNetBackbone(nn.Module):
     def __init__(
@@ -92,15 +90,16 @@ class ActorCritic(nn.Module):
 
         self.num_obs = obs_shape[0]
         if self.use_pc:
+            self.use_seg = int(model_cfg["useSeg"])
             self.num_downsample = model_cfg["numDownsample"]
             self.pc_emb_dim = model_cfg["pcEmbDim"]
             self.each_point_dim = model_cfg["numEachPoint"]
-            self.num_pc = self.num_downsample * self.each_point_dim
-            self.num_robot_state = self.num_obs - self.num_pc - self.num_downsample * 2
+            self.num_pc_flatten = self.num_downsample * self.each_point_dim
+            self.num_robot_state = self.num_obs - self.num_pc_flatten - self.num_downsample * 2 * self.use_seg
             self.num_obs = self.num_robot_state + self.pc_emb_dim
             if self.backbone_type == "PointNetBackbone":
                 self.backbone = PointNetBackbone(
-                    pc_dim=self.each_point_dim + 2,
+                    pc_dim=self.each_point_dim + 2 * self.use_seg,
                     feature_dim=self.pc_emb_dim,
                 )
             elif self.backbone_type == "TransPointNetBackbone":
@@ -108,6 +107,7 @@ class ActorCritic(nn.Module):
                     pc_dim=self.each_point_dim,
                     feature_dim=self.pc_emb_dim,
                     state_dim=self.num_robot_state,
+                    use_seg=self.use_seg,
                 )
             else:
                 raise ValueError(f"Invalid backbone type: {self.backbone_type}")
@@ -167,16 +167,18 @@ class ActorCritic(nn.Module):
     
     def get_pc_observation(self, observations):
         robot_state = observations[:, :self.num_robot_state]
-        pc = observations[:, -self.num_pc:].reshape(-1, 1024, self.each_point_dim)
-        mask = observations[:, self.num_robot_state: self.num_robot_state + 2 * self.num_downsample].reshape(-1, 1024, 2)
-        input_data = dict(pc=pc, mask=mask)
+        pc = observations[:, -self.num_pc_flatten:].reshape(-1, self.num_downsample, self.each_point_dim)
+        input_data = dict(pc=pc)
+        if self.use_seg:
+            mask = observations[:, self.num_robot_state: self.num_robot_state + 2 * self.num_downsample].reshape(-1, self.num_downsample, 2)
+            input_data.update(dict(mask=mask,))
         if self.backbone_type == "TransPointNetBackbone":
             input_data.update(dict(state=robot_state,))
         pc_feature = self.backbone(input_data).reshape(-1, self.pc_emb_dim)
         observations = torch.cat([robot_state, pc_feature], dim=1)
         return observations
 
-    def act(self, observations, states):
+    def act(self, observations, states=None, grad=False):
         if self.use_pc:
             observations = self.get_pc_observation(observations)
         
@@ -188,11 +190,14 @@ class ActorCritic(nn.Module):
         actions_log_prob = distribution.log_prob(actions)
         value = self.critic(states) if self.asymmetric else self.critic(observations)
 
+        if not grad:
+            actions_mean = actions_mean.detach()
+
         return (
             actions.detach(),
             actions_log_prob.detach(),
             value.detach(),
-            actions_mean.detach(),
+            actions_mean,
             self.log_std.repeat(actions_mean.shape[0], 1).detach(),
         )
 
@@ -203,7 +208,7 @@ class ActorCritic(nn.Module):
         return actions_mean.detach()
 
     def evaluate(self, observations, states, actions):
-        if self.use_pc and not self.freeze_backbone:
+        if self.use_pc:
             observations = self.get_pc_observation(observations)
         actions_mean = self.actor(observations)
 

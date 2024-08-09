@@ -680,7 +680,6 @@ class BiLeapHandGraspV0(VecTask):
         self.obs_buf[:, cnt + 15: cnt + 18] = self.tool_pos - self.right_palm_pos
         self.obs_buf[:, cnt + 18 : cnt + 30] = (self.tool_pos.unsqueeze(1) - self.right_fingertip_pos).reshape(-1,12)
 
-        return self.obs_buf
 
     def compute_full_state(self):
         if self.asymmetric_obs:
