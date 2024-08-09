@@ -15,6 +15,6 @@ task_id=$2
 
 # evaluate
 python main.py task=BiLeapHandGraspV2 train=LeapHandGraspPPO algo=ippo num_envs=1 triplet="$triplet" task_id=$task_id test=True checkpoint="'\
-/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(empty, bowl, bowl)/task0/observe2/model_8000.pt\
+/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(pour in some, teapot, cup)/task1/observe2/model_1500.pt\
 '"
 

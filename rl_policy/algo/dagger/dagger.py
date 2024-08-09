@@ -42,7 +42,6 @@ class DaggerValue(nn.Module):
         self.expert_right_obs_indices = list(range(22, 44)) + list(range(66, 88)) + list(range(100, 112)) + list(range(134, 156)) + list(range(169, 182)) + list(range(189, 196)) + list(range(211, 226))
         self.student_left_obs_indices = list(range(0, 22)) + list(range(88, 100)) + list(range(112, 134)) + list(range(182, 185)) + list(range(226, 226 + self.num_pc_flatten))
         self.student_right_obs_indices = list(range(22, 44)) + list(range(100, 112)) + list(range(134, 156)) + list(range(189, 192)) + list(range(226 + self.num_pc_flatten, 226 + self.num_pc_flatten * 2))
-        breakpoint()
         assert 226 + self.num_pc_flatten * 2 == self.observation_space.shape[0]
         assert len(self.expert_left_obs_indices) == len(self.expert_right_obs_indices) and len(self.student_left_obs_indices) == len(self.student_right_obs_indices)
         self.single_observation_space_shape = (len(self.student_left_obs_indices),)

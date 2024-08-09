@@ -63,8 +63,8 @@ env:
   cameraTarget: [0.0, 0.0, 0.5]
   vision:
     pointclouds:
-      numDownsample: 1024
-      numEachPoint: 3
+      numDownsample: ${numDownsample}
+      numEachPoint: ${numEachPoint}
 task:
   task_id: ${...task_id}
   frequency: 2

@@ -1045,7 +1045,7 @@ class BiLeapHandGraspPCD(VecTask):
             lidx.extend(list(range(cnt, cnt + self.num_pc_flatten)))
             ridx.extend(list(range(cnt + self.num_pc_flatten, cnt + 2 * self.num_pc_flatten)))
             cnt += 2 * self.num_pc_flatten
-        breakpoint()
+
         return lidx, ridx, cnt
 
     def __init__(

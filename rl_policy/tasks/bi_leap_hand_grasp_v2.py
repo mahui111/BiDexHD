@@ -943,71 +943,73 @@ def compute_bvdex_stage12_rewards(
 
 
 class BiLeapHandGraspV2(VecTask):
-    def get_obs_idx_num(self,):
+    def get_obs_idx_num(self,obs_type=''):
+        if not obs_type:
+            obs_type = self.obs_type
         cnt = 0
         lidx, ridx = [], []
 
-        if 'dofps' in self.obs_type:  # dof pos, 44 
+        if 'dofps' in obs_type:  # dof pos, 44 
             num_robot_dofs = 44
             lidx.extend(list(range(cnt, cnt + num_robot_dofs//2)))
             ridx.extend(list(range(cnt + num_robot_dofs//2, cnt + num_robot_dofs)))
             cnt += num_robot_dofs
 
-        if 'dofvel' in self.obs_type:  # dof vel, 44
+        if 'dofvel' in obs_type:  # dof vel, 44
             num_robot_dofs = 44
             lidx.extend(list(range(cnt, cnt + num_robot_dofs//2)))
             ridx.extend(list(range(cnt + num_robot_dofs//2, cnt + num_robot_dofs)))
             cnt += num_robot_dofs
 
-        if 'ftps' in self.obs_type:  # fingertip pos, 3 * 4 * 2
+        if 'ftps' in obs_type:  # fingertip pos, 3 * 4 * 2
             num_ft_states = 4 * 3
             lidx.extend(list(range(cnt, cnt + num_ft_states)))
             ridx.extend(list(range(cnt + num_ft_states, cnt + 2 * num_ft_states)))
             cnt += 2 * num_ft_states
 
-        if 'ftstate' in self.obs_type:  # fingertip state, 13 * 4 * 2
+        if 'ftstate' in obs_type:  # fingertip state, 13 * 4 * 2
             num_ft_states = 4 * 13
             lidx.extend(list(range(cnt, cnt + num_ft_states)))
             ridx.extend(list(range(cnt + num_ft_states, cnt + 2 * num_ft_states)))
             cnt += 2 * num_ft_states
 
-        if 'lastact' in self.obs_type:  # last action, 44
+        if 'lastact' in obs_type:  # last action, 44
             num_actions = 44
             lidx.extend(list(range(cnt, cnt + num_actions//2)))
             ridx.extend(list(range(cnt + num_actions//2, cnt + num_actions)))
             cnt += num_actions
 
-        if 'objpose' in self.obs_type:  # object pose, 7 * 2
+        if 'objpose' in obs_type:  # object pose, 7 * 2
             obj_dim = 7
             lidx.extend(list(range(cnt, cnt + obj_dim)))
             ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
             cnt += 2 * obj_dim
 
-        if 'objstate' in self.obs_type:  # object state, pose, linvel, angvel. 13 * 2
+        if 'objstate' in obs_type:  # object state, pose, linvel, angvel. 13 * 2
             obj_dim = 13
             lidx.extend(list(range(cnt, cnt + obj_dim)))
             ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
             cnt += 2 * obj_dim
         
-        if 'palmps' in self.obs_type:  # palm pos, 3 * 2
+        if 'palmps' in obs_type:  # palm pos, 3 * 2
             obj_dim = 3
             lidx.extend(list(range(cnt, cnt + obj_dim)))
             ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
             cnt += 2 * obj_dim
 
-        if 'palmpose' in self.obs_type:  # palm pose, 7 * 2
+        if 'palmpose' in obs_type:  # palm pose, 7 * 2
             obj_dim = 7
             lidx.extend(list(range(cnt, cnt + obj_dim)))
             ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
             cnt += 2 * obj_dim
 
-        if 'palmstate' in self.obs_type: # palm state, 13 * 2
+        if 'palmstate' in obs_type: # palm state, 13 * 2
             obj_dim = 13
             lidx.extend(list(range(cnt, cnt + obj_dim)))
             ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
             cnt += 2 * obj_dim
 
-        if 'relps' in self.obs_type:  # relative pos to object center, 15 * 2
+        if 'relps' in obs_type:  # relative pos to object center, 15 * 2
             relpos_dim = 3 * (4 + 1)
             lidx.extend(list(range(cnt, cnt + relpos_dim)))
             ridx.extend(list(range(cnt + relpos_dim, cnt + 2 * relpos_dim)))
