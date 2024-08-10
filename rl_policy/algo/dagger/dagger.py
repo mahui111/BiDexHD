@@ -35,13 +35,16 @@ class DaggerValue(nn.Module):
         self.observation_space = vec_env.observation_space
         self.action_space = vec_env.action_space
         self.state_space = vec_env.state_space
-
         # TODO: dagger obs:'dofps+dofvel+ftps+lastact+objstate+palmpose+relps+meshpc'
         self.num_pc_flatten = train_param.policy['numDownsample'] * train_param.policy['numEachPoint']
         self.expert_left_obs_indices = list(range(0, 22)) + list(range(44, 66)) + list(range(88, 100)) + list(range(112, 134)) + list(range(156, 169)) + list(range(182, 189)) + list(range(196, 211))
         self.expert_right_obs_indices = list(range(22, 44)) + list(range(66, 88)) + list(range(100, 112)) + list(range(134, 156)) + list(range(169, 182)) + list(range(189, 196)) + list(range(211, 226))
-        self.student_left_obs_indices = list(range(0, 22)) + list(range(88, 100)) + list(range(112, 134)) + list(range(182, 185)) + list(range(226, 226 + self.num_pc_flatten))
-        self.student_right_obs_indices = list(range(22, 44)) + list(range(100, 112)) + list(range(134, 156)) + list(range(189, 192)) + list(range(226 + self.num_pc_flatten, 226 + self.num_pc_flatten * 2))
+        self.student_left_robostate_indices = list(range(0, 22)) + list(range(88, 100)) + list(range(112, 134)) + list(range(182, 185))
+        self.student_left_pointcloud_indices = list(range(226, 226 + self.num_pc_flatten))
+        self.student_left_obs_indices = self.student_left_robostate_indices + self.student_left_pointcloud_indices
+        self.student_right_robostate_indices = list(range(22, 44)) + list(range(100, 112)) + list(range(134, 156)) + list(range(189, 192))
+        self.student_right_pointcloud_indices = list(range(226 + self.num_pc_flatten, 226 + self.num_pc_flatten * 2))
+        self.student_right_obs_indices = self.student_right_robostate_indices + self.student_right_pointcloud_indices
         assert 226 + self.num_pc_flatten * 2 == self.observation_space.shape[0]
         assert len(self.expert_left_obs_indices) == len(self.expert_right_obs_indices) and len(self.student_left_obs_indices) == len(self.student_right_obs_indices)
         self.single_observation_space_shape = (len(self.student_left_obs_indices),)
@@ -73,25 +76,27 @@ class DaggerValue(nn.Module):
         # student 
         init_noise_std = train_param["init_noise_std"]
         self.left_actor_critic = ActorCritic(self.single_observation_space_shape, self.state_space.shape, 
-                                             self.single_action_space_shape, init_noise_std, train_param.policy, use_pc=True)
+                                             self.single_action_space_shape, init_noise_std, train_param.policy, use_pc=True,
+                                             robostate_indices=self.student_left_robostate_indices, pointcloud_indices=self.student_left_pointcloud_indices)
         self.left_actor_critic.to(self.device)
         self.left_optimizer = optim.Adam(self.left_actor_critic.parameters(), lr=train_param["optim_stepsize"])
-        self.right_actor_critic = ActorCritic(self.single_observation_space_shape, self.state_space.shape,
-                                            self.single_action_space_shape, init_noise_std, train_param.policy, use_pc=True)
+        self.right_actor_critic = ActorCritic(self.single_observation_space_shape, self.state_space.shape, 
+                                              self.single_action_space_shape, init_noise_std, train_param.policy, use_pc=True,
+                                              robostate_indices=self.student_right_robostate_indices, pointcloud_indices=self.student_right_pointcloud_indices)
         self.right_actor_critic.to(self.device)
         self.right_optimizer = optim.Adam(self.right_actor_critic.parameters(), lr=train_param["optim_stepsize"])
 
-        # multi_expert
-        self.expert_list = []
-        for expert_cfg in train_param['expert']:
-            expert = expert_class(vec_env,train_param,log_dir,obs_type=train_param['expertObservationType'])
-            expert.to(self.device)
-            expert.load(expert_cfg['path'])
-            self.expert_list.append(dict(path=expert_cfg['path'], model=expert))
-        self.num_exprt = len(self.expert_list)
-
-        self.storage = DaggerStorage(self.vec_env.num_envs, self.num_transitions_per_env, self.observation_space.shape,
-                                    self.state_space.shape, self.single_action_space_shape, self.device, self.sampler)
+        if not self.is_testing:
+            # multi_expert
+            self.expert_list = []
+            for expert_cfg in train_param['expert']:
+                expert = expert_class(vec_env,train_param,None,obs_type=train_param['expertObservationType'])
+                expert.to(self.device)
+                expert.load(expert_cfg['path'])
+                self.expert_list.append(dict(path=expert_cfg['path'], model=expert))
+            self.storage = DaggerStorage(self.vec_env.num_envs, self.num_transitions_per_env, self.observation_space.shape,
+                                        self.state_space.shape, self.single_action_space_shape, self.device, self.sampler)
+    
     def test(self, path):
         self.load(path)
         self.eval()
@@ -135,7 +140,8 @@ class DaggerValue(nn.Module):
             episode_length = []
             cur_reward_sum = torch.zeros(self.vec_env.num_envs, dtype=torch.float, device=self.device)
             cur_episode_length = torch.zeros(self.vec_env.num_envs, dtype=torch.float, device=self.device)
-            for it in range(1+self.current_learning_iteration, 1+num_learning_iterations):
+            cur_expert = self.expert_list[0]['model']
+            for it in range(1 + self.current_learning_iteration, 1 + num_learning_iterations):
                 timestep = (timestep + 1) % self.vec_env.max_episode_length
                 if timestep == 0:
                     cur_expert_dict = np.random.choice(self.expert_list)
@@ -147,9 +153,10 @@ class DaggerValue(nn.Module):
                     # Compute expert action
                     expert_left_actions, _, expert_left_values, _, _ = cur_expert.left_agent.actor_critic.act(current_obs[:, self.expert_left_obs_indices], current_states)
                     expert_right_actions, _, expert_right_values, _, _ = cur_expert.right_agent.actor_critic.act(current_obs[:, self.expert_right_obs_indices], current_states)
+                    expert_left_actions, expert_right_actions = expert_left_actions.clip(-1, 1), expert_right_actions.clip(-1, 1)
                     # Compute the action
-                    stu_left_actions, _, stu_left_values, _, _ = self.left_actor_critic.act(current_obs[:, self.student_left_obs_indices], current_states)
-                    stu_right_actions, _, stu_right_values, _, _ = self.right_actor_critic.act(current_obs[:, self.student_right_obs_indices], current_states)
+                    stu_left_actions, _, stu_left_values, _, _ = self.left_actor_critic.act(current_obs, current_states)
+                    stu_right_actions, _, stu_right_values, _, _ = self.right_actor_critic.act(current_obs, current_states)
                     stu_actions = torch.cat([stu_left_actions, stu_right_actions], dim=1)
                     # Step the vec_environment
                     with torch.no_grad():
@@ -181,8 +188,8 @@ class DaggerValue(nn.Module):
                 if self.print_log:
                     retbuffer.extend(episode_return)
                     lenbuffer.extend(episode_length)
-                _, _, last_left_values, _, _ = self.left_actor_critic.act(next_obs[:, self.student_left_obs_indices], current_states)
-                _, _, last_right_values, _, _ = self.right_actor_critic.act(next_obs[:, self.student_right_obs_indices], current_states)
+                _, _, last_left_values, _, _ = self.left_actor_critic.act(next_obs, current_states)
+                _, _, last_right_values, _, _ = self.right_actor_critic.act(next_obs, current_states)
                 stop = time.time()
                 collection_time = stop - start
                 mean_trajectory_length, left_mean_reward, right_mean_reward = self.storage.get_statistics()
@@ -211,11 +218,10 @@ class DaggerValue(nn.Module):
                 expert_left_actions_batch = self.storage.expert_left_actions.view(-1, self.storage.left_actions.size(-1))[indices]
                 expert_right_actions_batch = self.storage.expert_right_actions.view(-1, self.storage.right_actions.size(-1))[indices]
                 # Policy loss
-                cur_left_actions_batch = self.left_actor_critic.act(obs_batch[:, self.student_left_obs_indices], grad=True)[3]
-                cur_right_actions_batch = self.right_actor_critic.act(obs_batch[:, self.student_right_obs_indices], grad=True)[3]
+                cur_left_actions_batch = self.left_actor_critic.act(obs_batch, grad=True)[3]
+                cur_right_actions_batch = self.right_actor_critic.act(obs_batch, grad=True)[3]
                 left_action_loss = F.huber_loss(cur_left_actions_batch, expert_left_actions_batch)
                 right_action_loss = F.huber_loss(cur_right_actions_batch, expert_right_actions_batch)
-                
                 # Value loss
                 if self.value_loss_cfg['apply']:
                     left_action_batch = self.storage.left_actions.view(-1, self.storage.left_actions.size(-1))[indices]
@@ -224,17 +230,17 @@ class DaggerValue(nn.Module):
                     right_returns_batch = self.storage.right_returns.view(-1, 1)[indices]
                     expert_left_values_batch = self.storage.expert_left_values.view(-1, 1)[indices]
                     expert_right_values_batch = self.storage.expert_right_values.view(-1, 1)[indices]
-                    cur_left_value_batch = self.left_actor_critic.evaluate(obs_batch[:, self.student_left_obs_indices], None, left_action_batch)[2]
-                    cur_right_value_batch = self.right_actor_critic.evaluate(obs_batch[:, self.student_right_obs_indices], None, right_action_batch)[2]
+                    cur_left_value_batch = self.left_actor_critic.evaluate(obs_batch, None, left_action_batch)[2]
+                    cur_right_value_batch = self.right_actor_critic.evaluate(obs_batch, None, right_action_batch)[2]
                     if self.value_loss_cfg['use_clipped_value_loss']:
                         left_value_clipped = expert_left_values_batch + (cur_left_value_batch - expert_left_values_batch).clamp(-self.value_loss_cfg['clip_range'], self.value_loss_cfg['clip_range'])
                         left_value_losses = (cur_left_value_batch - left_returns_batch).pow(2)
                         left_value_losses_clipped = (left_value_clipped - left_returns_batch).pow(2)
-                        left_value_loss = torch.max(left_value_losses, left_value_losses_clipped).mean()
+                        left_value_loss = torch.max(self.symlog(left_value_losses), self.symlog(left_value_losses_clipped)).mean()
                         right_value_clipped = expert_right_values_batch + (cur_right_value_batch - expert_right_values_batch).clamp(-self.value_loss_cfg['clip_range'], self.value_loss_cfg['clip_range'])
                         right_value_losses = (cur_right_value_batch - right_returns_batch).pow(2)
                         right_value_losses_clipped = (right_value_clipped - right_returns_batch).pow(2)
-                        right_value_loss = torch.max(right_value_losses, right_value_losses_clipped).mean()
+                        right_value_loss = torch.max(self.symlog(right_value_losses), self.symlog(right_value_losses_clipped)).mean()
                     else:
                         left_value_loss = (left_returns_batch - cur_left_value_batch).pow(2).mean()
                         right_value_loss = (right_returns_batch - cur_right_value_batch).pow(2).mean()
@@ -258,6 +264,10 @@ class DaggerValue(nn.Module):
         mean_policy_loss /= num_updates
         mean_value_loss /= num_updates
         return mean_policy_loss, mean_value_loss, dict(left_action_loss=left_action_loss.item(), right_action_loss=right_action_loss.item(), left_value_loss=left_value_loss.item(), right_value_loss=right_value_loss.item())
+
+    @staticmethod
+    def symlog(x):
+        return x.sign() * x.abs().log1p()
 
     def log(self, locs, width=80, pad=35):
         self.tot_timesteps += self.num_transitions_per_env * self.vec_env.num_envs

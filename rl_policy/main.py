@@ -18,7 +18,7 @@ def build_runner(cfg, env):
     from algo import ppo  
 
     train_param = cfg.train.params
-    is_testing = cfg.test  # train_param["test"]
+    is_testing = cfg.test
     ckpt_path = cfg.checkpoint
 
     if not is_testing:

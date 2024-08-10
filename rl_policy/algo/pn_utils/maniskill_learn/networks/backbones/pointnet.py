@@ -55,19 +55,16 @@ class SimplePointNetV0(PointBackbone):
         :param mask: [B, N] ([batch size, n_points]) provides which part of point cloud should be considered
         :return: [B, F] ([batch size, final output dim])
         """
-
-        if self.subtract_mean_coords:
-            # Use xyz - mean xyz instead of original xyz
+        B, N = pcd.shape[:2]
+        if mask is None:
             mask = torch.ones_like(pcd[..., :1])
+        if self.subtract_mean_coords:  # xyz - mean(xyz)
             xyz = pcd[:, :, :3]
             mean_xyz = masked_average(xyz, 1, mask=mask, keepdim=True)  # [B, 1, 3]
             pcd = torch.cat((mean_xyz.repeat(1, xyz.shape[1], 1), xyz-mean_xyz, pcd[:, :, 3:]), dim=2)
 
-        B, N = pcd.shape[:2]
         point_feature = self.conv_mlp(pcd.transpose(2, 1)).transpose(2, 1)  # [B, N, CF]
-        # [B, K, N / K, CF]
-        point_feature = point_feature.view(B, self.stack_frame, N // self.stack_frame, point_feature.shape[-1])
-        mask = torch.ones_like(pcd[..., :1])
+        point_feature = point_feature.view(B, self.stack_frame, N // self.stack_frame, point_feature.shape[-1])  # [B, K, N / K, CF]
         mask = mask.view(B, self.stack_frame, N // self.stack_frame, 1)  # [B, K, N / K, 1]
         
         if self.max_mean_mix_aggregation:
@@ -79,12 +76,10 @@ class SimplePointNetV0(PointBackbone):
             global_feature = masked_max(point_feature, 2, mask=mask)  # [B, K, CF]
         
         global_feature = global_feature.reshape(B, -1)
-
-
+        out = self.global_mlp(global_feature)
         if self.with_activation:
-            f = self.global_mlp(global_feature)
-            return self.activation(f)
-        return self.global_mlp(global_feature)
+            return self.activation(out)
+        return out
 
 
 @BACKBONES.register_module()

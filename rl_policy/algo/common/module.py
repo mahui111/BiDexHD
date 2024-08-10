@@ -71,6 +71,7 @@ class ActorCritic(nn.Module):
         model_cfg,
         asymmetric=False,
         use_pc=False,
+        **kwargs,
     ):
         super(ActorCritic, self).__init__()
 
@@ -97,6 +98,10 @@ class ActorCritic(nn.Module):
             self.num_pc_flatten = self.num_downsample * self.each_point_dim
             self.num_robot_state = self.num_obs - self.num_pc_flatten - self.num_downsample * 2 * self.use_seg
             self.num_obs = self.num_robot_state + self.pc_emb_dim
+            self.robostate_indices = kwargs.get("robostate_indices", [])
+            self.pointcloud_indices = kwargs.get("pointcloud_indices", [])
+            assert len(self.robostate_indices) == self.num_robot_state
+            assert len(self.pointcloud_indices) == self.num_pc_flatten
             if self.backbone_type == "PointNetBackbone":
                 self.backbone = PointNetBackbone(
                     pc_dim=self.each_point_dim + 2 * self.use_seg,
@@ -121,9 +126,7 @@ class ActorCritic(nn.Module):
             if l == len(actor_hidden_dim) - 1:
                 actor_layers.append(nn.Linear(actor_hidden_dim[l], *actions_shape))
             else:
-                actor_layers.append(
-                    nn.Linear(actor_hidden_dim[l], actor_hidden_dim[l + 1])
-                )
+                actor_layers.append(nn.Linear(actor_hidden_dim[l], actor_hidden_dim[l + 1]))
                 actor_layers.append(activation)
         self.actor = nn.Sequential(*actor_layers)
 
@@ -133,9 +136,7 @@ class ActorCritic(nn.Module):
             if l == len(critic_hidden_dim) - 1:
                 critic_layers.append(nn.Linear(critic_hidden_dim[l], 1))
             else:
-                critic_layers.append(
-                    nn.Linear(critic_hidden_dim[l], critic_hidden_dim[l + 1])
-                )
+                critic_layers.append(nn.Linear(critic_hidden_dim[l], critic_hidden_dim[l + 1]))
                 critic_layers.append(activation)
         self.critic = nn.Sequential(*critic_layers)
 
@@ -166,11 +167,11 @@ class ActorCritic(nn.Module):
         raise NotImplementedError
     
     def get_pc_observation(self, observations):
-        robot_state = observations[:, :self.num_robot_state]
-        pc = observations[:, -self.num_pc_flatten:].reshape(-1, self.num_downsample, self.each_point_dim)
+        robot_state = observations[:, self.robostate_indices]
+        pc = observations[:, self.pointcloud_indices].reshape(-1, self.num_downsample, self.each_point_dim)
         input_data = dict(pc=pc)
         if self.use_seg:
-            mask = observations[:, self.num_robot_state: self.num_robot_state + 2 * self.num_downsample].reshape(-1, self.num_downsample, 2)
+            mask = observations[:, -2 * self.num_downsample:].reshape(-1, self.num_downsample, 2)
             input_data.update(dict(mask=mask,))
         if self.backbone_type == "TransPointNetBackbone":
             input_data.update(dict(state=robot_state,))

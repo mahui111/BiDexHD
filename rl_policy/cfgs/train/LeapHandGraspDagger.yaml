@@ -40,15 +40,15 @@ params:
   asymmetric: False
 
   value_loss:
-    apply: False
+    apply: True
     use_clipped_value_loss: True
     value_loss_coef: 0.1
-    clip_range: 0.2
+    clip_range: 0.5
 
   expert: [
     {
       name: '0',
-      path: '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(pour in some, teapot, cup)/task1/observe2/model_1500.pt',
+      path: '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(empty, bowl, bowl)/task0/observe2/model_8000.pt',
     },
     # {
     #   name: '1',

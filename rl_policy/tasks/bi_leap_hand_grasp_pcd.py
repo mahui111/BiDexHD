@@ -929,8 +929,7 @@ def compute_bvdex_stage12_rewards(
     current_successes = torch.where(resets==True, successes, current_successes)
     cons_successes = torch.where(
         num_resets > 0,
-        av_factor * finished_cons_successes / num_resets
-        + (1.0 - av_factor) * consecutive_successes,
+        av_factor * finished_cons_successes / num_resets + (1.0 - av_factor) * consecutive_successes,
         consecutive_successes,
     )
 
@@ -953,6 +952,8 @@ def read_pointcloud_from_urdf(urdf_file, num_sample=1024):
         for visual in link.visuals:
             if visual.geometry.mesh is not None:
                 mesh = trimesh.load_mesh(os.path.join(urdf_file, '..', visual.geometry.mesh.filename))
+                if visual.geometry.mesh.scale is not None:  # scale=0.01
+                    mesh.apply_scale(visual.geometry.mesh.scale)
                 points = mesh.sample(num_sample) 
                 all_points.append(points)
     all_points = np.vstack(all_points)
