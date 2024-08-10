@@ -365,6 +365,17 @@ class TACODataset:
             visualize_ax(ax2, smoothed_trajectory, 'Smoothed', 'r')
             plt.show()
         
+        def find_var_abrupt_change(object_heights, window_size=5):
+            for i in range(len(object_heights) - window_size, 0, -1):
+                # Calculate the standard deviation for the current and previous sliding windows
+                current_deviation = np.std(object_heights[i:i+window_size])
+                previous_deviation = np.std(object_heights[i-window_size:i])
+                older_deviation = np.std(object_heights[i-2*window_size:i-window_size])
+                # Compare the deviations
+                if abs(current_deviation - previous_deviation)-abs(older_deviation - previous_deviation) > 0.001:
+                    return i - 1
+            return int(len(object_heights) * 0.9)
+        
         smoothed_object_pos = self.low_pass_filter(object_poses[:, :3, 3])
         smoothed_tool_pos = self.low_pass_filter(tool_poses[:, :3, 3])
         # visualize_smoothed_trajectory(load_target_poses[:, :3, 3], smoothed_object_pos)
@@ -373,16 +384,20 @@ class TACODataset:
         # visualize_smoothed_trajectory(all_right_trans, smoothed_right_pos)
 
         # get key timesteps
-        init_timestep = 1  # int(len(load_tool_poses)*0.1)
-        end_timestep = int(len(tool_poses)*0.8)   
-
         object_heights = smoothed_object_pos[:, 2]
         tool_heights = smoothed_tool_pos[:, 2]
-        percentage = 75
-        ref_object_height = np.percentile(object_heights[object_heights>object_heights[init_timestep]], percentage)
-        ref_tool_height = np.percentile(object_heights[tool_heights>tool_heights[init_timestep]], percentage)
-        # find the first False
-        try:
+        '''initial step'''
+        init_timestep = 1  # int(len(load_tool_poses)*0.1)
+        '''terminal step'''
+        end_object_timestep = find_var_abrupt_change(object_heights)
+        end_tool_timestep = find_var_abrupt_change(tool_heights)
+        end_timestep = int(max(end_object_timestep, end_tool_timestep))
+        '''reference step'''
+        try:  
+            percentage = 75
+            ref_object_height = np.percentile(object_heights[object_heights>object_heights[init_timestep]], percentage)
+            ref_tool_height = np.percentile(object_heights[tool_heights>tool_heights[init_timestep]], percentage)
+            # find the first False
             ref_object_timestep = np.where((object_heights<ref_object_height)==False)[0][0]
             ref_tool_timestep = np.where((tool_heights<ref_tool_height)==False)[0][0]
             ref_timestep = int(max(ref_object_timestep, ref_tool_timestep))
@@ -394,9 +409,11 @@ class TACODataset:
             ax1 = fig.add_subplot(121)
             ax1.plot(np.arange(len(object_heights)), object_heights, label='Object')
             ax1.scatter(ref_timestep, object_heights[ref_timestep], color='red', s=50)
+            ax1.scatter(end_timestep, object_heights[end_timestep], color='black', s=50)
             ax2 = fig.add_subplot(122)
             ax2.plot(np.arange(len(tool_heights)), tool_heights, label='Tool')
             ax2.scatter(ref_timestep, tool_heights[ref_timestep], color='red', s=50)
+            ax2.scatter(end_timestep, tool_heights[end_timestep], color='black', s=50)
             plt.show()
         
         return init_timestep, ref_timestep, end_timestep

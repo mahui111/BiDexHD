@@ -202,7 +202,7 @@ class IPPO(nn.Module):
         
         # Log
         self.log_dir = log_dir
-        if not self.is_testing and log_dir is not None:
+        if not self.is_testing and log_dir is not None and not obs_type:
             self.writer = SummaryWriter(log_dir=self.log_dir, flush_secs=10)
 
     def test(self, path):

@@ -48,12 +48,8 @@ params:
   expert: [
     {
       name: '0',
-      path: '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(empty, bowl, bowl)/task0/observe2/model_8000.pt',
+      path: '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(pour in some, teapot, cup)/task1/observe2/model_1500.pt',
     },
-    # {
-    #   name: '1',
-    #   path: '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(pour in some, teapot, cup)/task1/ippo_Bbvdex_reward_exp_freq2/model_2000.pt',
-    # },
   ]
   expertObservationType: "dofps+dofvel+ftps+lastact+objstate+palmpose+relps"
   

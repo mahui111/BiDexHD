@@ -130,8 +130,11 @@ class DaggerValue(nn.Module):
                     next_obs = next_obs_dict["obs"]
                     current_obs.copy_(next_obs)
                 if i == self.vec_env.max_episode_length - 2:
-                    success_rate = self.vec_env.successes.sum() / self.vec_env.num_envs
-            print("success_rate:", success_rate.item())
+                    print('stage 1 left success:', self.vec_env.stage1_left_successes.mean().item())
+                    print('stage 1 right success:', self.vec_env.stage1_right_successes.mean().item())
+                    print('stage 1 success:', self.vec_env.stage1_successes.mean().item())
+                    print('stage 2 left success:', self.vec_env.stage2_left_successes.mean().item())
+                    print('stage 2 right success:', self.vec_env.stage2_right_successes.mean().item())
             exit()
         else:
             retbuffer = deque(maxlen=100)
@@ -153,7 +156,6 @@ class DaggerValue(nn.Module):
                     # Compute expert action
                     expert_left_actions, _, expert_left_values, _, _ = cur_expert.left_agent.actor_critic.act(current_obs[:, self.expert_left_obs_indices], current_states)
                     expert_right_actions, _, expert_right_values, _, _ = cur_expert.right_agent.actor_critic.act(current_obs[:, self.expert_right_obs_indices], current_states)
-                    expert_left_actions, expert_right_actions = expert_left_actions.clip(-1, 1), expert_right_actions.clip(-1, 1)
                     # Compute the action
                     stu_left_actions, _, stu_left_values, _, _ = self.left_actor_critic.act(current_obs, current_states)
                     stu_right_actions, _, stu_right_values, _, _ = self.right_actor_critic.act(current_obs, current_states)
