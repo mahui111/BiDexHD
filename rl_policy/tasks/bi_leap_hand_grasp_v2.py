@@ -38,6 +38,15 @@ def orientation_error(desired, current):
     return q_r[:, 0:3] * torch.sign(q_r[:, 3]).unsqueeze(-1)
 
 @torch.jit.script
+def pos_error(desired, current):
+    '''
+    desired: (..., 3)
+    current: (..., 3)
+    '''
+    current = current.expand_as(desired)
+    return F.huber_loss(current, desired, reduction='none').mean(-1)
+
+@torch.jit.script
 def quat_diff_theta(desired, current):
     '''
     desired: (num_envs, 4)
@@ -745,7 +754,35 @@ def compute_bvdex_stage12_rewards(
     info["right_lift_tool_pos_rew"] = right_lift_tool_pos_rew
     info["right_lift_tool_rot_rew"] = right_lift_tool_rot_rew
 
-    # stage 2: hand-object joint pose difference reward only in stage 1, notice no grasp condition 
+    # stage 3: lift near goal bonus
+    left_bonus = torch.zeros_like(ref_object_pos_dist)
+    left_bonus = torch.where(
+        is_grasp_left == True,
+        torch.where(
+            ref_object_pos_dist <= success_tolerance, 1.0 / (1 + ref_object_pos_dist), left_bonus
+        ),
+        left_bonus,
+    )
+    right_bonus = torch.zeros_like(ref_object_pos_dist)
+    right_bonus = torch.where(
+        is_grasp_right == True,
+        torch.where(
+            ref_tool_pos_dist <= success_tolerance, 1.0 / (1 + ref_tool_pos_dist), right_bonus
+        ),
+        right_bonus,
+    )
+    info["left_bonus"] = left_bonus
+    info["right_bonus"] = right_bonus
+
+    # stage 4: trajectory following
+    left_successes = torch.logical_and(ref_object_pos_dist <= success_tolerance, left_fingertips_object_dist + left_palm_object_dist < 0.12 * (num_fingers + 1)).float()
+    left_reach_ref_timestep = torch.where(torch.logical_and(left_successes == 1, left_reach_ref_timestep == -1), timestep, left_reach_ref_timestep)
+    right_successes = torch.logical_and(ref_tool_pos_dist <= success_tolerance, right_fingertips_tool_dist + right_palm_tool_dist < 0.12 * (num_fingers + 1)).float()
+    right_reach_ref_timestep = torch.where(torch.logical_and(right_successes == 1, right_reach_ref_timestep == -1), timestep, right_reach_ref_timestep)
+    info["left_successes"] = left_successes
+    info["right_successes"] = right_successes
+
+    # hand-object joint pose difference reward only in stage 1, notice no grasp condition 
     '''
     [old: seperate position and rotation]
 
@@ -787,84 +824,51 @@ def compute_bvdex_stage12_rewards(
     info["right_tool_fingertip_pos_dist"] = torch.norm(right_tool_pos_wrt_fingers, dim=-1).mean(-1)
     if is_stage1_hand_object_rew:
         # hand-object relative reward design, below are all unreasonable!!!
-        left_ref_ref_object_palm_pos_dist = F.pairwise_distance(left_object_pos_wrt_palm, ref_ref_object_palm_pose_diff[:, :3])
+        left_ref_ref_object_palm_pos_dist = pos_error(left_object_pos_wrt_palm, ref_ref_object_palm_pose_diff[:, :3])
         left_ref_ref_object_palm_rot_dist = quat_diff_theta(left_object_ori_wrt_palm, ref_ref_object_palm_pose_diff[:, 3:]).abs()
-        right_ref_ref_tool_palm_pos_dist = F.pairwise_distance(right_tool_pos_wrt_palm, ref_ref_tool_palm_pose_diff[:, :3])
+        right_ref_ref_tool_palm_pos_dist = pos_error(right_tool_pos_wrt_palm, ref_ref_tool_palm_pose_diff[:, :3])
         right_ref_ref_tool_palm_rot_dist = quat_diff_theta(right_tool_ori_wrt_palm, ref_ref_tool_palm_pose_diff[:, 3:]).abs()
         info["left_ref_ref_object_palm_pos_dist"] = left_ref_ref_object_palm_pos_dist
         info["left_ref_ref_object_palm_rot_dist"] = left_ref_ref_object_palm_rot_dist
         info["right_ref_ref_tool_palm_pos_dist"] = right_ref_ref_tool_palm_pos_dist
         info["right_ref_ref_tool_palm_rot_dist"] = right_ref_ref_tool_palm_rot_dist
-        left_ref_ref_object_fingers_pos_dist = F.pairwise_distance(left_object_pos_wrt_fingers, ref_ref_object_left_fingers_pos_diff).mean(-1)
-        right_ref_ref_tool_fingers_pos_dist = F.pairwise_distance(right_tool_pos_wrt_fingers, ref_ref_tool_right_fingers_pos_diff).mean(-1)
+        left_ref_ref_object_fingers_pos_dist = pos_error(left_object_pos_wrt_fingers, ref_ref_object_left_fingers_pos_diff).mean(-1)
+        right_ref_ref_tool_fingers_pos_dist = pos_error(right_tool_pos_wrt_fingers, ref_ref_tool_right_fingers_pos_diff).mean(-1)
         info["left_ref_ref_object_fingers_pos_dist"] = left_ref_ref_object_fingers_pos_dist
         info["right_ref_ref_tool_fingers_pos_dist"] = right_ref_ref_tool_fingers_pos_dist
-        if not is_stage1_lin_rew:  # TODO: quadratic or saturated reward
-            trans_scale, rot_eps = 3.5, 0.1
-            # left_pos_idx = (rot_eps / trans_scale) / torch.max(left_object_hand_pos_dist, torch.tensor(rot_eps / trans_scale).to(actions.device))
-            left_object_hand_pos_rew = 1.0 / (trans_scale * torch.abs(left_ref_ref_object_palm_pos_dist) + rot_eps)# * left_pos_idx
-            # left_rot_idx = rot_eps / torch.max(left_object_hand_rot_dist, torch.tensor(rot_eps).to(actions.device))
-            left_object_hand_rot_rew = 1.0 / (left_ref_ref_object_palm_rot_dist + rot_eps)# * left_rot_idx
-            left_object_hand_pos_rew, left_object_hand_rot_rew = 0.1 * left_object_hand_pos_rew.clip(max=1.5), 0.1 * left_object_hand_rot_rew.clip(max=1.5)
-            # right_pos_idx = (rot_eps / trans_scale) / torch.max(right_tool_hand_pos_dist, torch.tensor(rot_eps / trans_scale).to(actions.device))
-            right_tool_hand_pos_rew = 1.0 / (trans_scale * torch.abs(right_ref_ref_tool_palm_pos_dist) + rot_eps)#  * right_pos_idx
-            # right_rot_idx = rot_eps / torch.max(right_tool_hand_rot_dist, torch.tensor(rot_eps).to(actions.device))
-            right_tool_hand_rot_rew = 1.0 / (right_ref_ref_tool_palm_rot_dist + rot_eps)#  * right_rot_idx
-            right_tool_hand_pos_rew, right_tool_hand_rot_rew = 0.1 * right_tool_hand_pos_rew.clip(max=1.5), 0.1 * right_tool_hand_rot_rew.clip(max=1.5)
-        else:  # linear reward
-            left_object_hand_pos_rew = - left_ref_ref_object_palm_pos_dist
-            left_object_hand_rot_rew = - 0.3 * left_ref_ref_object_palm_rot_dist
-            right_tool_hand_pos_rew = - right_ref_ref_tool_palm_pos_dist
-            right_tool_hand_rot_rew = - 0.3 * right_ref_ref_tool_palm_rot_dist
+        # if not is_stage1_lin_rew:  # TODO: quadratic or saturated reward
+        #     trans_scale, rot_eps = 3.5, 0.1
+        #     # left_pos_idx = (rot_eps / trans_scale) / torch.max(left_object_hand_pos_dist, torch.tensor(rot_eps / trans_scale).to(actions.device))
+        #     left_object_hand_pos_rew = 1.0 / (trans_scale * torch.abs(left_ref_ref_object_palm_pos_dist) + rot_eps)# * left_pos_idx
+        #     # left_rot_idx = rot_eps / torch.max(left_object_hand_rot_dist, torch.tensor(rot_eps).to(actions.device))
+        #     left_object_hand_rot_rew = 1.0 / (left_ref_ref_object_palm_rot_dist + rot_eps)# * left_rot_idx
+        #     left_object_hand_pos_rew, left_object_hand_rot_rew = 0.1 * left_object_hand_pos_rew.clip(max=1.5), 0.1 * left_object_hand_rot_rew.clip(max=1.5)
+        #     # right_pos_idx = (rot_eps / trans_scale) / torch.max(right_tool_hand_pos_dist, torch.tensor(rot_eps / trans_scale).to(actions.device))
+        #     right_tool_hand_pos_rew = 1.0 / (trans_scale * torch.abs(right_ref_ref_tool_palm_pos_dist) + rot_eps)#  * right_pos_idx
+        #     # right_rot_idx = rot_eps / torch.max(right_tool_hand_rot_dist, torch.tensor(rot_eps).to(actions.device))
+        #     right_tool_hand_rot_rew = 1.0 / (right_ref_ref_tool_palm_rot_dist + rot_eps)#  * right_rot_idx
+        #     right_tool_hand_pos_rew, right_tool_hand_rot_rew = 0.1 * right_tool_hand_pos_rew.clip(max=1.5), 0.1 * right_tool_hand_rot_rew.clip(max=1.5)
+        # else:  # linear reward
+        #     left_object_hand_pos_rew = - left_ref_ref_object_palm_pos_dist
+        #     left_object_hand_rot_rew = - 0.3 * left_ref_ref_object_palm_rot_dist
+        #     right_tool_hand_pos_rew = - right_ref_ref_tool_palm_pos_dist
+        #     right_tool_hand_rot_rew = - 0.3 * right_ref_ref_tool_palm_rot_dist
         
-        # TODO: min-reward to force
-        left_object_hand_pose_rew = torch.minimum(left_object_hand_pos_rew, left_object_hand_rot_rew)
-        right_tool_hand_pose_rew = torch.minimum(right_tool_hand_pos_rew, right_tool_hand_rot_rew)
+        left_object_palm_pos_rew = torch.exp(-200 * left_ref_ref_object_palm_pos_dist)
+        left_object_fingers_pos_rew = torch.exp(-200 * left_ref_ref_object_fingers_pos_dist)
+        right_tool_palm_pos_rew = torch.exp(-200 * right_ref_ref_tool_palm_pos_dist)
+        right_tool_fingers_pos_rew = torch.exp(-200 * right_ref_ref_tool_fingers_pos_dist)
+        # TODO: torch.minimum to force
+        left_object_hand_pose_rew = torch.where(left_reach_ref_timestep == -1, 0.5 * (left_object_palm_pos_rew + left_object_fingers_pos_rew), torch.zeros_like(ref_object_pos_dist))
+        right_tool_hand_pose_rew = torch.where(right_reach_ref_timestep == -1, 0.5 * (right_tool_palm_pos_rew + right_tool_fingers_pos_rew), torch.zeros_like(ref_tool_pos_dist))
+        info["left_object_hand_pose_rew"] = left_object_hand_pose_rew
+        info["right_tool_hand_pose_rew"] = right_tool_hand_pose_rew
 
     else:
         left_object_hand_pose_rew = torch.zeros_like(ref_object_pos_dist)
         right_tool_hand_pose_rew = torch.zeros_like(ref_tool_pos_dist)
     info["left_object_hand_pose_rew"] = left_object_hand_pose_rew
     info["right_tool_hand_pose_rew"] = right_tool_hand_pose_rew
-
-    # left_lift_object_hand_rot_rew = torch.where(
-    #     left_ready_grasp > 0,
-    #     torch.where(left_reach_ref_timestep == -1, left_object_hand_rot_rew, torch.zeros_like(ref_object_pos_dist)),
-    #     torch.zeros_like(ref_object_pos_dist),
-    # ).clip(max=1.0)
-    # right_lift_tool_hand_rot_rew = torch.where(
-    #     right_ready_grasp > 0,
-    #     torch.where(right_reach_ref_timestep == -1, right_tool_hand_rot_rew, torch.zeros_like(ref_tool_pos_dist)),
-    #     torch.zeros_like(ref_tool_pos_dist),    
-    # ).clip(max=1.0)
-
-    # stage 3: lift near goal bonus
-    left_bonus = torch.zeros_like(ref_object_pos_dist)
-    left_bonus = torch.where(
-        is_grasp_left == True,
-        torch.where(
-            ref_object_pos_dist <= success_tolerance, 1.0 / (1 + ref_object_pos_dist), left_bonus
-        ),
-        left_bonus,
-    )
-    right_bonus = torch.zeros_like(ref_object_pos_dist)
-    right_bonus = torch.where(
-        is_grasp_right == True,
-        torch.where(
-            ref_tool_pos_dist <= success_tolerance, 1.0 / (1 + ref_tool_pos_dist), right_bonus
-        ),
-        right_bonus,
-    )
-    info["left_bonus"] = left_bonus
-    info["right_bonus"] = right_bonus
-
-    # stage 4: trajectory following
-    left_successes = torch.logical_and(ref_object_pos_dist <= success_tolerance, left_fingertips_object_dist + left_palm_object_dist < 0.12 * (num_fingers + 1)).float()
-    left_reach_ref_timestep = torch.where(torch.logical_and(left_successes == 1, left_reach_ref_timestep == -1), timestep, left_reach_ref_timestep)
-    right_successes = torch.logical_and(ref_tool_pos_dist <= success_tolerance, right_fingertips_tool_dist + right_palm_tool_dist < 0.12 * (num_fingers + 1)).float()
-    right_reach_ref_timestep = torch.where(torch.logical_and(right_successes == 1, right_reach_ref_timestep == -1), timestep, right_reach_ref_timestep)
-    info["left_successes"] = left_successes
-    info["right_successes"] = right_successes
 
     # fall penalty
     left_is_fall = (object_pose[:, 2] <= table_height).float()

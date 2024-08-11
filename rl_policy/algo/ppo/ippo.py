@@ -260,8 +260,11 @@ class IPPO(nn.Module):
                     next_obs = next_obs_dict["obs"]
                     current_obs.copy_(next_obs)
                 if i == self.vec_env.max_episode_length - 2:
-                    success_rate = self.vec_env.successes.sum() / self.vec_env.num_envs
-            print("success_rate:", success_rate.item())
+                    print('stage 1 left success:', self.vec_env.stage1_left_successes.mean().item())
+                    print('stage 1 right success:', self.vec_env.stage1_right_successes.mean().item())
+                    print('stage 1 success:', self.vec_env.stage1_successes.mean().item())
+                    print('stage 2 left success:', self.vec_env.stage2_left_successes.mean().item())
+                    print('stage 2 right success:', self.vec_env.stage2_right_successes.mean().item())
             exit()
 
         else:
