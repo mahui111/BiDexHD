@@ -23,7 +23,7 @@ from scipy.spatial.transform import Rotation as R
 from dex_retargeting import yourdfpy as urdf
 from dex_retargeting.constants import RobotName, RetargetingType, HandType, get_default_config_path
 from dex_retargeting.retargeting_config import RetargetingConfig
-from dex_retargeting.seq_retarget import SeqRetargeting
+# from dex_retargeting.seq_retarget import SeqRetargeting
 
 class Visualizer3D:
     def reset(self):
@@ -197,9 +197,9 @@ class TACODataset:
             print("Data saved to sampled_taco_task_data.json")
         return total_data
 
-    def make_dataset(self, triplet="(empty, bowl, bowl)", save_dir="taco_dataset/sampled_data", vis_ref=False):
+    def make_dataset(self, triplet="(empty, bowl, bowl)", save_dir="taco_dataset/sampled_data", vis_ref=False, num_max=20):
         total_dataset = []
-        seqname_list = sorted(os.listdir(join(self.dataset_root, "Object_Poses", triplet)))
+        seqname_list = sorted(os.listdir(join(self.dataset_root, "Object_Poses", triplet)))[:num_max]
         for k, sequence_name in tqdm(enumerate(seqname_list), total=len(seqname_list)):
             object_pose_dir = join(self.dataset_root, "Object_Poses", triplet, sequence_name)
             hand_pose_dir = join(self.dataset_root, "Hand_Poses", triplet, sequence_name)
@@ -275,9 +275,10 @@ class TACODataset:
             json.dump(total_dataset, f, indent=4)
         return total_dataset
 
-    def make_mano_dataset(self, triplet="(empty, bowl, bowl)", save_dir="taco_dataset/task_data", num_finger=4):
+    def make_mano_dataset(self, triplet="(empty, bowl, bowl)", save_dir="taco_dataset/task_data", num_finger=4, num_max=20):
+        triplet = triplet.strip("'")
         total_dataset = []
-        seqname_list = sorted(os.listdir(join(self.dataset_root, "Object_Poses", triplet)))
+        seqname_list = sorted(os.listdir(join(self.dataset_root, "Object_Poses", triplet)))[:num_max]
         for k, sequence_name in enumerate(seqname_list):
             object_pose_dir = join(self.dataset_root, "Object_Poses", triplet, sequence_name)
             hand_pose_dir = join(self.dataset_root, "Hand_Poses", triplet, sequence_name)
@@ -366,7 +367,7 @@ class TACODataset:
             plt.show()
         
         def find_var_abrupt_change(object_heights, window_size=5):
-            for i in range(len(object_heights) - window_size, 0, -1):
+            for i in range(len(object_heights) - window_size, 2*window_size, -1):
                 # Calculate the standard deviation for the current and previous sliding windows
                 current_deviation = np.std(object_heights[i:i+window_size])
                 previous_deviation = np.std(object_heights[i-window_size:i])
@@ -783,7 +784,7 @@ class BiRetargetor:
         return robot, retargeting
     
     # [Important!] Update poses for robot hands
-    def retarget_to_robot_poses(self, left_joint_pos, right_joint_pos):
+    def retarget_to_robot_poses(self, left_joint_pos, right_joint_pos, num_optimize=3):
         # normalize to the wrist
         left_joint_pos = left_joint_pos - left_joint_pos[0:1, :]
         right_joint_pos = right_joint_pos - right_joint_pos[0:1, :]
@@ -798,13 +799,13 @@ class BiRetargetor:
         else:
             left_ref_value = left_joint_pos[left_indices[1, :], :] - left_joint_pos[left_indices[0, :], :]
             right_ref_value = right_joint_pos[right_indices[1, :], :] - right_joint_pos[right_indices[0, :], :]
-        left_qpos = self.left_retargetor.retarget(left_ref_value)
-        right_qpos = self.right_retargetor.retarget(right_ref_value)
+        for _ in range(num_optimize):
+            left_qpos = self.left_retargetor.retarget(left_ref_value)
+            right_qpos = self.right_retargetor.retarget(right_ref_value)
         assert len(left_qpos) == len(self.left_retarget_idxs)
         return left_qpos[self.left_retarget_idxs], right_qpos[self.right_retarget_idxs]
-
              
-    def retarget_to_armrobot_poses(self, left_joint_pos, right_joint_pos):     
+    def retarget_to_armrobot_poses(self, left_joint_pos, right_joint_pos, num_optimize=3):     
         left_indices = self.left_retargetor.optimizer.target_link_human_indices
         right_indices = self.right_retargetor.optimizer.target_link_human_indices
         if self.retarget_type == RetargetingType.position:
@@ -812,7 +813,7 @@ class BiRetargetor:
             right_ref_value = right_joint_pos[right_indices, :]
         else:
             raise NotImplementedError
-        for _ in range(10):
+        for _ in range(num_optimize):
             left_qpos = self.left_retargetor.retarget(left_ref_value)
             right_qpos = self.right_retargetor.retarget(right_ref_value)
         left_palm_pose = left_qpos[:3].tolist() + R.from_euler('zyx',left_qpos[3:6][::-1]).as_quat().tolist()   
@@ -876,7 +877,7 @@ if __name__ == "__main__":
     parser.add_argument("--mano_model_path", type=str, default="/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/taco_dataset/manopth/mano/models")
     parser.add_argument("--triplet", type=str, default='(smear, eraser, plate)')
     parser.add_argument("--viz_sapien", action="store_true")
-    parser.add_argument("--optimize_wrist", type=int, default=1)
+    parser.add_argument("--optimize_wrist", type=int, default=0)
     parser.add_argument("--mode", type=str, default="make_dataset")  # make_task / make_dataset
     args = parser.parse_args()
     

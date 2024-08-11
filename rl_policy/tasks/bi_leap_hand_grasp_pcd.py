@@ -11,7 +11,6 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import trimesh
 from urdfpy import URDF
-import open3d as o3d
 
 from isaacgym import gymtorch
 from isaacgym import gymapi
@@ -1735,8 +1734,8 @@ class BiLeapHandGraspPCD(VecTask):
             ) = compute_bvdex_stage12_rewards(
                 self.reset_buf,
                 self.progress_buf,
-                self.stage1_left_successes[:], self.stage1_right_successes[:], self.stage1_successes[:],
-                self.stage2_left_successes[:], self.stage2_right_successes[:],
+                self.stage1_left_successes, self.stage1_right_successes, self.stage1_successes,
+                self.stage2_left_successes, self.stage2_right_successes,
                 self.max_episode_length,
                 self.object_pose, self.tool_pose,
                 self.left_palm_pose, self.right_palm_pose,

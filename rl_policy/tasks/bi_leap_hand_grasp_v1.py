@@ -9,7 +9,7 @@ from scipy.spatial.transform import Rotation as R
 from pprint import pprint
 from collections import defaultdict
 import matplotlib.pyplot as plt
-
+import time
 from isaacgym import gymtorch
 from isaacgym import gymapi
 from isaacgymenvs.utils.torch_jit_utils import *
@@ -2263,7 +2263,7 @@ class BiLeapHandGraspV1(VecTask):
         u = (j_eef_T @ torch.inverse(j_eef @ j_eef_T + lmbda) @ dpose).view(self.num_envs, 6)
         return u
 
-    def visualize(self, replay_times=3, debug=False, vis_metrics=True, vis_mode='ref', append_data=True):
+    def visualize(self, replay_times=2, debug=False, vis_metrics=True, append_data=False):
         def visualize_curves(data_dict):
             """
             Visualize each list in the dictionary as a curve in a 2xM matrix of subplots.
@@ -2290,19 +2290,21 @@ class BiLeapHandGraspV1(VecTask):
         for replay_times in range(1,1+replay_times):
             self._prepare_task(task_id=self.task_id)
             metric_collector = defaultdict(list)
-            end_timestep = self.ref_timestep if vis_mode == 'ref' else self.end_timestep
-            for i in range(self.init_timestep-1, end_timestep+1):
+            for i in range(self.init_timestep-1, self.end_timestep+1):
                 self.actions = torch.zeros_like(self.robot_dof_pos)
                 self.actions[:, self.both_fingers_dof_indices] = self.both_fingers_dof[i:i+1]
                 self.actions[:, self.both_arm_dof_indices] = self.calculate_ik(self.target_left_pose[i:i+1], self.target_right_pose[i:i+1])
-                if append_data and i == self.ref_timestep:
-                    # append to self.sampled_taco_task_data
-                    self.sampled_taco_task_data['left']['ref_fingers_pose'] = self.left_fingertip_pose[0].tolist()
-                    self.sampled_taco_task_data['right']['ref_fingers_pose'] = self.right_fingertip_pose[0].tolist()
-                    self.dataset_taco_data[self.task_id] = self.sampled_taco_task_data
-                    with open(self.cfg['dataset']['meta_data_path'], 'w') as f:
-                        json.dump(self.dataset_taco_data, f, indent=4)
-                    return
+                
+                if i == self.ref_timestep:
+                    time.sleep(1)
+                    if append_data: 
+                        # append to self.sampled_taco_task_data
+                        self.sampled_taco_task_data['left']['ref_fingers_pose'] = self.left_fingertip_pose[0].tolist()
+                        self.sampled_taco_task_data['right']['ref_fingers_pose'] = self.right_fingertip_pose[0].tolist()
+                        self.dataset_taco_data[self.task_id] = self.sampled_taco_task_data
+                        with open(self.cfg['dataset']['meta_data_path'], 'w') as f:
+                            json.dump(self.dataset_taco_data, f, indent=4)
+                        return
                 # step dataset in the environment
                 # 1.set dof state
                 self.robot_dof_pos[:] = self.actions
@@ -2335,7 +2337,7 @@ class BiLeapHandGraspV1(VecTask):
                     print('tool state:', self.root_state_tensor[self.tool_indices],)
                     if i % 5 == 0:
                         input()
-                if vis_metrics:    
+                if vis_metrics and i <= self.ref_timestep:    
                     metrics = self.compute_reward(mode='s12')
                     for k,v in metrics.items():  # for visualize metrics
                         metric_collector[k].append(v.float().mean().item())

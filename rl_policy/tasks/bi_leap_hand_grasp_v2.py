@@ -1,14 +1,9 @@
 import os, json
 import random
-import pickle
-import cv2
 import torch
 import numpy as np
 from torch.nn import functional as F
 from scipy.spatial.transform import Rotation as R
-from pprint import pprint
-from collections import defaultdict
-import matplotlib.pyplot as plt
 
 from isaacgym import gymtorch
 from isaacgym import gymapi
@@ -237,12 +232,12 @@ def transformation_inverse(quat: torch.Tensor, pos: torch.Tensor):
     return quat, -quat_apply(quat, pos)
 
 @torch.jit.script
-def transformation_apply(quat: torch.Tensor, pos: torch.Tensor, vec: torch.Tensor) -> torch.Tensor:
+def transformation_apply(pos: torch.Tensor, quat: torch.Tensor, vec: torch.Tensor) -> torch.Tensor:
     """Apply a transformation to a vector.
 
     Args:
-        quat: Quaternion of the transformation.
         pos: Position of the transformation.
+        quat: Quaternion of the transformation.
         vec: Vector to transform.
 
     Returns:
@@ -656,9 +651,8 @@ def compute_bvdex_stage1_rewards(
 def compute_bvdex_stage12_rewards(
     reset_buf,
     progress_buf,
-    successes,
-    current_successes,
-    consecutive_successes,
+    stage1_left_successes, stage1_right_successes, stage1_successes,
+    stage2_left_successes, stage2_right_successes,
     max_episode_length: float,
     object_pose, tool_pose,
     left_palm_pose, right_palm_pose,
@@ -901,46 +895,29 @@ def compute_bvdex_stage12_rewards(
     #     breakpoint()
 
 
+    # reset
     resets = reset_buf.clone()
     resets = torch.where(progress_buf >= max_episode_length, torch.ones_like(resets), resets)
     resets = torch.where(torch.logical_or(left_is_fall, right_is_fall), torch.ones_like(resets), resets)
-    successes = torch.where(
-        torch.logical_and(ref_object_pos_dist <= success_tolerance, ref_tool_pos_dist <= success_tolerance),
-        torch.where(
-            torch.logical_and(
-                # left_ready_grasp,
-                # right_ready_grasp
-                left_fingertips_object_dist + left_palm_object_dist < 0.12 * (num_fingers + 1), 
-                right_fingertips_tool_dist + right_palm_tool_dist < 0.12 * (num_fingers + 1)
-            ),
-            torch.ones_like(successes),
-            successes,
-        ),
-        torch.zeros_like(successes),
-    )
-    # print(f'timestep:{self.timestep[0]} | left_approach_dist:{(left_fingertips_object_dist + left_palm_object_dist)[0]:.3f} | right_approach_dist:{(right_fingers_tool_dist + right_palm_object_dist)[0]:.3f} | ref_object_pos_dist:{ref_object_pos_dist[0]:.3f} | ref_tool_pos_dist:{ref_tool_pos_dist[0]:.3f}')
-    num_resets = torch.sum(resets)
-    finished_cons_successes = torch.sum(successes * resets.float())
-    current_successes = torch.where(resets==True, successes, current_successes)
-    cons_successes = torch.where(
-        num_resets > 0,
-        av_factor * finished_cons_successes / num_resets
-        + (1.0 - av_factor) * consecutive_successes,
-        consecutive_successes,
-    )
-
+    # every-step success
+    successes = torch.logical_and(ref_object_pos_dist <= success_tolerance, ref_tool_pos_dist <= success_tolerance).float()
+    info["step-success"] = successes
+    # stage 1 success
+    stage1_left_successes = torch.logical_or(stage1_left_successes, left_successes).float()
+    stage1_right_successes = torch.logical_or(stage1_right_successes, right_successes).float()
+    stage1_successes = torch.logical_and(stage1_left_successes, stage1_right_successes).float()
+    # satge 2 success
+    stage2_left_successes = torch.where(stage1_left_successes, ((timestep - left_reach_ref_timestep) * stage2_left_successes + (ref_object_pos_dist <= success_tolerance)) / (timestep - left_reach_ref_timestep + 1), stage2_left_successes)
+    stage2_right_successes = torch.where(stage1_right_successes, ((timestep - right_reach_ref_timestep) * stage2_right_successes + (ref_tool_pos_dist <= success_tolerance)) / (timestep - right_reach_ref_timestep + 1), stage2_right_successes)
     return (
         reward,
         resets,
         progress_buf,
-        successes,
-        current_successes,
-        cons_successes,
+        stage1_left_successes, stage1_right_successes, stage1_successes,
+        stage2_left_successes, stage2_right_successes,
         timestep, left_reach_ref_timestep, right_reach_ref_timestep,
         info,
     )
-
-
 
 class BiLeapHandGraspV2(VecTask):
     def get_obs_idx_num(self,obs_type=''):
@@ -1066,7 +1043,6 @@ class BiLeapHandGraspV2(VecTask):
 
         self.max_episode_length = self.cfg["env"]["episodeLength"]
         self.reset_time = self.cfg["env"].get("resetTime", -1.0)
-        self.print_success_stat = self.cfg["env"]["printNumSuccesses"]
         self.max_consecutive_successes = self.cfg["env"]["maxConsecutiveSuccesses"]
         self.av_factor = self.cfg["env"].get("averFactor", 0.1)
         
@@ -1169,9 +1145,11 @@ class BiLeapHandGraspV2(VecTask):
         self.cur_targets = torch.zeros((self.num_envs, self.num_dofs), dtype=torch.float, device=self.device)
 
         self.av_factor = to_torch(self.av_factor, dtype=torch.float, device=self.device)
-        self.successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
-        self.current_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
-        self.consecutive_successes = torch.zeros(1, dtype=torch.float, device=self.device)
+        self.stage1_left_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
+        self.stage1_right_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
+        self.stage1_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
+        self.stage2_left_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
+        self.stage2_right_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
 
         self.total_successes = 0
         self.total_resets = 0
@@ -1377,13 +1355,13 @@ class BiLeapHandGraspV2(VecTask):
             # side_panel_actor = self.gym.create_actor(env_ptr, side_panel_asset, side_panel_start_pose, "side_panel", i, -1, 0)
 
             # add camera
-            if self.cfg['env']['enableCameraSensors']:
-                camera_props = gymapi.CameraProperties()
-                camera_props.width = self.cfg['env']['imageWidth']
-                camera_props.height = self.cfg['env']['imageHeight']
-                camera_ptr = self.gym.create_camera_sensor(env_ptr, camera_props)
-                self.gym.set_camera_location(camera_ptr, env_ptr, gymapi.Vec3(*self.cfg['env']['cameraPosition']), gymapi.Vec3(*self.cfg['env']['cameraTarget']))
-                self.cameras.append(camera_ptr)
+            # if self.cfg['env']['enableCameraSensors']:
+            #     camera_props = gymapi.CameraProperties()
+            #     camera_props.width = self.cfg['env']['imageWidth']
+            #     camera_props.height = self.cfg['env']['imageHeight']
+            #     camera_ptr = self.gym.create_camera_sensor(env_ptr, camera_props)
+            #     self.gym.set_camera_location(camera_ptr, env_ptr, gymapi.Vec3(*self.cfg['env']['cameraPosition']), gymapi.Vec3(*self.cfg['env']['cameraTarget']))
+            #     self.cameras.append(camera_ptr)
 
             # enable DOF force sensors, if needed
             if self.obs_type == "full_state" or self.asymmetric_obs:
@@ -1709,17 +1687,15 @@ class BiLeapHandGraspV2(VecTask):
                 self.rew_buf[:],
                 self.reset_buf[:],
                 self.progress_buf[:],
-                self.successes[:],
-                self.current_successes[:],
-                self.consecutive_successes[:],
+                self.stage1_left_successes[:], self.stage1_right_successes[:], self.stage1_successes[:],
+                self.stage2_left_successes[:], self.stage2_right_successes[:],
                 self.timestep[:], self.left_reach_ref_timestep[:], self.right_reach_ref_timestep[:],
                 reward_info
             ) = compute_bvdex_stage12_rewards(
                 self.reset_buf,
                 self.progress_buf,
-                self.successes,
-                self.current_successes,
-                self.consecutive_successes,
+                self.stage1_left_successes, self.stage1_right_successes, self.stage1_successes,
+                self.stage2_left_successes, self.stage2_right_successes,
                 self.max_episode_length,
                 self.object_pose, self.tool_pose,
                 self.left_palm_pose, self.right_palm_pose,
@@ -1737,27 +1713,12 @@ class BiLeapHandGraspV2(VecTask):
             )
 
         self.extras.update(reward_info)
-        self.extras["successes"] = self.successes
-        self.extras["current_successes"] = self.current_successes
-        self.extras["consecutive_successes"] = self.consecutive_successes
+        self.extras["stage1_left_successes"] = self.stage1_left_successes
+        self.extras["stage1_right_successes"] = self.stage1_right_successes
+        self.extras["stage1_successes"] = self.stage1_successes
+        self.extras["stage2_left_successes"] = self.stage2_left_successes
+        self.extras["stage2_right_successes"] = self.stage2_right_successes
 
-        if self.print_success_stat:
-            self.total_resets = self.total_resets + self.reset_buf.sum()
-            direct_average_successes = self.total_successes + self.successes.sum()
-            self.total_successes = self.total_successes + (self.successes * self.reset_buf).sum()
-
-            # The direct average shows the overall result more quickly, but slightly undershoots long term policy performance.
-            print(
-                "Direct average consecutive successes = {:.1f}".format(
-                    direct_average_successes / (self.total_resets + self.num_envs)
-                )
-            )
-            if self.total_resets > 0:
-                print(
-                    "Post-Reset average consecutive successes = {:.1f}".format(
-                        self.total_successes / self.total_resets
-                    )
-                )
         return reward_info
 
     def compute_observations(self):
@@ -1979,8 +1940,12 @@ class BiLeapHandGraspV2(VecTask):
 
         self.progress_buf[env_ids] = 0
         self.reset_buf[env_ids] = 0
-        self.successes[env_ids] = 0
         self.timestep[env_ids] = 0
+        self.stage1_left_successes[env_ids] = 0
+        self.stage1_right_successes[env_ids] = 0
+        self.stage1_successes[env_ids] = 0
+        self.stage2_left_successes[env_ids] = 0
+        self.stage2_right_successes[env_ids] = 0
         self.left_reach_ref_timestep[env_ids] = -1
         self.right_reach_ref_timestep[env_ids] = -1
 

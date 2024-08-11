@@ -20,7 +20,7 @@ env:
   useRelativeControl: False
   armController: "qpos" # can be "ik" or "qpos" 
   dofSpeedScale: 20.0
-  actionsMovingAverage: 1.0
+  actionsMovingAverage: 0.1
   controlFrequencyInv: 1 # 60 Hz
 
   resetPositionNoise: 0.01
