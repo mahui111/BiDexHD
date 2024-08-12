@@ -208,7 +208,6 @@ class TACODataset:
                     tool_name = file_name.split(".")[0].split("_")[-1]
                 elif file_name.startswith("target_"):
                     target_name = file_name.split(".")[0].split("_")[-1]
-            print(f"tool: {tool_name}, target: {target_name}")
             
             # joint pos (N,21,3) -> joint qpos (N,6+16)
             # all_left_trans[0]==all_left_joint_pos[0,0]
@@ -258,7 +257,7 @@ class TACODataset:
 
             # get key timesteps
             init_timestep, ref_timestep, end_timestep = self.get_key_timesteps(load_target_poses, load_tool_poses, percentage=75, vis_ref=vis_ref)
-            print(f"task: {k} | init_timestep: {init_timestep} | ref_timestep: {ref_timestep} | end_timestep: {end_timestep}")
+            print(f"task: {k}\t| tool: {tool_name}\t| target: {target_name}\t| init_timestep: {init_timestep}\t| ref_timestep: {ref_timestep}\t| end_timestep: {end_timestep}")
 
             # return all data
             total_data = dict(
@@ -287,7 +286,6 @@ class TACODataset:
                     tool_name = file_name.split(".")[0].split("_")[-1]
                 elif file_name.startswith("target_"):
                     target_name = file_name.split(".")[0].split("_")[-1]
-            print(f"tool: {tool_name}, target: {target_name}")
             
             # get object trajectory
             object_Tposes = np.load(join(object_pose_dir, "target_" + target_name + ".npy"))
@@ -320,7 +318,7 @@ class TACODataset:
 
             # get key timesteps
             init_timestep, ref_timestep, end_timestep = self.get_key_timesteps(object_Tposes, tool_Tposes, percentage=75)
-            print(f"task: {k} | init_timestep: {init_timestep} | ref_timestep: {ref_timestep} | end_timestep: {end_timestep}")
+            print(f"task: {k}\t| tool: {tool_name}\t| target: {target_name}\t| init_timestep: {init_timestep}\t| ref_timestep: {ref_timestep}\t| end_timestep: {end_timestep}")
 
             # return all data
             total_data = dict(

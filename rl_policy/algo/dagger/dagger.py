@@ -146,7 +146,7 @@ class DaggerValue(nn.Module):
             cur_expert = self.expert_list[0]['model']
             for it in range(1 + self.current_learning_iteration, 1 + num_learning_iterations):
                 timestep = (timestep + 1) % self.vec_env.max_episode_length
-                if timestep == 0:
+                if timestep == 0:  # multi_expert
                     cur_expert_dict = np.random.choice(self.expert_list)
                     cur_expert = cur_expert_dict['model']
                     print(f"Current expert checkpoint: {cur_expert_dict['path']}")
