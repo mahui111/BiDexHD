@@ -46,6 +46,7 @@ def build_runner(cfg, env):
             log_dir=log_dir,
             apply_reset=False,
             is_vision='Point' in train_param['policy']['backbone_type'],
+            record_dof=cfg['record']
         )
     elif train_param.name == "dagger":
         from algo import dagger

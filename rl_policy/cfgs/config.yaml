@@ -61,6 +61,7 @@ hydra:
   run:
     dir: .
 
+record: False
 debug: False
 mode: train  # debug  visualize
 triplet: "(pour in some, teapot, cup)" #(stir, spoon, pan) (stir, spatula, pan) (smear, eraser, plate) (stir-fry, spatula, pan) (empty, bowl, bowl) (pour in some, bowl, bowl)

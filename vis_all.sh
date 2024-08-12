@@ -1,7 +1,7 @@
 # export CUDA_LAUNCH_BLOCKING=1
 
 cd rl_policy
-triplet_list=("(scrape off, knife, plate)" "(put out, spatula, pan)")
+triplet_list=("(pour in some, bowl, bowl)" "(put in, bowl, bowl)" "(skim off, bowl, bowl)" "(put out, bowl, bowl)")
 for triplet in "${triplet_list[@]}"; do
   cleaned_triplet=${triplet//[\'\"]/}
   if [ ! -f "taco_dataset/sampled_data/$cleaned_triplet.json" ]; then

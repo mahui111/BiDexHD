@@ -204,6 +204,7 @@ class IPPO(nn.Module):
         self.log_dir = log_dir
         if not self.is_testing and log_dir is not None and not obs_type:
             self.writer = SummaryWriter(log_dir=self.log_dir, flush_secs=10)
+        self.record_dof = kwargs.get('record_dof', False)
 
     def test(self, path):
         self.load(path)
@@ -239,14 +240,15 @@ class IPPO(nn.Module):
             optimizer_state_dict=[self.left_agent.optimizer.state_dict(), self.right_agent.optimizer.state_dict()],
         ), path)
 
-    def run(self):
+    def run(self,):
         num_learning_iterations = self.num_learning_iterations
         if self.is_testing:
             self.vec_env.random_time = False
         current_obs = self.vec_env.reset()["obs"]
         current_states = self.vec_env.get_state()
-
+        
         if self.is_testing:
+            if self.record_dof: traj_dof = self.vec_env.robot_dof_pos[:1].detach().cpu().numpy()
             for i in range(self.vec_env.max_episode_length):
                 with torch.no_grad():
                     if self.apply_reset:
@@ -257,6 +259,7 @@ class IPPO(nn.Module):
                     actions = torch.cat((left_actions, right_actions), dim=1)
                     # Step the vec_environment
                     next_obs_dict, rews, dones, infos = self.vec_env.step(actions)
+                    if self.record_dof: traj_dof = np.concatenate((traj_dof, self.vec_env.robot_dof_pos[:1].detach().cpu().numpy()), axis=0)
                     next_obs = next_obs_dict["obs"]
                     current_obs.copy_(next_obs)
                 if i == self.vec_env.max_episode_length - 2:
@@ -265,6 +268,8 @@ class IPPO(nn.Module):
                     print('stage 1 success:', self.vec_env.stage1_successes.mean().item())
                     print('stage 2 left success:', self.vec_env.stage2_left_successes.mean().item())
                     print('stage 2 right success:', self.vec_env.stage2_right_successes.mean().item())
+            if self.record_dof: 
+                np.save(f"dofdemo/{os.path.basename(self.vec_env.sampled_taco_task_data['save_name']).split('-')[0]}.npy", traj_dof)
             exit()
 
         else:
