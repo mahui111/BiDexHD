@@ -90,10 +90,11 @@ class DaggerValue(nn.Module):
             # multi_expert
             self.expert_list = []
             for expert_cfg in train_param['expert']:
-                expert = expert_class(vec_env,train_param,None,obs_type=train_param['expertObservationType'])
+                expert = expert_class(vec_env, train_param, None, obs_type=train_param['expertObservationType'])
                 expert.to(self.device)
                 expert.load(expert_cfg['path'])
-                self.expert_list.append(dict(path=expert_cfg['path'], model=expert))
+                self.expert_list.append(expert)
+            self.num_task = len(self.expert_list)
             self.storage = DaggerStorage(self.vec_env.num_envs, self.num_transitions_per_env, self.observation_space.shape,
                                         self.state_space.shape, self.single_action_space_shape, self.device, self.sampler)
     
@@ -110,7 +111,6 @@ class DaggerValue(nn.Module):
     def run(self,):
         self.train()
         num_learning_iterations = self.num_learning_iterations
-        timestep = -1
         if self.is_testing:
             self.vec_env.random_time = False
         current_obs = self.vec_env.reset()["obs"]
@@ -143,22 +143,15 @@ class DaggerValue(nn.Module):
             episode_length = []
             cur_reward_sum = torch.zeros(self.vec_env.num_envs, dtype=torch.float, device=self.device)
             cur_episode_length = torch.zeros(self.vec_env.num_envs, dtype=torch.float, device=self.device)
-            cur_expert = self.expert_list[0]['model']
             for it in range(1 + self.current_learning_iteration, 1 + num_learning_iterations):
-                timestep = (timestep + 1) % self.vec_env.max_episode_length
-                if timestep == 0:  # multi_expert
-                    cur_expert_dict = np.random.choice(self.expert_list)
-                    cur_expert = cur_expert_dict['model']
-                    print(f"Current expert checkpoint: {cur_expert_dict['path']}")
                 start = time.time()
                 ep_infos = []
                 for i in range(self.num_transitions_per_env):
                     # Compute expert action
-                    expert_left_actions, _, expert_left_values, _, _ = cur_expert.left_agent.actor_critic.act(current_obs[:, self.expert_left_obs_indices], current_states)
-                    expert_right_actions, _, expert_right_values, _, _ = cur_expert.right_agent.actor_critic.act(current_obs[:, self.expert_right_obs_indices], current_states)
+                    expert_left_actions, expert_left_values, expert_right_actions, expert_right_values = self.expert_batch_act(current_obs)
                     # Compute the action
-                    stu_left_actions, _, stu_left_values, _, _ = self.left_actor_critic.act(current_obs, current_states)
-                    stu_right_actions, _, stu_right_values, _, _ = self.right_actor_critic.act(current_obs, current_states)
+                    stu_left_actions, _, stu_left_values, _, _ = self.left_actor_critic.act(current_obs)
+                    stu_right_actions, _, stu_right_values, _, _ = self.right_actor_critic.act(current_obs)
                     stu_actions = torch.cat([stu_left_actions, stu_right_actions], dim=1)
                     # Step the vec_environment
                     with torch.no_grad():
@@ -190,8 +183,8 @@ class DaggerValue(nn.Module):
                 if self.print_log:
                     retbuffer.extend(episode_return)
                     lenbuffer.extend(episode_length)
-                _, _, last_left_values, _, _ = self.left_actor_critic.act(next_obs, current_states)
-                _, _, last_right_values, _, _ = self.right_actor_critic.act(next_obs, current_states)
+                _, _, last_left_values, _, _ = self.left_actor_critic.act(next_obs)
+                _, _, last_right_values, _, _ = self.right_actor_critic.act(next_obs)
                 stop = time.time()
                 collection_time = stop - start
                 mean_trajectory_length, left_mean_reward, right_mean_reward = self.storage.get_statistics()
@@ -267,6 +260,15 @@ class DaggerValue(nn.Module):
         mean_value_loss /= num_updates
         return mean_policy_loss, mean_value_loss, dict(left_action_loss=left_action_loss.item(), right_action_loss=right_action_loss.item(), left_value_loss=left_value_loss.item(), right_value_loss=right_value_loss.item())
 
+    def expert_batch_act(self, current_obs):
+        with torch.no_grad():
+            batch_expert_left_actions, batch_expert_left_values = torch.zeros(current_obs.shape[:1] + self.single_action_space_shape, device=self.device), torch.zeros(current_obs.shape[:1] + (1,), device=self.device)
+            batch_expert_right_actions, batch_expert_right_values = torch.zeros(current_obs.shape[:1] + self.single_action_space_shape, device=self.device), torch.zeros(current_obs.shape[:1] + (1,), device=self.device)
+            for i_task in range(len(self.expert_list)):
+                batch_expert_left_actions[i_task::self.num_task], _, batch_expert_left_values[i_task::self.num_task], _, _ = self.expert_list[i_task::self.num_task].left_agent.actor_critic.act(current_obs[:, self.expert_left_obs_indices])
+                batch_expert_right_actions[i_task::self.num_task], _, batch_expert_right_values[i_task::self.num_task], _, _ = self.expert_list[i_task::self.num_task].right_agent.actor_critic.act(current_obs[:, self.expert_right_obs_indices])
+        return batch_expert_left_actions, batch_expert_left_values, batch_expert_right_actions, batch_expert_right_values
+    
     @staticmethod
     def symlog(x):
         return x.sign() * x.abs().log1p()

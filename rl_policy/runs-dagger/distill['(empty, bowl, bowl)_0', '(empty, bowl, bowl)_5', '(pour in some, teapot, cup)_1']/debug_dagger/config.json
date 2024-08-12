@@ -1,0 +1,344 @@
+{
+    "task": {
+        "name": "BiLeapHandGraspMultiDagger",
+        "mode": "${mode}",
+        "physics_engine": "${..physics_engine}",
+        "env": {
+            "numEnvs": "${resolve_default:16384,${...num_envs}}",
+            "envSpacing": 1.5,
+            "episodeLength": 400,
+            "enableDebugVis": "${debug}",
+            "aggregateMode": 1,
+            "clipObservations": 5.0,
+            "clipActions": 1.0,
+            "stiffnessScale": 1.0,
+            "forceLimitScale": 1.0,
+            "useRelativeControl": false,
+            "armController": "qpos",
+            "dofSpeedScale": 20.0,
+            "actionsMovingAverage": 0.1,
+            "controlFrequencyInv": 1,
+            "resetPositionNoise": 0.01,
+            "resetRotationNoise": 0.0,
+            "resetDofPosRandomInterval": 0.2,
+            "resetDofVelRandomInterval": 0.0,
+            "forceScale": 0.0,
+            "forceProbRange": [
+                0.001,
+                0.1
+            ],
+            "forceDecay": 0.99,
+            "forceDecayInterval": 0.08,
+            "distRewardScale": 0.3,
+            "actionPenaltyScale": 0.001,
+            "observationType": "${observationType}",
+            "asymmetric_observations": false,
+            "successTolerance": 0.05,
+            "printNumSuccesses": false,
+            "maxConsecutiveSuccesses": 0,
+            "multiTask": false,
+            "asset": {
+                "assetRoot": "../assets",
+                "leftAssetFile": "rm65_leap_right/rm65_leap_left_m1.urdf",
+                "rightAssetFile": "rm65_leap_right/rm65_leap_right_m1.urdf",
+                "objectAssetFile": "obj/urdf/cup.urdf",
+                "toolAssetFile": "obj/urdf/cup.urdf",
+                "objectAssetDir": "obj/urdf"
+            },
+            "enableCameraSensors": false,
+            "cameraPosition": [
+                0.0,
+                -2.0,
+                1.0
+            ],
+            "cameraTarget": [
+                0.0,
+                0.0,
+                0.5
+            ],
+            "vision": {
+                "pointclouds": {
+                    "numDownsample": "${numDownsample}",
+                    "numEachPoint": "${numEachPoint}"
+                }
+            }
+        },
+        "task": {
+            "task_ids": [
+                "(empty, bowl, bowl)_0",
+                "(empty, bowl, bowl)_5",
+                "(pour in some, teapot, cup)_1"
+            ],
+            "frequency": 2,
+            "horizon": 2,
+            "isStage1HOReward": "${isStage1HOReward}",
+            "isStage1LinReward": "${isStage1LinReward}",
+            "isStage2PosRewExp": "${isStage2PosRewExp}",
+            "randomize": false,
+            "randomization_params": {
+                "frequency": 720,
+                "observations": {
+                    "range": [
+                        0,
+                        0.002
+                    ],
+                    "range_correlated": [
+                        0,
+                        0.001
+                    ],
+                    "operation": "additive",
+                    "distribution": "gaussian"
+                },
+                "actions": {
+                    "range": [
+                        0.0,
+                        0.05
+                    ],
+                    "range_correlated": [
+                        0,
+                        0.015
+                    ],
+                    "operation": "additive",
+                    "distribution": "gaussian"
+                },
+                "sim_params": {
+                    "gravity": {
+                        "range": [
+                            0,
+                            0.4
+                        ],
+                        "operation": "additive",
+                        "distribution": "gaussian"
+                    }
+                },
+                "actor_params": {
+                    "hand": {
+                        "color": true,
+                        "dof_properties": {
+                            "damping": {
+                                "range": [
+                                    0.3,
+                                    3.0
+                                ],
+                                "operation": "scaling",
+                                "distribution": "loguniform"
+                            },
+                            "stiffness": {
+                                "range": [
+                                    0.75,
+                                    1.5
+                                ],
+                                "operation": "scaling",
+                                "distribution": "loguniform"
+                            },
+                            "lower": {
+                                "range": [
+                                    0,
+                                    0.01
+                                ],
+                                "operation": "additive",
+                                "distribution": "gaussian"
+                            },
+                            "upper": {
+                                "range": [
+                                    0,
+                                    0.01
+                                ],
+                                "operation": "additive",
+                                "distribution": "gaussian"
+                            }
+                        },
+                        "rigid_body_properties": {
+                            "mass": {
+                                "range": [
+                                    0.5,
+                                    1.5
+                                ],
+                                "operation": "scaling",
+                                "distribution": "uniform",
+                                "setup_only": true
+                            }
+                        },
+                        "rigid_shape_properties": {
+                            "friction": {
+                                "num_buckets": 250,
+                                "range": [
+                                    0.7,
+                                    1.3
+                                ],
+                                "operation": "scaling",
+                                "distribution": "uniform"
+                            }
+                        }
+                    },
+                    "object": {
+                        "scale": {
+                            "range": [
+                                0.95,
+                                1.05
+                            ],
+                            "operation": "scaling",
+                            "distribution": "uniform",
+                            "setup_only": true
+                        },
+                        "rigid_body_properties": {
+                            "mass": {
+                                "range": [
+                                    0.5,
+                                    1.5
+                                ],
+                                "operation": "scaling",
+                                "distribution": "uniform",
+                                "setup_only": true
+                            }
+                        },
+                        "rigid_shape_properties": {
+                            "friction": {
+                                "num_buckets": 250,
+                                "range": [
+                                    0.7,
+                                    1.3
+                                ],
+                                "operation": "scaling",
+                                "distribution": "uniform"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "sim": {
+            "dt": 0.01667,
+            "substeps": 2,
+            "up_axis": "z",
+            "use_gpu_pipeline": "${eq:${...pipeline},\"gpu\"}",
+            "gravity": [
+                0.0,
+                0.0,
+                -9.81
+            ],
+            "physx": {
+                "num_threads": "${....num_threads}",
+                "solver_type": "${....solver_type}",
+                "use_gpu": "${contains:\"cuda\",${....sim_device}}",
+                "num_position_iterations": 8,
+                "num_velocity_iterations": 0,
+                "max_gpu_contact_pairs": 8388608,
+                "num_subscenes": "${....num_subscenes}",
+                "contact_offset": 0.002,
+                "rest_offset": 0.0,
+                "bounce_threshold_velocity": 0.2,
+                "max_depenetration_velocity": 1000.0,
+                "default_buffer_size_multiplier": 5.0,
+                "contact_collection": 0
+            }
+        }
+    },
+    "train": {
+        "params": {
+            "name": "${algo}",
+            "log_dir": "./runs-dagger",
+            "policy": {
+                "backbone_type": "PointNetBackbone",
+                "numDownsample": "${numDownsample}",
+                "numEachPoint": "${numEachPoint}",
+                "pcEmbDim": 128,
+                "useSeg": false,
+                "freeze_backbone": false,
+                "pi_hid_sizes": [
+                    1024,
+                    1024,
+                    512,
+                    512
+                ],
+                "vf_hid_sizes": [
+                    1024,
+                    1024,
+                    512,
+                    512
+                ],
+                "activation": "elu"
+            },
+            "test": "${...test}",
+            "checkpoint": "${...checkpoint}",
+            "resume": 0,
+            "save_interval": 500,
+            "print_log": true,
+            "max_iterations": 1000000,
+            "cliprange": 0.2,
+            "ent_coef": 0.0001,
+            "nsteps": 8,
+            "noptepochs": 5,
+            "nminibatches": 4,
+            "max_grad_norm": 1,
+            "optim_stepsize": 0.0003,
+            "schedule": "adaptive",
+            "desired_kl": 0.016,
+            "gamma": 0.96,
+            "lam": 0.95,
+            "init_noise_std": 0.8,
+            "log_interval": 1,
+            "asymmetric": false,
+            "value_loss": {
+                "apply": true,
+                "use_clipped_value_loss": true,
+                "value_loss_coef": 0.1,
+                "clip_range": 0.5
+            },
+            "expert": [
+                {
+                    "triplet": "(empty, bowl, bowl)",
+                    "task_id": "0",
+                    "path": "/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(empty, bowl, bowl)/task0/ippo_Bbvdex_reward_linmin_exp/model_9000.pt"
+                },
+                {
+                    "triplet": "(empty, bowl, bowl)",
+                    "task_id": "5",
+                    "path": "/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(empty, bowl, bowl)/task5/ippo_Bbvdex_reward_linmin_exp/model_15500.pt"
+                },
+                {
+                    "triplet": "(pour in some, teapot, cup)",
+                    "task_id": "1",
+                    "path": "/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(pour in some, teapot, cup)/task1/observe2/model_1500.pt"
+                }
+            ],
+            "expertObservationType": "dofps+dofvel+ftps+lastact+objstate+palmpose+relps"
+        }
+    },
+    "task_name": "${task.name}",
+    "experiment": "",
+    "algo": "dagger",
+    "num_envs": 9,
+    "seed": 42,
+    "torch_deterministic": false,
+    "max_iterations": "",
+    "physics_engine": "physx",
+    "pipeline": "gpu",
+    "sim_device": "cuda:0",
+    "rl_device": "cuda:0",
+    "graphics_device_id": 0,
+    "num_threads": 4,
+    "solver_type": 1,
+    "num_subscenes": 4,
+    "test": false,
+    "checkpoint": "",
+    "sigma": "",
+    "multi_gpu": false,
+    "capture_video": false,
+    "capture_video_freq": 1464,
+    "capture_video_len": 100,
+    "force_render": true,
+    "headless": false,
+    "record": false,
+    "debug": false,
+    "mode": "train",
+    "triplet": "(pour in some, teapot, cup)",
+    "exp_name": "debug_dagger",
+    "task_id": 1,
+    "observationType": "dofps+dofvel+ftps+lastact+objstate+palmpose+relps+meshpc",
+    "isStage1HOReward": 0,
+    "isStage1LinReward": 0,
+    "isStage2PosRewExp": 1,
+    "numDownsample": 512,
+    "numEachPoint": 3
+}

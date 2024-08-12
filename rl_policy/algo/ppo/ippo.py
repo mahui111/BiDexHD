@@ -201,6 +201,7 @@ class IPPO(nn.Module):
         self.save_interval = train_param["save_interval"]
         
         # Log
+        self.obs_type = obs_type
         self.log_dir = log_dir
         if not self.is_testing and log_dir is not None and not obs_type:
             self.writer = SummaryWriter(log_dir=self.log_dir, flush_secs=10)

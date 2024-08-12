@@ -1,6 +1,6 @@
 params:
   name: ${algo}
-  log_dir: './runs' 
+  log_dir: './runs-dagger' 
   policy: # only works for MlpPolicy right now
     backbone_type: 'PointNetBackbone'
     numDownsample: ${numDownsample}
@@ -44,10 +44,16 @@ params:
     use_clipped_value_loss: True
     value_loss_coef: 0.1
     clip_range: 0.5
-
+    
   expert: [
     {
-      name: '0',
+      triplet: '(brush, brush, bowl)',
+      task_id: '1',
+      path: '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(brush, brush, bowl)/task1/reinplement/model_9000.pt',
+    },
+    {
+      triplet: '(pour in some, teapot, cup)',
+      task_id: '1',
       path: '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(pour in some, teapot, cup)/task1/observe2/model_1500.pt',
     },
   ]
