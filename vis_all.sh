@@ -6,7 +6,7 @@ for triplet in "${triplet_list[@]}"; do
   cleaned_triplet=${triplet//[\'\"]/}
   if [ ! -f "taco_dataset/sampled_data/$cleaned_triplet.json" ]; then
     echo "Making dataset for $triplet"
-    python taco_dataset/TACOdataset.py --mode make_dataset --triplet "$triplet"
+    python taco_dataset/TACOdataset.py --mode make_dataset --triplet "$triplet" --num_max 20
   fi
 done
 

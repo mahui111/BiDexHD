@@ -264,11 +264,9 @@ class IPPO(nn.Module):
                     next_obs = next_obs_dict["obs"]
                     current_obs.copy_(next_obs)
                 if i == self.vec_env.max_episode_length - 2:
-                    print('stage 1 left success:', self.vec_env.stage1_left_successes.mean().item())
-                    print('stage 1 right success:', self.vec_env.stage1_right_successes.mean().item())
-                    print('stage 1 success:', self.vec_env.stage1_successes.mean().item())
-                    print('stage 2 left success:', self.vec_env.stage2_left_successes.mean().item())
-                    print('stage 2 right success:', self.vec_env.stage2_right_successes.mean().item())
+                    for metrics in ['stage1_left_successes', 'stage1_right_successes', 'stage1_successes', 'stage2_left_successes', 'stage2_right_successes', 'stage2_successes']:
+                        if hasattr(self.vec_env, metrics):
+                            print(f'{metrics}:\t', getattr(self.vec_env, metrics).mean().item())
             if self.record_dof: 
                 np.save(f"dofdemo/{os.path.basename(self.vec_env.sampled_taco_task_data['save_name']).split('-')[0]}.npy", traj_dof)
             exit()
@@ -286,7 +284,7 @@ class IPPO(nn.Module):
             reward_sum = []
             episode_length = []
 
-            for it in range(self.current_learning_iteration, num_learning_iterations):
+            for it in range(1+self.current_learning_iteration, 1+num_learning_iterations):
                 start = time.time()
                 ep_infos = []
 

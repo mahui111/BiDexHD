@@ -669,7 +669,6 @@ class BiLeapHandGraspMultiDagger(VecTask):
             self.sim_params,
         )
         self._create_ground_plane()
-        self._prepare_dataset()  
         self._create_envs(self.num_envs, self.cfg["env"]["envSpacing"], int(np.sqrt(self.num_envs)),)
 
         # if randamizing, apply once immediately on startup before the first sim step
@@ -750,19 +749,17 @@ class BiLeapHandGraspMultiDagger(VecTask):
         self.table_heights = []
         if self.arm_controller == "ik":
             self.eef_idx = []
+
+        self._prepare_dataset()  
+        
         for i in range(num_envs):
             i_task = i % self.num_task  # multi-objects
             
             env_ptr = self.gym.create_env(self.sim, lower, upper, num_per_row)
             object_asset, tool_asset = self.object_assets[i_task], self.tool_assets[i_task]
-            # aggregate size
-            num_object_bodies = self.gym.get_asset_rigid_body_count(object_asset) + self.gym.get_asset_rigid_body_count(tool_asset)
-            num_object_shapes = self.gym.get_asset_rigid_shape_count(object_asset) + self.gym.get_asset_rigid_shape_count(tool_asset)
-            max_agg_bodies = self.num_robot_bodies + num_object_bodies + 2
-            max_agg_shapes = self.num_robot_shapes + num_object_shapes + 2
 
             if self.aggregate_mode > 0:
-                self.gym.begin_aggregate(env_ptr, max_agg_bodies, max_agg_shapes, True)
+                self.gym.begin_aggregate(env_ptr, self.max_agg_bodies[i_task], self.max_agg_shapes[i_task], True)
 
             # create robot actor
             left_robot_start_pose, right_robot_start_pose = self.left_robot_start_poses[i_task], self.right_robot_start_poses[i_task]
@@ -989,7 +986,13 @@ class BiLeapHandGraspMultiDagger(VecTask):
         os.makedirs(object_mesh_path, exist_ok=True), os.makedirs(tool_mesh_path, exist_ok=True)
         
         dataset_taco_data = {}  # {triplet: taco_data}
-        self.object_assets, self.tool_assets, self.object_start_poses, self.tool_start_poses, self.left_robot_start_poses, self.right_robot_start_poses, self.table_assets, self.table_start_poses, self.object_mesh_pointclouds, self.tool_mesh_pointclouds = [], [], [], [], [], [], [], [], [], []
+        self.object_assets, self.tool_assets, \
+        self.object_start_poses, self.tool_start_poses, \
+        self.left_robot_start_poses, self.right_robot_start_poses, \
+        self.table_assets, self.table_start_poses, \
+        self.object_mesh_pointclouds, self.tool_mesh_pointclouds, \
+        self.max_agg_bodies, self.max_agg_shapes, \
+        = [], [], [], [], [], [], [], [], [], [], [], []
         for task in self.task_ids:
             triplet, task_id = task.split('_')
             task_id = int(task_id)
@@ -1003,11 +1006,11 @@ class BiLeapHandGraspMultiDagger(VecTask):
             self.table_assets.append(table_asset)
             self.table_start_poses.append(table_start_pose)
             # create object and tool urdf
-            task_object_urdf_file = os.path.join(object_mesh_path, f'object_{triplet}_{task_id}.urdf')   
+            task_object_urdf_file = os.path.join(object_mesh_path, f'{triplet}_{task_id}.urdf')   
             if not os.path.exists(task_object_urdf_file):             
                 with open(task_object_urdf_file, 'w') as urdf_file:
                     urdf_file.write(self._generate_urdf(dict(id=dataset_taco_data[triplet][task_id]['left']['object']['id'])))
-            task_tool_urdf_file = os.path.join(tool_mesh_path, f'tool_{triplet}_{task_id}.urdf')
+            task_tool_urdf_file = os.path.join(tool_mesh_path, f'{triplet}_{task_id}.urdf')
             if not os.path.exists(task_tool_urdf_file):
                 with open(task_tool_urdf_file, 'w') as urdf_file:
                     urdf_file.write(self._generate_urdf(dict(id=dataset_taco_data[triplet][task_id]['right']['tool']['id'])))
@@ -1016,6 +1019,13 @@ class BiLeapHandGraspMultiDagger(VecTask):
             tool_asset = self._prepare_object_asset(*os.path.split(task_tool_urdf_file), vhacd_enabled)
             self.object_assets.append(object_asset)
             self.tool_assets.append(tool_asset)
+            # aggregate size
+            num_object_bodies = self.gym.get_asset_rigid_body_count(object_asset) + self.gym.get_asset_rigid_body_count(tool_asset)
+            num_object_shapes = self.gym.get_asset_rigid_shape_count(object_asset) + self.gym.get_asset_rigid_shape_count(tool_asset)
+            max_agg_bodies = self.num_robot_bodies + num_object_bodies + 2
+            max_agg_shapes = self.num_robot_shapes + num_object_shapes + 2
+            self.max_agg_bodies.append(max_agg_bodies)
+            self.max_agg_shapes.append(max_agg_shapes)
             # read object and tool mesh 
             object_pc = read_pointcloud_from_urdf(task_object_urdf_file, self.num_pc_downsample)
             tool_pc = read_pointcloud_from_urdf(task_tool_urdf_file, self.num_pc_downsample)

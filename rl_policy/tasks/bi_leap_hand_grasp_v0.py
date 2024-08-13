@@ -13,6 +13,9 @@ from isaacgymenvs.tasks.base.vec_task import VecTask
 
 
 class BiLeapHandGraspV0(VecTask):
+    '''
+    Initial bimanual grasping attempt
+    '''
     def __init__(
         self,
         cfg,
@@ -679,7 +682,6 @@ class BiLeapHandGraspV0(VecTask):
         self.obs_buf[:, cnt + 3 : cnt + 15] = (self.object_pos.unsqueeze(1) - self.left_fingertip_pos).reshape(-1,12)
         self.obs_buf[:, cnt + 15: cnt + 18] = self.tool_pos - self.right_palm_pos
         self.obs_buf[:, cnt + 18 : cnt + 30] = (self.tool_pos.unsqueeze(1) - self.right_fingertip_pos).reshape(-1,12)
-
 
     def compute_full_state(self):
         if self.asymmetric_obs:

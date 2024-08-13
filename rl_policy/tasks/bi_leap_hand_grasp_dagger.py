@@ -949,7 +949,7 @@ def get_pointcloud_from_src(asset_dir, device, num_sample=1024):
     return torch.tensor(object_pc, dtype=torch.float32).to(device).unsqueeze(0), torch.tensor(tool_pc, dtype=torch.float32).to(device).unsqueeze(0)
 
 
-class BiLeapHandGraspPCD(VecTask):
+class BiLeapHandGraspDagger(VecTask):
     def get_obs_idx_num(self,obs_type=''):
         if obs_type == '':
             obs_type = self.obs_type

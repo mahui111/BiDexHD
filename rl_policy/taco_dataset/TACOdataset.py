@@ -281,6 +281,7 @@ class TACODataset:
         for k, sequence_name in enumerate(seqname_list):
             object_pose_dir = join(self.dataset_root, "Object_Poses", triplet, sequence_name)
             hand_pose_dir = join(self.dataset_root, "Hand_Poses", triplet, sequence_name)
+            breakpoint()
             for file_name in os.listdir(object_pose_dir):
                 if file_name.startswith("tool_"):
                     tool_name = file_name.split(".")[0].split("_")[-1]
@@ -874,6 +875,7 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_dir", type=str, default="/home/zbh/Desktop/zbh/robot/TACO-Instructions/dataset/overall")
     parser.add_argument("--mano_model_path", type=str, default="/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/taco_dataset/manopth/mano/models")
     parser.add_argument("--triplet", type=str, default='(smear, eraser, plate)')
+    parser.add_argument("--num_max", type=int, default=100)
     parser.add_argument("--viz_sapien", action="store_true")
     parser.add_argument("--optimize_wrist", type=int, default=0)
     parser.add_argument("--mode", type=str, default="make_dataset")  # make_task / make_dataset
@@ -883,9 +885,9 @@ if __name__ == "__main__":
     if args.viz_sapien:  # useless
         taco_dataset.visualize_robot_and_mano(args.triplet,'right')
     if args.mode == "make_dataset":
-        sampled_taco_dataset = taco_dataset.make_dataset(args.triplet)
+        sampled_taco_dataset = taco_dataset.make_dataset(args.triplet, num_max=args.num_max)
     elif args.mode == "make_mano_dataset":
-        sampled_taco_mano_dataset = taco_dataset.make_mano_dataset(args.triplet)
+        sampled_taco_mano_dataset = taco_dataset.make_mano_dataset(args.triplet, num_max=args.num_max)
     elif args.mode == "make_task":
         sampled_taco_task_data = taco_dataset.make_task(args.triplet, is_visualize=False)
     

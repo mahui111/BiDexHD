@@ -310,8 +310,6 @@ def compute_relative_position(
     position = quat_apply(w2b_rotation, a_position) + w2b_translation
     return position
 
-
-
 @torch.jit.script
 def compute_grasp_rewards(
     reset_buf,
@@ -923,6 +921,9 @@ def compute_bvdex_stage12_rewards(
     )
 
 class BiLeapHandGraspV2(VecTask):
+    '''
+    Single-object training for bimanual manipulation from demonstrations.
+    '''
     def get_obs_idx_num(self,obs_type=''):
         if not obs_type:
             obs_type = self.obs_type
@@ -1496,7 +1497,7 @@ class BiLeapHandGraspV2(VecTask):
     def _prepare_dataset(self):
         with open(self.cfg['dataset']['meta_data_path'], 'r') as f:
             self.dataset_taco_data = json.load(f)
-        self.len_dataset = len(self.dataset_taco_data)
+        self.num_task = len(self.dataset_taco_data)
         self.task_id = self.cfg['task']['task_id']
 
     def _prepare_task(self, task_id=0):
