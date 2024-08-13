@@ -265,8 +265,8 @@ class DaggerValue(nn.Module):
             batch_expert_left_actions, batch_expert_left_values = torch.zeros(current_obs.shape[:1] + self.single_action_space_shape, device=self.device), torch.zeros(current_obs.shape[:1] + (1,), device=self.device)
             batch_expert_right_actions, batch_expert_right_values = torch.zeros(current_obs.shape[:1] + self.single_action_space_shape, device=self.device), torch.zeros(current_obs.shape[:1] + (1,), device=self.device)
             for i_task in range(len(self.expert_list)):
-                batch_expert_left_actions[i_task::self.num_task], _, batch_expert_left_values[i_task::self.num_task], _, _ = self.expert_list[i_task::self.num_task].left_agent.actor_critic.act(current_obs[:, self.expert_left_obs_indices])
-                batch_expert_right_actions[i_task::self.num_task], _, batch_expert_right_values[i_task::self.num_task], _, _ = self.expert_list[i_task::self.num_task].right_agent.actor_critic.act(current_obs[:, self.expert_right_obs_indices])
+                batch_expert_left_actions[i_task::self.num_task], _, batch_expert_left_values[i_task::self.num_task], _, _ = self.expert_list[i_task].left_agent.actor_critic.act(current_obs[i_task::self.num_task, self.expert_left_obs_indices])
+                batch_expert_right_actions[i_task::self.num_task], _, batch_expert_right_values[i_task::self.num_task], _, _ = self.expert_list[i_task].right_agent.actor_critic.act(current_obs[i_task::self.num_task, self.expert_right_obs_indices])
         return batch_expert_left_actions, batch_expert_left_values, batch_expert_right_actions, batch_expert_right_values
     
     @staticmethod

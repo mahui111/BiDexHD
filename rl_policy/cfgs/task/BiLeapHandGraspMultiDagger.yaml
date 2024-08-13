@@ -7,7 +7,7 @@ physics_engine: ${..physics_engine}
 env: 
   numEnvs: ${resolve_default:16384,${...num_envs}}
   envSpacing: 1.5
-  episodeLength: 400
+  episodeLength: 300
   enableDebugVis: ${debug}
   aggregateMode: 1
 
@@ -67,7 +67,7 @@ env:
       numEachPoint: ${numEachPoint}
 task:
   task_ids: [
-    "(pour in some, teapot, cup)_7",
+    "(brush, brush, bowl)_1",
     "(pour in some, teapot, cup)_1",
   ]
   frequency: 2

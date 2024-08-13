@@ -4,7 +4,6 @@ assets/TACOobjects
 assets/rm65_shadow_right
 assets/TACOdataset
 rl_policy/dofdemo/
-rl_policy/runs
+rl_policy/*runs*
 rl_policy/taco_dataset/sampled_data/*
-*runs
 exe.sh

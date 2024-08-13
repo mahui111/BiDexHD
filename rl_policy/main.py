@@ -25,7 +25,7 @@ def build_runner(cfg, env):
         time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         exp_name = f"{cfg.algo}_{time_str}_s{cfg.seed}" if not cfg.exp_name else cfg.exp_name
         if 'dagger' in cfg.algo:
-            log_dir = os.path.join(train_param.log_dir, f"distill{cfg['task']['task']['task_ids']}", exp_name)
+            log_dir = os.path.join(train_param.log_dir, f"distill{len(cfg['task']['task']['task_ids'])}", exp_name)
         else:
             log_dir = os.path.join(train_param.log_dir, cfg.triplet, f"task{cfg['task']['task']['task_id']}", exp_name)
         os.makedirs(log_dir, exist_ok=True)

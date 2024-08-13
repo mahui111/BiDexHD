@@ -305,10 +305,8 @@ def compute_relative_position(
     position = quat_apply(w2b_rotation, a_position) + w2b_translation
     return position
 
-
-
 @torch.jit.script
-def compute_bvdex_stage12_rewards(
+def compute_dagger_rewards(
     reset_buf,
     progress_buf,
     max_episode_length: float,
@@ -377,6 +375,12 @@ def compute_bvdex_stage12_rewards(
     right_approach_penalty = dist_reward_scale * right_fingertips_tool_dist + 2 * dist_reward_scale * right_palm_tool_dist
     info["left_approach_penalty"] = left_approach_penalty
     info["right_approach_penalty"] = right_approach_penalty
+    left_reward = - left_approach_penalty 
+    right_reward = - right_approach_penalty
+    reward = left_reward + right_reward
+    info["left_reward"] = left_reward
+    info["right_reward"] = right_reward
+    info["reward"] = reward
 
 
     # reset
@@ -384,6 +388,7 @@ def compute_bvdex_stage12_rewards(
     resets = torch.where(progress_buf >= max_episode_length, torch.ones_like(resets), resets)
     resets = torch.where(torch.logical_or(left_is_fall, right_is_fall), torch.ones_like(resets), resets)
     return (
+        reward,
         resets,
         progress_buf,
         info,
@@ -1065,7 +1070,7 @@ class BiLeapHandGraspMultiDagger(VecTask):
         return table_asset, table_start_pose
     
     def compute_reward(self,):
-        self.reset_buf[:], self.progress_buf[:], reward_info = compute_bvdex_stage12_rewards(
+        self.rew_buf[:], self.reset_buf[:], self.progress_buf[:], reward_info = compute_dagger_rewards(
             self.reset_buf,
             self.progress_buf,
             self.max_episode_length,
@@ -1204,8 +1209,9 @@ class BiLeapHandGraspMultiDagger(VecTask):
             # visualizer.visualize_point_clouds(self.object_meshpc[0].detach().cpu().numpy())
             # visualizer.visualize_point_clouds(self.tool_meshpc[0].detach().cpu().numpy())
             # visualizer.draw(True)
-            self.obs_buf[:, cnt : cnt + self.num_pc_flatten] = transformation_apply(self.object_pos[:,None,:], self.object_rot[:,None,:], self.object_meshpc).view(-1, self.num_pc_flatten)
-            self.obs_buf[:, cnt + self.num_pc_flatten : cnt + 2 * self.num_pc_flatten] = transformation_apply(self.tool_pos[:,None,:], self.tool_rot[:,None,:], self.tool_meshpc).view(-1, self.num_pc_flatten)
+            for i_task in range(self.num_task):
+                self.obs_buf[i_task::self.num_task, cnt : cnt + self.num_pc_flatten] = transformation_apply(self.object_pos[i_task::self.num_task,None,:], self.object_rot[i_task::self.num_task,None,:], self.object_mesh_pointclouds[i_task]).view(-1, self.num_pc_flatten)
+                self.obs_buf[i_task::self.num_task, cnt + self.num_pc_flatten : cnt + 2 * self.num_pc_flatten] = transformation_apply(self.tool_pos[i_task::self.num_task,None,:], self.tool_rot[i_task::self.num_task,None,:], self.tool_mesh_pointclouds[i_task]).view(-1, self.num_pc_flatten)
             cnt += 2 * self.num_pc_flatten
         # assert dim
         assert cnt == self.obs_buf.shape[1]
