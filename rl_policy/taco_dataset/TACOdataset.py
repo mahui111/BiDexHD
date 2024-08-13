@@ -281,7 +281,6 @@ class TACODataset:
         for k, sequence_name in enumerate(seqname_list):
             object_pose_dir = join(self.dataset_root, "Object_Poses", triplet, sequence_name)
             hand_pose_dir = join(self.dataset_root, "Hand_Poses", triplet, sequence_name)
-            breakpoint()
             for file_name in os.listdir(object_pose_dir):
                 if file_name.startswith("tool_"):
                     tool_name = file_name.split(".")[0].split("_")[-1]
@@ -366,15 +365,14 @@ class TACODataset:
             plt.show()
         
         def find_var_abrupt_change(object_heights, window_size=5):
-            for i in range(len(object_heights) - window_size, 2*window_size, -1):
+            for i in range(len(object_heights) - window_size, window_size, -1):
                 # Calculate the standard deviation for the current and previous sliding windows
                 current_deviation = np.std(object_heights[i:i+window_size])
                 previous_deviation = np.std(object_heights[i-window_size:i])
-                older_deviation = np.std(object_heights[i-2*window_size:i-window_size])
                 # Compare the deviations
-                if abs(current_deviation - previous_deviation)-abs(older_deviation - previous_deviation) > 0.001:
-                    return i - 1
-            return int(len(object_heights) * 0.9)
+                if abs(current_deviation - previous_deviation) > 0.001:
+                    return max(i - 1, int(len(object_heights) * 0.8))
+            return int(len(object_heights) * 0.8)
         
         smoothed_object_pos = self.low_pass_filter(object_poses[:, :3, 3])
         smoothed_tool_pos = self.low_pass_filter(tool_poses[:, :3, 3])
@@ -393,6 +391,13 @@ class TACODataset:
         end_tool_timestep = find_var_abrupt_change(tool_heights)
         end_timestep = int(max(end_object_timestep, end_tool_timestep))
         '''reference step'''
+        object_tool_dis = np.linalg.norm(smoothed_object_pos - smoothed_tool_pos, axis=1)
+        fig = plt.figure(figsize=(7, 7))
+        ax = fig.add_subplot(111)
+        ax.plot(object_tool_dis, label='Object-Tool Distance')
+        ax.scatter(end_timestep, object_tool_dis[end_timestep], color='black', s=50)
+        plt.show()
+        # TODO: find the first local extremum with huge single-side slope
         try:  
             percentage = 75
             ref_object_height = np.percentile(object_heights[object_heights>object_heights[init_timestep]], percentage)

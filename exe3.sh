@@ -6,13 +6,13 @@ if [ ! -f "taco_dataset/task_data/$cleaned_triplet.json" ]; then
 fi
 
 # debug
-# python main.py task=BiLeapHandGraspV3 train=LeapHandGraspMultiPPO algo=ippo num_envs=10 triplet="$triplet" exp_name=debug 
+python main.py task=BiLeapHandGraspV3 train=LeapHandGraspMultiPPO algo=ippo num_envs=11 triplet="$triplet" exp_name=debug 
 
 # visualize
 # python main.py task=BiLeapHandGraspV3 train=LeapHandGraspMultiPPO algo=ippo num_envs=1 triplet="$triplet" test=True mode=visualize
 
 # train
-python main.py task=BiLeapHandGraspV3 train=LeapHandGraspMultiPPO algo=ippo num_envs=5500 triplet="$triplet" exp_name=ema0.1+b2 headless=True
+# python main.py task=BiLeapHandGraspV3 train=LeapHandGraspMultiPPO algo=ippo num_envs=5900 triplet="$triplet" exp_name=ema0.1+b2 headless=True
 
 # evaluate
 # python main.py task=BiLeapHandGraspV3 train=LeapHandGraspMultiPPO algo=ippo num_envs=1 triplet="$triplet" test=True checkpoint="'\

@@ -906,7 +906,7 @@ def compute_bvdex_stage12_rewards(
     # stage 1 success
     stage1_left_successes = torch.logical_or(stage1_left_successes, left_successes).float()
     stage1_right_successes = torch.logical_or(stage1_right_successes, right_successes).float()
-    stage1_successes = torch.logical_and(stage1_left_successes, stage1_right_successes).float()
+    stage1_successes = torch.logical_or(torch.logical_and(stage1_left_successes, stage1_right_successes), stage1_successes).float()
     # satge 2 success
     stage2_left_successes = torch.where(stage1_left_successes, ((timestep - left_reach_ref_timestep) * stage2_left_successes + (ref_object_pos_dist <= success_tolerance)) / (timestep - left_reach_ref_timestep + 1), stage2_left_successes)
     stage2_right_successes = torch.where(stage1_right_successes, ((timestep - right_reach_ref_timestep) * stage2_right_successes + (ref_tool_pos_dist <= success_tolerance)) / (timestep - right_reach_ref_timestep + 1), stage2_right_successes)
