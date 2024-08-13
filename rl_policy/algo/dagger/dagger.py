@@ -129,12 +129,12 @@ class DaggerValue(nn.Module):
                     next_obs_dict, rews, dones, infos = self.vec_env.step(stu_actions)
                     next_obs = next_obs_dict["obs"]
                     current_obs.copy_(next_obs)
-                if i == self.vec_env.max_episode_length - 2:
-                    print('stage 1 left success:', self.vec_env.stage1_left_successes.mean().item())
-                    print('stage 1 right success:', self.vec_env.stage1_right_successes.mean().item())
-                    print('stage 1 success:', self.vec_env.stage1_successes.mean().item())
-                    print('stage 2 left success:', self.vec_env.stage2_left_successes.mean().item())
-                    print('stage 2 right success:', self.vec_env.stage2_right_successes.mean().item())
+                # if i == self.vec_env.max_episode_length - 2:
+                #     print('stage 1 left success:', self.vec_env.stage1_left_successes.mean().item())
+                #     print('stage 1 right success:', self.vec_env.stage1_right_successes.mean().item())
+                #     print('stage 1 success:', self.vec_env.stage1_successes.mean().item())
+                #     print('stage 2 left success:', self.vec_env.stage2_left_successes.mean().item())
+                #     print('stage 2 right success:', self.vec_env.stage2_right_successes.mean().item())
             exit()
         else:
             retbuffer = deque(maxlen=100)

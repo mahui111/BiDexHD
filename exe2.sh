@@ -13,10 +13,10 @@ fi
 # python main.py task=BiLeapHandGraspV2 train=LeapHandGraspPPO algo=ippo num_envs=1 triplet="$triplet" task_id=$task_id test=True mode=visualize
 
 # train
-python main.py task=BiLeapHandGraspV2 train=LeapHandGraspPPO algo=ippo num_envs=5800 triplet="$triplet" task_id=$task_id exp_name=ema0.1 headless=True
+# python main.py task=BiLeapHandGraspV2 train=LeapHandGraspPPO algo=ippo num_envs=5800 triplet="$triplet" task_id=$task_id exp_name=ema0.1 headless=True
 
 # evaluate
-# python main.py task=BiLeapHandGraspV2 train=LeapHandGraspPPO algo=ippo num_envs=1 triplet="$triplet" task_id=$task_id test=True checkpoint="'\
-# /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(put out, bowl, bowl)/task0/ema0.1/model_23500.pt\
-# '"
+python main.py task=BiLeapHandGraspV2 train=LeapHandGraspPPO algo=ippo num_envs=1 triplet="$triplet" task_id=$task_id test=True checkpoint="'\
+/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(empty, bowl, bowl)/task9/ema0.1/model_14000.pt\
+'"
 

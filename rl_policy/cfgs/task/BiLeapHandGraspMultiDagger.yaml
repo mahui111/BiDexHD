@@ -67,8 +67,10 @@ env:
       numEachPoint: ${numEachPoint}
 task:
   task_ids: [
-    "(brush, brush, bowl)_1",
-    "(pour in some, teapot, cup)_1",
+    "(empty, bowl, bowl)_1",
+    "(empty, bowl, bowl)_9",
+    "(put out, bowl, bowl)_0",
+    "(pour in some, bowl, bowl)_0"
   ]
   frequency: 2
   horizon: 2

@@ -47,14 +47,24 @@ params:
     
   expert: [
     {
-      triplet: '(brush, brush, bowl)',
+      triplet: '(empty, bowl, bowl)',
       task_id: '1',
-      path: '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(brush, brush, bowl)/task1/reinplement/model_9000.pt',
+      path: '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(empty, bowl, bowl)/task1/ema0.1/model_10000.pt',
     },
     {
-      triplet: '(pour in some, teapot, cup)',
-      task_id: '1',
-      path: '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(pour in some, teapot, cup)/task1/observe2/model_1500.pt',
+      triplet: '(empty, bowl, bowl)',
+      task_id: '9',
+      path: '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(empty, bowl, bowl)/task9/ema0.1/model_14000.pt',
+    },
+    {
+      triplet: '(put out, bowl, bowl)',
+      task_id: '0',
+      path: '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(put out, bowl, bowl)/task0/ema0.1/model_23500.pt',
+    },
+    {
+      triplet: '(pour in some, bowl, bowl)',
+      task_id: '0',
+      path: '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(pour in some, bowl, bowl)/task0/ema0.1/model_17000.pt',
     },
   ]
   expertObservationType: "dofps+dofvel+ftps+lastact+objstate+palmpose+relps"
