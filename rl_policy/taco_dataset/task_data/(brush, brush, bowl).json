@@ -3,8 +3,8 @@
         "save_name": "taco_dataset/task_data/(brush, brush, bowl)-20230919_010.json",
         "key_steps": {
             "init": 1,
-            "ref": 63,
-            "end": 197
+            "ref": 28,
+            "end": 225
         },
         "left": {
             "palm": {
@@ -21785,8 +21785,8 @@
         "save_name": "taco_dataset/task_data/(brush, brush, bowl)-20230919_036.json",
         "key_steps": {
             "init": 1,
-            "ref": 136,
-            "end": 209
+            "ref": 43,
+            "end": 222
         },
         "left": {
             "palm": {
@@ -44887,8 +44887,8 @@
         "save_name": "taco_dataset/task_data/(brush, brush, bowl)-20230919_052.json",
         "key_steps": {
             "init": 1,
-            "ref": 74,
-            "end": 239
+            "ref": 34,
+            "end": 293
         },
         "left": {
             "palm": {
@@ -71245,8 +71245,8 @@
         "save_name": "taco_dataset/task_data/(brush, brush, bowl)-20230919_053.json",
         "key_steps": {
             "init": 1,
-            "ref": 127,
-            "end": 244
+            "ref": 31,
+            "end": 300
         },
         "left": {
             "palm": {
@@ -98219,7 +98219,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, bowl)-20230927_027.json",
         "key_steps": {
             "init": 1,
-            "ref": 74,
+            "ref": 58,
             "end": 167
         },
         "left": {
@@ -116657,8 +116657,8 @@
         "save_name": "taco_dataset/task_data/(brush, brush, bowl)-20230930_028.json",
         "key_steps": {
             "init": 1,
-            "ref": 40,
-            "end": 94
+            "ref": 34,
+            "end": 102
         },
         "left": {
             "palm": {
@@ -127087,7 +127087,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, bowl)-20231005_186.json",
         "key_steps": {
             "init": 1,
-            "ref": 34,
+            "ref": 28,
             "end": 80
         },
         "left": {
@@ -135933,7 +135933,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, bowl)-20231005_188.json",
         "key_steps": {
             "init": 1,
-            "ref": 20,
+            "ref": 15,
             "end": 73
         },
         "left": {
@@ -144075,8 +144075,8 @@
         "save_name": "taco_dataset/task_data/(brush, brush, bowl)-20231005_190.json",
         "key_steps": {
             "init": 1,
-            "ref": 39,
-            "end": 74
+            "ref": 58,
+            "end": 75
         },
         "left": {
             "palm": {
@@ -152305,8 +152305,8 @@
         "save_name": "taco_dataset/task_data/(brush, brush, bowl)-20231005_192.json",
         "key_steps": {
             "init": 1,
-            "ref": 26,
-            "end": 73
+            "ref": 34,
+            "end": 78
         },
         "left": {
             "palm": {
@@ -160447,7 +160447,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, bowl)-20231005_194.json",
         "key_steps": {
             "init": 1,
-            "ref": 38,
+            "ref": 40,
             "end": 80
         },
         "left": {
@@ -169293,7 +169293,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, bowl)-20231005_196.json",
         "key_steps": {
             "init": 1,
-            "ref": 42,
+            "ref": 40,
             "end": 99
         },
         "left": {
@@ -180251,8 +180251,8 @@
         "save_name": "taco_dataset/task_data/(brush, brush, bowl)-20231006_141.json",
         "key_steps": {
             "init": 1,
-            "ref": 33,
-            "end": 88
+            "ref": 31,
+            "end": 92
         },
         "left": {
             "palm": {
@@ -190065,8 +190065,8 @@
         "save_name": "taco_dataset/task_data/(brush, brush, bowl)-20231006_145.json",
         "key_steps": {
             "init": 1,
-            "ref": 32,
-            "end": 97
+            "ref": 37,
+            "end": 107
         },
         "left": {
             "palm": {
@@ -200847,8 +200847,8 @@
         "save_name": "taco_dataset/task_data/(brush, brush, bowl)-20231006_147.json",
         "key_steps": {
             "init": 1,
-            "ref": 37,
-            "end": 88
+            "ref": 34,
+            "end": 97
         },
         "left": {
             "palm": {

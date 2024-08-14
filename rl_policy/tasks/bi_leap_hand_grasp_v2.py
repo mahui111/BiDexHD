@@ -1621,67 +1621,7 @@ class BiLeapHandGraspV2(VecTask):
         return side_panel_asset, side_panel_start_pose
 
     def compute_reward(self, mode):
-        if mode == 'grasp':
-            self.goal_height = self.table_height + 0.3
-            (
-                self.rew_buf[:],
-                self.reset_buf[:],
-                self.progress_buf[:],
-                self.successes[:],
-                self.current_successes[:],
-                self.consecutive_successes[:],
-                reward_info
-            ) = compute_grasp_rewards(
-                self.reset_buf,
-                self.progress_buf,
-                self.successes,
-                self.current_successes,
-                self.consecutive_successes,
-                self.max_episode_length,
-                self.object_pos, self.tool_pos,
-                self.goal_height,
-                self.left_palm_pos, self.right_palm_pos,
-                self.left_fingertip_pos, self.right_fingertip_pos,
-                self.dist_reward_scale,
-                self.object_init_states, self.tool_init_states,
-                self.action_penalty_scale,
-                self.success_tolerance,
-                self.av_factor,
-                self.table_height,
-                self.actions,
-            )
-        elif mode == 's1':
-            (
-                self.rew_buf[:],
-                self.reset_buf[:],
-                self.progress_buf[:],
-                self.successes[:],
-                self.current_successes[:],
-                self.consecutive_successes[:],
-                reward_info
-            ) = compute_bvdex_stage1_rewards(
-                self.reset_buf,
-                self.progress_buf,
-                self.successes,
-                self.current_successes,
-                self.consecutive_successes,
-                self.max_episode_length,
-                self.object_pose, self.tool_pose,
-                self.left_palm_pose, self.right_palm_pose,
-                self.left_fingertip_pos, self.right_fingertip_pos,
-                self.dist_reward_scale,
-                self.action_penalty_scale,
-                self.success_tolerance,
-                self.av_factor,
-                self.table_height,
-                self.actions,
-                self.ref_object_pose, self.ref_init_object_pos_dist, self.ref_ref_object_palm_rot_diff,
-                self.ref_tool_pose, self.ref_init_tool_pos_dist, self.ref_ref_tool_palm_rot_diff,
-                self.is_stage1_hand_object_rew,
-            )
-        elif mode == 's12':
-            # ref_object_pose = self.ref_object_pose.repeat(self.num_envs, 1)
-            # ref_tool_pose = self.ref_tool_pose.repeat(self.num_envs, 1)
+        if mode == 's12':
             t_left = torch.where(self.left_reach_ref_timestep == -1, torch.zeros_like(self.timestep), torch.ceil((self.timestep - self.left_reach_ref_timestep)/self.frequency).int()) + self.ref_timestep
             t_right = torch.where(self.right_reach_ref_timestep == -1, torch.zeros_like(self.timestep), torch.ceil((self.timestep - self.right_reach_ref_timestep)/self.frequency).int()) + self.ref_timestep
             ref_object_pose = self.dataset_object_pose[t_left.clip(max=self.end_timestep)]  

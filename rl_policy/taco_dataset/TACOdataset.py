@@ -364,7 +364,7 @@ class TACODataset:
             visualize_ax(ax2, smoothed_trajectory, 'Smoothed', 'r')
             plt.show()
         
-        def find_var_abrupt_change(object_heights, window_size=5):
+        def find_endtimestep(object_heights, window_size=5):
             for i in range(len(object_heights) - window_size, window_size, -1):
                 # Calculate the standard deviation for the current and previous sliding windows
                 current_deviation = np.std(object_heights[i:i+window_size])
@@ -374,53 +374,70 @@ class TACODataset:
                     return max(i - 1, int(len(object_heights) * 0.8))
             return int(len(object_heights) * 0.8)
         
-        smoothed_object_pos = self.low_pass_filter(object_poses[:, :3, 3])
-        smoothed_tool_pos = self.low_pass_filter(tool_poses[:, :3, 3])
-        # visualize_smoothed_trajectory(load_target_poses[:, :3, 3], smoothed_object_pos)
-        # visualize_smoothed_trajectory(load_tool_poses[:, :3, 3], smoothed_tool_pos)
-        # visualize_smoothed_trajectory(all_left_trans, smoothed_left_pos)
-        # visualize_smoothed_trajectory(all_right_trans, smoothed_right_pos)
+        def find_reftimestep(sequence, threshold=0.01):
+            diffs = np.abs(np.diff(sequence))
+            cnt = 0
+            for i in range(10, len(diffs)-3, 3):
+                cnt += sum(diffs[i: i+3]) > threshold
+                if cnt > 2 and i < 0.7 * len(diffs):
+                    return int(i)
+            return None
+            # fig = plt.figure(figsize=(14, 7))
+            # ax = fig.add_subplot(131)
+            # ax.plot(object_tool_dis, label='Object-Tool Distance')
+            # ax.scatter(end_timestep, object_tool_dis[end_timestep], color='black', s=50)
+            # ax1 = fig.add_subplot(132)
+            # ax1.plot(np.diff(object_tool_dis), label='Object-Tool Distance Diff')
+            # ax1.scatter(end_timestep, np.diff(object_tool_dis)[end_timestep], color='black', s=50)
+            # ax2 = fig.add_subplot(133)
+            # ax2.plot(np.diff(np.diff(object_tool_dis)), label='Object-Tool Distance Diff 2')
+            # ax2.scatter(end_timestep, np.diff(object_tool_dis)[end_timestep], color='black', s=50)
+            # plt.show()
 
-        # get key timesteps
-        object_heights = smoothed_object_pos[:, 2]
-        tool_heights = smoothed_tool_pos[:, 2]
-        '''initial step'''
-        init_timestep = 1  # int(len(load_tool_poses)*0.1)
-        '''terminal step'''
-        end_object_timestep = find_var_abrupt_change(object_heights)
-        end_tool_timestep = find_var_abrupt_change(tool_heights)
-        end_timestep = int(max(end_object_timestep, end_tool_timestep))
-        '''reference step'''
-        object_tool_dis = np.linalg.norm(smoothed_object_pos - smoothed_tool_pos, axis=1)
-        fig = plt.figure(figsize=(7, 7))
-        ax = fig.add_subplot(111)
-        ax.plot(object_tool_dis, label='Object-Tool Distance')
-        ax.scatter(end_timestep, object_tool_dis[end_timestep], color='black', s=50)
-        plt.show()
-        # TODO: find the first local extremum with huge single-side slope
-        try:  
-            percentage = 75
+            # fig = plt.figure(figsize=(7, 7))
+            # ax = fig.add_subplot(111)
+            # ax.plot(object_tool_dis, label='Object-Tool Distance')
+            # ax.scatter(ref_timestep, object_tool_dis[ref_timestep], color='red', s=50)
+            # ax.scatter(end_timestep, object_tool_dis[end_timestep], color='black', s=50)
+            # plt.show()
+        
+        def find_reftimestep_(object_heights, percentage=75):
             ref_object_height = np.percentile(object_heights[object_heights>object_heights[init_timestep]], percentage)
-            ref_tool_height = np.percentile(object_heights[tool_heights>tool_heights[init_timestep]], percentage)
+            ref_tool_height = np.percentile(tool_heights[tool_heights>tool_heights[init_timestep]], percentage)
             # find the first False
             ref_object_timestep = np.where((object_heights<ref_object_height)==False)[0][0]
             ref_tool_timestep = np.where((tool_heights<ref_tool_height)==False)[0][0]
-            ref_timestep = int(max(ref_object_timestep, ref_tool_timestep))
-        except:
+            if ref_object_timestep and ref_tool_timestep:
+                return int(max(ref_object_timestep, ref_tool_timestep))
+            return None
+            # fig = plt.figure(figsize=(14, 7))
+            # ax1 = fig.add_subplot(121)
+            # ax1.plot(np.arange(len(object_heights)), object_heights, label='Object')
+            # ax1.scatter(ref_timestep, object_heights[ref_timestep], color='red', s=50)
+            # ax1.scatter(end_timestep, object_heights[end_timestep], color='black', s=50)
+            # ax2 = fig.add_subplot(122)
+            # ax2.plot(np.arange(len(tool_heights)), tool_heights, label='Tool')
+            # ax2.scatter(ref_timestep, tool_heights[ref_timestep], color='red', s=50)
+            # ax2.scatter(end_timestep, tool_heights[end_timestep], color='black', s=50)
+            # plt.show()
+            
+        # get key timesteps
+        smoothed_object_pos = self.low_pass_filter(object_poses[:, :3, 3])
+        smoothed_tool_pos = self.low_pass_filter(tool_poses[:, :3, 3])
+        object_heights = smoothed_object_pos[:, 2]
+        tool_heights = smoothed_tool_pos[:, 2]
+        '''initial step: for initial object pose'''
+        init_timestep = 1
+        '''terminal step: for stage 2 trajectory following end'''
+        end_object_timestep = find_endtimestep(object_heights)
+        end_tool_timestep = find_endtimestep(tool_heights)
+        end_timestep = int(max(end_object_timestep, end_tool_timestep))
+        '''reference step: end of stage 1 and beginning of stage 2'''
+        object_tool_dis = np.linalg.norm(smoothed_object_pos - smoothed_tool_pos, axis=1)
+        ref_timestep = find_reftimestep(object_tool_dis)
+        if ref_timestep is None:
             ref_timestep = init_timestep + int(0.2 * end_timestep)
-        # visualize the height curve of the object and tool
-        if vis_ref:
-            fig = plt.figure(figsize=(14, 7))
-            ax1 = fig.add_subplot(121)
-            ax1.plot(np.arange(len(object_heights)), object_heights, label='Object')
-            ax1.scatter(ref_timestep, object_heights[ref_timestep], color='red', s=50)
-            ax1.scatter(end_timestep, object_heights[end_timestep], color='black', s=50)
-            ax2 = fig.add_subplot(122)
-            ax2.plot(np.arange(len(tool_heights)), tool_heights, label='Tool')
-            ax2.scatter(ref_timestep, tool_heights[ref_timestep], color='red', s=50)
-            ax2.scatter(end_timestep, tool_heights[end_timestep], color='black', s=50)
-            plt.show()
-        
+            
         return init_timestep, ref_timestep, end_timestep
 
     @staticmethod    
