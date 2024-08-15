@@ -90,14 +90,21 @@ class ActorCritic(nn.Module):
             activation = get_activation(model_cfg["activation"])
 
         self.num_obs = obs_shape[0]
+        self.use_objlabel = model_cfg.get("use_objlabel", False)
         if self.use_pc:
             self.use_seg = int(model_cfg["useSeg"])
             self.num_downsample = model_cfg["numDownsample"]
             self.pc_emb_dim = model_cfg["pcEmbDim"]
             self.each_point_dim = model_cfg["numEachPoint"]
             self.num_pc_flatten = self.num_downsample * self.each_point_dim
-            self.num_robot_state = self.num_obs - self.num_pc_flatten - self.num_downsample * 2 * self.use_seg
-            self.num_obs = self.num_robot_state + self.pc_emb_dim
+            if self.use_objlabel:
+                self.objlabel_dim = model_cfg["objlabel_dim"]
+                self.objlabel_emb = nn.Embedding(256, self.objlabel_dim)
+                self.num_robot_state = (self.num_obs - 1) - self.num_pc_flatten - self.num_downsample * 2 * self.use_seg
+                self.num_obs = self.num_robot_state + self.pc_emb_dim + self.objlabel_dim
+            else:
+                self.num_robot_state = self.num_obs - self.num_pc_flatten - self.num_downsample * 2 * self.use_seg
+                self.num_obs = self.num_robot_state + self.pc_emb_dim
             self.robostate_indices = kwargs.get("robostate_indices", [])
             self.pointcloud_indices = kwargs.get("pointcloud_indices", [])
             assert len(self.robostate_indices) == self.num_robot_state
@@ -116,6 +123,16 @@ class ActorCritic(nn.Module):
                 )
             else:
                 raise ValueError(f"Invalid backbone type: {self.backbone_type}")
+        else:
+            if self.use_objlabel:
+                self.objlabel_dim = model_cfg["objlabel_dim"]
+                self.objlabel_emb = nn.Embedding(256, self.objlabel_dim)
+                self.num_robot_state = self.num_obs - 1
+                self.num_obs = self.num_robot_state + self.objlabel_dim
+            else:
+                self.num_robot_state = self.num_obs
+            self.robostate_indices = np.arange(self.num_robot_state)
+
 
         actor_layers = []
         critic_layers = []
@@ -171,22 +188,33 @@ class ActorCritic(nn.Module):
         pc = observations[:, self.pointcloud_indices].reshape(-1, self.num_downsample, self.each_point_dim)
         input_data = dict(pc=pc)
         if self.use_seg:
-            mask = observations[:, -2 * self.num_downsample:].reshape(-1, self.num_downsample, 2)
+            raise NotImplementedError   
+            mask = observations[:, -2 * self.num_downsample-1:-1].reshape(-1, self.num_downsample, 2)
             input_data.update(dict(mask=mask,))
         if self.backbone_type == "TransPointNetBackbone":
+            raise NotImplementedError 
             input_data.update(dict(state=robot_state,))
         pc_feature = self.backbone(input_data).reshape(-1, self.pc_emb_dim)
-        observations = torch.cat([robot_state, pc_feature], dim=1)
-        return observations
+        return pc_feature
+
+    
+    def get_all_observation(self, observations, is_pc, is_objlabel):
+        all_observation = observations[:, self.robostate_indices]
+        if is_objlabel:
+            objlabel_feature = self.objlabel_emb(observations[:, -1].long())
+            all_observation = torch.cat([all_observation, objlabel_feature], dim=1)
+        if is_pc:
+            pc_feature = self.get_pc_observation(observations)
+            all_observation = torch.cat([all_observation, pc_feature], dim=1)
+        return all_observation
+
+
 
     def act(self, observations, states=None, grad=False):
-        if self.use_pc:
-            observations = self.get_pc_observation(observations)
-        
+        observations = self.get_all_observation(observations, self.use_pc, self.use_objlabel)
         actions_mean = self.actor(observations)
         covariance = torch.diag(self.log_std.exp() * self.log_std.exp())
         distribution = MultivariateNormal(actions_mean, scale_tril=covariance)
-
         actions = distribution.sample()
         actions_log_prob = distribution.log_prob(actions)
         value = self.critic(states) if self.asymmetric else self.critic(observations)
@@ -203,14 +231,12 @@ class ActorCritic(nn.Module):
         )
 
     def act_inference(self, observations):
-        if self.use_pc:
-            observations = self.get_pc_observation(observations)
+        observations = self.get_all_observation(observations, self.use_pc, self.use_objlabel)
         actions_mean = self.actor(observations)
         return actions_mean.detach()
 
     def evaluate(self, observations, states, actions):
-        if self.use_pc:
-            observations = self.get_pc_observation(observations)
+        observations = self.get_all_observation(observations, self.use_pc, self.use_objlabel)
         actions_mean = self.actor(observations)
 
         covariance = torch.diag(self.log_std.exp() * self.log_std.exp())

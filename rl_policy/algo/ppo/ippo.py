@@ -296,8 +296,8 @@ class IPPO(nn.Module):
                     # Compute the action
                     left_obs = current_obs[:, self.left_obs_indices]
                     right_obs = current_obs[:, self.right_obs_indices]
-                    left_actions, left_actions_log_prob, left_values, left_mu, left_sigma = self.left_agent.actor_critic.act(left_obs, current_states)
-                    right_actions, right_actions_log_prob, right_values, right_mu, right_sigma = self.right_agent.actor_critic.act(right_obs, current_states)
+                    left_actions, left_actions_log_prob, left_values, left_mu, left_sigma = self.left_agent.actor_critic.act(left_obs)
+                    right_actions, right_actions_log_prob, right_values, right_mu, right_sigma = self.right_agent.actor_critic.act(right_obs)
                     actions = torch.cat((left_actions, right_actions), dim=1)
                     # Step the vec_environment
                     with torch.no_grad():
