@@ -401,7 +401,7 @@ class TACODataset:
             # ax.scatter(end_timestep, object_tool_dis[end_timestep], color='black', s=50)
             # plt.show()
         
-        def find_reftimestep_(object_heights, percentage=75):
+        def find_reftimestep_(percentage=30):
             ref_object_height = np.percentile(object_heights[object_heights>object_heights[init_timestep]], percentage)
             ref_tool_height = np.percentile(tool_heights[tool_heights>tool_heights[init_timestep]], percentage)
             # find the first False
@@ -433,8 +433,8 @@ class TACODataset:
         end_tool_timestep = find_endtimestep(tool_heights)
         end_timestep = int(max(end_object_timestep, end_tool_timestep))
         '''reference step: end of stage 1 and beginning of stage 2'''
-        object_tool_dis = np.linalg.norm(smoothed_object_pos - smoothed_tool_pos, axis=1)
-        ref_timestep = find_reftimestep(object_tool_dis)
+        # object_tool_dis = np.linalg.norm(smoothed_object_pos - smoothed_tool_pos, axis=1)
+        ref_timestep = find_reftimestep_() # find_reftimestep(object_tool_dis)
         if ref_timestep is None:
             ref_timestep = init_timestep + int(0.2 * end_timestep)
             
