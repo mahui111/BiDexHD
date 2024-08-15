@@ -3,8 +3,8 @@
         "save_name": "taco_dataset/task_data/(dust, roller, box)-20230927_038.json",
         "key_steps": {
             "init": 1,
-            "ref": 44,
-            "end": 183
+            "ref": 39,
+            "end": 163
         },
         "left": {
             "palm": {
@@ -18001,8 +18001,8 @@
         "save_name": "taco_dataset/task_data/(dust, roller, box)-20231013_303.json",
         "key_steps": {
             "init": 1,
-            "ref": 43,
-            "end": 107
+            "ref": 23,
+            "end": 114
         },
         "left": {
             "palm": {
@@ -29487,8 +29487,8 @@
         "save_name": "taco_dataset/task_data/(dust, roller, box)-20231013_305.json",
         "key_steps": {
             "init": 1,
-            "ref": 98,
-            "end": 145
+            "ref": 66,
+            "end": 153
         },
         "left": {
             "palm": {
@@ -44317,8 +44317,8 @@
         "save_name": "taco_dataset/task_data/(dust, roller, box)-20231013_309.json",
         "key_steps": {
             "init": 1,
-            "ref": 20,
-            "end": 95
+            "ref": 29,
+            "end": 98
         },
         "left": {
             "palm": {
@@ -54483,8 +54483,8 @@
         "save_name": "taco_dataset/task_data/(dust, roller, box)-20231013_313.json",
         "key_steps": {
             "init": 1,
-            "ref": 52,
-            "end": 107
+            "ref": 36,
+            "end": 111
         },
         "left": {
             "palm": {
@@ -65001,8 +65001,8 @@
         "save_name": "taco_dataset/task_data/(dust, roller, box)-20231013_317.json",
         "key_steps": {
             "init": 1,
-            "ref": 49,
-            "end": 114
+            "ref": 34,
+            "end": 120
         },
         "left": {
             "palm": {
@@ -76751,8 +76751,8 @@
         "save_name": "taco_dataset/task_data/(dust, roller, box)-20231104_002.json",
         "key_steps": {
             "init": 1,
-            "ref": 18,
-            "end": 89
+            "ref": 24,
+            "end": 99
         },
         "left": {
             "palm": {
@@ -86917,8 +86917,8 @@
         "save_name": "taco_dataset/task_data/(dust, roller, box)-20231104_004.json",
         "key_steps": {
             "init": 1,
-            "ref": 69,
-            "end": 94
+            "ref": 26,
+            "end": 103
         },
         "left": {
             "palm": {
@@ -97259,8 +97259,8 @@
         "save_name": "taco_dataset/task_data/(dust, roller, box)-20231104_006.json",
         "key_steps": {
             "init": 1,
-            "ref": 48,
-            "end": 95
+            "ref": 25,
+            "end": 102
         },
         "left": {
             "palm": {
@@ -107601,8 +107601,8 @@
         "save_name": "taco_dataset/task_data/(dust, roller, box)-20231104_008.json",
         "key_steps": {
             "init": 1,
-            "ref": 26,
-            "end": 127
+            "ref": 30,
+            "end": 129
         },
         "left": {
             "palm": {
@@ -120495,8 +120495,8 @@
         "save_name": "taco_dataset/task_data/(dust, roller, box)-20231104_010.json",
         "key_steps": {
             "init": 1,
-            "ref": 23,
-            "end": 114
+            "ref": 29,
+            "end": 118
         },
         "left": {
             "palm": {
@@ -132421,8 +132421,8 @@
         "save_name": "taco_dataset/task_data/(dust, roller, box)-20231104_012.json",
         "key_steps": {
             "init": 1,
-            "ref": 23,
-            "end": 110
+            "ref": 30,
+            "end": 113
         },
         "left": {
             "palm": {
@@ -143115,8 +143115,8 @@
         "save_name": "taco_dataset/task_data/(dust, roller, box)-20231104_014.json",
         "key_steps": {
             "init": 1,
-            "ref": 21,
-            "end": 102
+            "ref": 26,
+            "end": 106
         },
         "left": {
             "palm": {
@@ -154513,8 +154513,8 @@
         "save_name": "taco_dataset/task_data/(dust, roller, box)-20231104_016.json",
         "key_steps": {
             "init": 1,
-            "ref": 22,
-            "end": 108
+            "ref": 27,
+            "end": 112
         },
         "left": {
             "palm": {
@@ -166087,8 +166087,8 @@
         "save_name": "taco_dataset/task_data/(dust, roller, box)-20231104_018.json",
         "key_steps": {
             "init": 1,
-            "ref": 23,
-            "end": 111
+            "ref": 29,
+            "end": 115
         },
         "left": {
             "palm": {
@@ -177837,8 +177837,8 @@
         "save_name": "taco_dataset/task_data/(dust, roller, box)-20231104_020.json",
         "key_steps": {
             "init": 1,
-            "ref": 24,
-            "end": 119
+            "ref": 31,
+            "end": 125
         },
         "left": {
             "palm": {
@@ -190555,8 +190555,8 @@
         "save_name": "taco_dataset/task_data/(dust, roller, box)-20231104_022.json",
         "key_steps": {
             "init": 1,
-            "ref": 37,
-            "end": 88
+            "ref": 24,
+            "end": 97
         },
         "left": {
             "palm": {
@@ -200897,8 +200897,8 @@
         "save_name": "taco_dataset/task_data/(dust, roller, box)-20231104_024.json",
         "key_steps": {
             "init": 1,
-            "ref": 29,
-            "end": 142
+            "ref": 43,
+            "end": 145
         },
         "left": {
             "palm": {

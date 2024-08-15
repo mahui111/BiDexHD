@@ -3,8 +3,8 @@
         "save_name": "taco_dataset/task_data/(put out, bowl, bowl)-20231005_138.json",
         "key_steps": {
             "init": 1,
-            "ref": 65,
-            "end": 111
+            "ref": 35,
+            "end": 115
         },
         "left": {
             "palm": {
@@ -11753,8 +11753,8 @@
         "save_name": "taco_dataset/task_data/(put out, bowl, bowl)-20231013_111.json",
         "key_steps": {
             "init": 1,
-            "ref": 30,
-            "end": 89
+            "ref": 28,
+            "end": 107
         },
         "left": {
             "palm": {
@@ -23591,8 +23591,8 @@
         "save_name": "taco_dataset/task_data/(put out, bowl, bowl)-20231013_131.json",
         "key_steps": {
             "init": 1,
-            "ref": 67,
-            "end": 93
+            "ref": 41,
+            "end": 102
         },
         "left": {
             "palm": {
@@ -34901,8 +34901,8 @@
         "save_name": "taco_dataset/task_data/(put out, bowl, bowl)-20231013_136.json",
         "key_steps": {
             "init": 1,
-            "ref": 24,
-            "end": 86
+            "ref": 41,
+            "end": 93
         },
         "left": {
             "palm": {
@@ -45243,8 +45243,8 @@
         "save_name": "taco_dataset/task_data/(put out, bowl, bowl)-20231013_141.json",
         "key_steps": {
             "init": 1,
-            "ref": 25,
-            "end": 94
+            "ref": 18,
+            "end": 86
         },
         "left": {
             "palm": {
@@ -54529,8 +54529,8 @@
         "save_name": "taco_dataset/task_data/(put out, bowl, bowl)-20231013_146.json",
         "key_steps": {
             "init": 1,
-            "ref": 16,
-            "end": 99
+            "ref": 27,
+            "end": 91
         },
         "left": {
             "palm": {
@@ -64255,8 +64255,8 @@
         "save_name": "taco_dataset/task_data/(put out, bowl, bowl)-20231013_151.json",
         "key_steps": {
             "init": 1,
-            "ref": 21,
-            "end": 81
+            "ref": 34,
+            "end": 84
         },
         "left": {
             "palm": {
@@ -73453,8 +73453,8 @@
         "save_name": "taco_dataset/task_data/(put out, bowl, bowl)-20231013_156.json",
         "key_steps": {
             "init": 1,
-            "ref": 47,
-            "end": 80
+            "ref": 33,
+            "end": 84
         },
         "left": {
             "palm": {
@@ -82475,8 +82475,8 @@
         "save_name": "taco_dataset/task_data/(put out, bowl, bowl)-20231013_161.json",
         "key_steps": {
             "init": 1,
-            "ref": 14,
-            "end": 85
+            "ref": 16,
+            "end": 88
         },
         "left": {
             "palm": {
@@ -91761,8 +91761,8 @@
         "save_name": "taco_dataset/task_data/(put out, bowl, bowl)-20231013_166.json",
         "key_steps": {
             "init": 1,
-            "ref": 42,
-            "end": 102
+            "ref": 33,
+            "end": 95
         },
         "left": {
             "palm": {

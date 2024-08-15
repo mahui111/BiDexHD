@@ -3,7 +3,7 @@
         "save_name": "taco_dataset/task_data/(pour in some, teapot, cup)-20230917_041.json",
         "key_steps": {
             "init": 1,
-            "ref": 63,
+            "ref": 52,
             "end": 181
         },
         "left": {
@@ -20025,7 +20025,7 @@
         "save_name": "taco_dataset/task_data/(pour in some, teapot, cup)-20230927_039.json",
         "key_steps": {
             "init": 1,
-            "ref": 40,
+            "ref": 29,
             "end": 132
         },
         "left": {
