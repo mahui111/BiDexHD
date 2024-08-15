@@ -91,6 +91,10 @@ class ActorCritic(nn.Module):
 
         self.num_obs = obs_shape[0]
         self.use_objlabel = model_cfg.get("use_objlabel", False)
+        if self.use_objlabel:
+            self.objlabel_dim = model_cfg["objlabel_dim"]
+            self.objlabel_emb = nn.Embedding(256, self.objlabel_dim)
+            nn.init.xavier_uniform_(self.objlabel_emb.weight)
         if self.use_pc:
             self.use_seg = int(model_cfg["useSeg"])
             self.num_downsample = model_cfg["numDownsample"]
@@ -98,8 +102,6 @@ class ActorCritic(nn.Module):
             self.each_point_dim = model_cfg["numEachPoint"]
             self.num_pc_flatten = self.num_downsample * self.each_point_dim
             if self.use_objlabel:
-                self.objlabel_dim = model_cfg["objlabel_dim"]
-                self.objlabel_emb = nn.Embedding(256, self.objlabel_dim)
                 self.num_robot_state = (self.num_obs - 1) - self.num_pc_flatten - self.num_downsample * 2 * self.use_seg
                 self.num_obs = self.num_robot_state + self.pc_emb_dim + self.objlabel_dim
             else:
@@ -125,8 +127,6 @@ class ActorCritic(nn.Module):
                 raise ValueError(f"Invalid backbone type: {self.backbone_type}")
         else:
             if self.use_objlabel:
-                self.objlabel_dim = model_cfg["objlabel_dim"]
-                self.objlabel_emb = nn.Embedding(256, self.objlabel_dim)
                 self.num_robot_state = self.num_obs - 1
                 self.num_obs = self.num_robot_state + self.objlabel_dim
             else:

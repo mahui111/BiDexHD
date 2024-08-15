@@ -8,7 +8,7 @@ params:
     vf_hid_sizes: [1024, 1024, 512, 512]
     activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
     use_objlabel: True
-    objlabel_dim: 32
+    objlabel_dim: 64
 
   test: ${...test}
   resume: 0
