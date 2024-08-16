@@ -70,47 +70,43 @@ class ActorCritic(nn.Module):
         initial_std,
         model_cfg,
         asymmetric=False,
-        use_pc=False,
         **kwargs,
     ):
         super(ActorCritic, self).__init__()
 
         self.asymmetric = asymmetric
-        self.use_pc = use_pc
         self.backbone_type = model_cfg["backbone_type"]
         self.freeze_backbone = model_cfg["freeze_backbone"]
 
-        if model_cfg is None:  # default
-            actor_hidden_dim = [256, 256, 256]
-            critic_hidden_dim = [256, 256, 256]
-            activation = get_activation("selu")
-        else:
-            actor_hidden_dim = model_cfg["pi_hid_sizes"]
-            critic_hidden_dim = model_cfg["vf_hid_sizes"]
-            activation = get_activation(model_cfg["activation"])
+        self.use_pc = 'Point' in self.backbone_type and "pointcloud_indices" in kwargs
+        self.use_objlabel = "objlabel_indices" in kwargs
+
+        # if model_cfg is None:  # default
+        #     actor_hidden_dim = [256, 256, 256]
+        #     critic_hidden_dim = [256, 256, 256]
+        #     activation = get_activation("selu")
+        # else:
+
+        actor_hidden_dim = model_cfg["pi_hid_sizes"]
+        critic_hidden_dim = model_cfg["vf_hid_sizes"]
+        activation = get_activation(model_cfg["activation"])
 
         self.num_obs = obs_shape[0]
-        self.use_objlabel = model_cfg.get("use_objlabel", False)
+        self.robostate_indices = kwargs["robostate_indices"]
+        self.pointcloud_indices = kwargs.get("pointcloud_indices", [])
+        self.objlabel_indices = kwargs.get("objlabel_indices", [])
+        assert len(self.robostate_indices) + len(self.pointcloud_indices) + len(self.objlabel_indices) == self.num_obs
         if self.use_objlabel:
-            self.objlabel_dim = model_cfg["objlabel_dim"]
+            self.objlabel_dim = len(self.robostate_indices) + len(self.pointcloud_indices)
             self.objlabel_emb = nn.Embedding(256, self.objlabel_dim)
             nn.init.xavier_uniform_(self.objlabel_emb.weight)
+
         if self.use_pc:
             self.use_seg = int(model_cfg["useSeg"])
             self.num_downsample = model_cfg["numDownsample"]
             self.pc_emb_dim = model_cfg["pcEmbDim"]
             self.each_point_dim = model_cfg["numEachPoint"]
             self.num_pc_flatten = self.num_downsample * self.each_point_dim
-            if self.use_objlabel:
-                self.num_robot_state = (self.num_obs - 1) - self.num_pc_flatten - self.num_downsample * 2 * self.use_seg
-                self.num_obs = self.num_robot_state + self.pc_emb_dim + self.objlabel_dim
-            else:
-                self.num_robot_state = self.num_obs - self.num_pc_flatten - self.num_downsample * 2 * self.use_seg
-                self.num_obs = self.num_robot_state + self.pc_emb_dim
-            self.robostate_indices = kwargs.get("robostate_indices", [])
-            self.pointcloud_indices = kwargs.get("pointcloud_indices", [])
-            assert len(self.robostate_indices) == self.num_robot_state
-            assert len(self.pointcloud_indices) == self.num_pc_flatten
             if self.backbone_type == "PointNetBackbone":
                 self.backbone = PointNetBackbone(
                     pc_dim=self.each_point_dim + 2 * self.use_seg,
@@ -125,14 +121,14 @@ class ActorCritic(nn.Module):
                 )
             else:
                 raise ValueError(f"Invalid backbone type: {self.backbone_type}")
-        else:
-            if self.use_objlabel:
-                self.num_robot_state = self.num_obs - 1
-                self.num_obs = self.num_robot_state + self.objlabel_dim
-            else:
-                self.num_robot_state = self.num_obs
-            self.robostate_indices = np.arange(self.num_robot_state)
-
+            assert len(self.pointcloud_indices) == self.num_pc_flatten
+        self.num_robot_state = (self.num_obs - self.use_objlabel)
+        if self.use_pc:
+            self.num_robot_state -= (self.num_pc_flatten + self.num_downsample * 2 * self.use_seg)
+        self.num_obs = self.num_robot_state
+        if self.use_pc:
+            self.num_obs += self.pc_emb_dim
+        assert len(self.robostate_indices) == self.num_robot_state
 
         actor_layers = []
         critic_layers = []
@@ -197,18 +193,16 @@ class ActorCritic(nn.Module):
         pc_feature = self.backbone(input_data).reshape(-1, self.pc_emb_dim)
         return pc_feature
 
-    
     def get_all_observation(self, observations, is_pc, is_objlabel):
         all_observation = observations[:, self.robostate_indices]
-        if is_objlabel:
-            objlabel_feature = self.objlabel_emb(observations[:, -1].long())
-            all_observation = torch.cat([all_observation, objlabel_feature], dim=1)
         if is_pc:
             pc_feature = self.get_pc_observation(observations)
             all_observation = torch.cat([all_observation, pc_feature], dim=1)
+        if is_objlabel:
+            obj_label = observations[:, self.objlabel_indices].squeeze(1) * 255
+            objlabel_feature = self.objlabel_emb(obj_label.long())
+            all_observation = all_observation + objlabel_feature
         return all_observation
-
-
 
     def act(self, observations, states=None, grad=False):
         observations = self.get_all_observation(observations, self.use_pc, self.use_objlabel)

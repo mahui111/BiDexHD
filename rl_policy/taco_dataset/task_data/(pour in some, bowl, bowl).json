@@ -3,8 +3,8 @@
         "save_name": "taco_dataset/task_data/(pour in some, bowl, bowl)-20230927_021.json",
         "key_steps": {
             "init": 1,
-            "ref": 30,
-            "end": 86
+            "ref": 23,
+            "end": 147
         },
         "left": {
             "palm": {
@@ -16241,8 +16241,8 @@
         "save_name": "taco_dataset/task_data/(pour in some, bowl, bowl)-20231013_118.json",
         "key_steps": {
             "init": 1,
-            "ref": 94,
-            "end": 103
+            "ref": 45,
+            "end": 92
         },
         "left": {
             "palm": {
@@ -26407,8 +26407,8 @@
         "save_name": "taco_dataset/task_data/(pour in some, bowl, bowl)-20231013_133.json",
         "key_steps": {
             "init": 1,
-            "ref": 26,
-            "end": 72
+            "ref": 25,
+            "end": 83
         },
         "left": {
             "palm": {
@@ -35605,8 +35605,8 @@
         "save_name": "taco_dataset/task_data/(pour in some, bowl, bowl)-20231013_138.json",
         "key_steps": {
             "init": 1,
-            "ref": 27,
-            "end": 103
+            "ref": 30,
+            "end": 92
         },
         "left": {
             "palm": {
@@ -45771,8 +45771,8 @@
         "save_name": "taco_dataset/task_data/(pour in some, bowl, bowl)-20231013_153.json",
         "key_steps": {
             "init": 1,
-            "ref": 26,
-            "end": 105
+            "ref": 33,
+            "end": 98
         },
         "left": {
             "palm": {
@@ -56113,8 +56113,8 @@
         "save_name": "taco_dataset/task_data/(pour in some, bowl, bowl)-20231013_158.json",
         "key_steps": {
             "init": 1,
-            "ref": 29,
-            "end": 70
+            "ref": 19,
+            "end": 74
         },
         "left": {
             "palm": {
@@ -63815,8 +63815,8 @@
         "save_name": "taco_dataset/task_data/(pour in some, bowl, bowl)-20231013_163.json",
         "key_steps": {
             "init": 1,
-            "ref": 21,
-            "end": 90
+            "ref": 36,
+            "end": 83
         },
         "left": {
             "palm": {

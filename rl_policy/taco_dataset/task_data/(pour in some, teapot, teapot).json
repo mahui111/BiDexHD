@@ -3,8 +3,8 @@
         "save_name": "taco_dataset/task_data/(pour in some, teapot, teapot)-20231031_118.json",
         "key_steps": {
             "init": 1,
-            "ref": 93,
-            "end": 99
+            "ref": 38,
+            "end": 109
         },
         "left": {
             "palm": {
@@ -10609,8 +10609,8 @@
         "save_name": "taco_dataset/task_data/(pour in some, teapot, teapot)-20231031_120.json",
         "key_steps": {
             "init": 1,
-            "ref": 58,
-            "end": 117
+            "ref": 40,
+            "end": 115
         },
         "left": {
             "palm": {
@@ -22183,8 +22183,8 @@
         "save_name": "taco_dataset/task_data/(pour in some, teapot, teapot)-20231031_122.json",
         "key_steps": {
             "init": 1,
-            "ref": 33,
-            "end": 104
+            "ref": 27,
+            "end": 96
         },
         "left": {
             "palm": {
@@ -32437,8 +32437,8 @@
         "save_name": "taco_dataset/task_data/(pour in some, teapot, teapot)-20231031_124.json",
         "key_steps": {
             "init": 1,
-            "ref": 27,
-            "end": 108
+            "ref": 23,
+            "end": 102
         },
         "left": {
             "palm": {

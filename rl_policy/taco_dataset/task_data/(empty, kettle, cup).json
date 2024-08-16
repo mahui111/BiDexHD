@@ -3,7 +3,7 @@
         "save_name": "taco_dataset/task_data/(empty, kettle, cup)-20230929_028.json",
         "key_steps": {
             "init": 1,
-            "ref": 149,
+            "ref": 137,
             "end": 216
         },
         "left": {
@@ -23809,8 +23809,8 @@
         "save_name": "taco_dataset/task_data/(empty, kettle, cup)-20231031_026.json",
         "key_steps": {
             "init": 1,
-            "ref": 91,
-            "end": 201
+            "ref": 73,
+            "end": 217
         },
         "left": {
             "palm": {
@@ -46031,8 +46031,8 @@
         "save_name": "taco_dataset/task_data/(empty, kettle, cup)-20231031_028.json",
         "key_steps": {
             "init": 1,
-            "ref": 131,
-            "end": 202
+            "ref": 90,
+            "end": 215
         },
         "left": {
             "palm": {
@@ -68341,8 +68341,8 @@
         "save_name": "taco_dataset/task_data/(empty, kettle, cup)-20231031_034.json",
         "key_steps": {
             "init": 1,
-            "ref": 91,
-            "end": 194
+            "ref": 80,
+            "end": 213
         },
         "left": {
             "palm": {
@@ -89771,8 +89771,8 @@
         "save_name": "taco_dataset/task_data/(empty, kettle, cup)-20231031_036.json",
         "key_steps": {
             "init": 1,
-            "ref": 110,
-            "end": 207
+            "ref": 87,
+            "end": 223
         },
         "left": {
             "palm": {

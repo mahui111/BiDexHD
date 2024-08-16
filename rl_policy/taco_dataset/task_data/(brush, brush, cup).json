@@ -3,7 +3,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, cup)-20230919_023.json",
         "key_steps": {
             "init": 1,
-            "ref": 34,
+            "ref": 40,
             "end": 267
         },
         "left": {
@@ -29177,7 +29177,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, cup)-20230919_025.json",
         "key_steps": {
             "init": 1,
-            "ref": 100,
+            "ref": 105,
             "end": 339
         },
         "left": {
@@ -62135,7 +62135,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, cup)-20231026_001.json",
         "key_steps": {
             "init": 1,
-            "ref": 115,
+            "ref": 27,
             "end": 154
         },
         "left": {
@@ -79165,7 +79165,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, cup)-20231026_002.json",
         "key_steps": {
             "init": 1,
-            "ref": 73,
+            "ref": 51,
             "end": 162
         },
         "left": {
@@ -97075,7 +97075,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, cup)-20231026_003.json",
         "key_steps": {
             "init": 1,
-            "ref": 67,
+            "ref": 42,
             "end": 209
         },
         "left": {
@@ -120177,7 +120177,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, cup)-20231026_004.json",
         "key_steps": {
             "init": 1,
-            "ref": 46,
+            "ref": 45,
             "end": 173
         },
         "left": {
@@ -139319,7 +139319,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, cup)-20231026_005.json",
         "key_steps": {
             "init": 1,
-            "ref": 88,
+            "ref": 26,
             "end": 158
         },
         "left": {
@@ -156789,7 +156789,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, cup)-20231026_006.json",
         "key_steps": {
             "init": 1,
-            "ref": 61,
+            "ref": 57,
             "end": 147
         },
         "left": {
@@ -173027,7 +173027,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, cup)-20231026_007.json",
         "key_steps": {
             "init": 1,
-            "ref": 70,
+            "ref": 57,
             "end": 187
         },
         "left": {
@@ -193665,7 +193665,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, cup)-20231026_008.json",
         "key_steps": {
             "init": 1,
-            "ref": 70,
+            "ref": 37,
             "end": 162
         },
         "left": {
@@ -211575,7 +211575,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, cup)-20231026_009.json",
         "key_steps": {
             "init": 1,
-            "ref": 55,
+            "ref": 42,
             "end": 164
         },
         "left": {
@@ -229749,7 +229749,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, cup)-20231026_010.json",
         "key_steps": {
             "init": 1,
-            "ref": 88,
+            "ref": 22,
             "end": 148
         },
         "left": {
@@ -246163,7 +246163,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, cup)-20231026_011.json",
         "key_steps": {
             "init": 1,
-            "ref": 88,
+            "ref": 10,
             "end": 123
         },
         "left": {
@@ -259761,7 +259761,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, cup)-20231026_012.json",
         "key_steps": {
             "init": 1,
-            "ref": 49,
+            "ref": 39,
             "end": 131
         },
         "left": {
@@ -274239,7 +274239,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, cup)-20231026_013.json",
         "key_steps": {
             "init": 1,
-            "ref": 49,
+            "ref": 21,
             "end": 146
         },
         "left": {
@@ -290389,7 +290389,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, cup)-20231026_014.json",
         "key_steps": {
             "init": 1,
-            "ref": 46,
+            "ref": 13,
             "end": 148
         },
         "left": {
@@ -306715,7 +306715,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, cup)-20231026_015.json",
         "key_steps": {
             "init": 1,
-            "ref": 49,
+            "ref": 29,
             "end": 136
         },
         "left": {
@@ -321809,7 +321809,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, cup)-20231026_016.json",
         "key_steps": {
             "init": 1,
-            "ref": 40,
+            "ref": 33,
             "end": 159
         },
         "left": {
@@ -339367,7 +339367,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, cup)-20231026_017.json",
         "key_steps": {
             "init": 1,
-            "ref": 46,
+            "ref": 24,
             "end": 134
         },
         "left": {
@@ -354197,7 +354197,7 @@
         "save_name": "taco_dataset/task_data/(brush, brush, cup)-20231026_020.json",
         "key_steps": {
             "init": 1,
-            "ref": 82,
+            "ref": 35,
             "end": 166
         },
         "left": {

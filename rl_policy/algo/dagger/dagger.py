@@ -76,13 +76,15 @@ class DaggerValue(nn.Module):
         # student 
         init_noise_std = train_param["init_noise_std"]
         self.left_actor_critic = ActorCritic(self.single_observation_space_shape, self.state_space.shape, 
-                                             self.single_action_space_shape, init_noise_std, train_param.policy, use_pc=True,
-                                             robostate_indices=self.student_left_robostate_indices, pointcloud_indices=self.student_left_pointcloud_indices)
+                                             self.single_action_space_shape, init_noise_std, train_param.policy,
+                                             robostate_indices=self.student_left_robostate_indices, 
+                                             pointcloud_indices=self.student_left_pointcloud_indices)
         self.left_actor_critic.to(self.device)
         self.left_optimizer = optim.Adam(self.left_actor_critic.parameters(), lr=train_param["optim_stepsize"])
         self.right_actor_critic = ActorCritic(self.single_observation_space_shape, self.state_space.shape, 
-                                              self.single_action_space_shape, init_noise_std, train_param.policy, use_pc=True,
-                                              robostate_indices=self.student_right_robostate_indices, pointcloud_indices=self.student_right_pointcloud_indices)
+                                              self.single_action_space_shape, init_noise_std, train_param.policy,
+                                              robostate_indices=self.student_right_robostate_indices, 
+                                              pointcloud_indices=self.student_right_pointcloud_indices)
         self.right_actor_critic.to(self.device)
         self.right_optimizer = optim.Adam(self.right_actor_critic.parameters(), lr=train_param["optim_stepsize"])
 

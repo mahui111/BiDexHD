@@ -3,7 +3,7 @@
         "save_name": "taco_dataset/task_data/(empty, bowl, bowl)-20230927_022.json",
         "key_steps": {
             "init": 1,
-            "ref": 31,
+            "ref": 22,
             "end": 156
         },
         "left": {
@@ -17209,7 +17209,7 @@
         "save_name": "taco_dataset/task_data/(empty, bowl, bowl)-20231013_114.json",
         "key_steps": {
             "init": 1,
-            "ref": 37,
+            "ref": 57,
             "end": 92
         },
         "left": {
@@ -27375,7 +27375,7 @@
         "save_name": "taco_dataset/task_data/(empty, bowl, bowl)-20231013_119.json",
         "key_steps": {
             "init": 1,
-            "ref": 49,
+            "ref": 40,
             "end": 105
         },
         "left": {
@@ -39037,7 +39037,7 @@
         "save_name": "taco_dataset/task_data/(empty, bowl, bowl)-20231013_134.json",
         "key_steps": {
             "init": 1,
-            "ref": 46,
+            "ref": 37,
             "end": 99
         },
         "left": {
@@ -49907,7 +49907,7 @@
         "save_name": "taco_dataset/task_data/(empty, bowl, bowl)-20231013_139.json",
         "key_steps": {
             "init": 1,
-            "ref": 43,
+            "ref": 38,
             "end": 114
         },
         "left": {
@@ -61657,7 +61657,7 @@
         "save_name": "taco_dataset/task_data/(empty, bowl, bowl)-20231013_144.json",
         "key_steps": {
             "init": 1,
-            "ref": 24,
+            "ref": 46,
             "end": 118
         },
         "left": {
@@ -73671,7 +73671,7 @@
         "save_name": "taco_dataset/task_data/(empty, bowl, bowl)-20231013_154.json",
         "key_steps": {
             "init": 1,
-            "ref": 22,
+            "ref": 39,
             "end": 109
         },
         "left": {
@@ -85069,7 +85069,7 @@
         "save_name": "taco_dataset/task_data/(empty, bowl, bowl)-20231013_159.json",
         "key_steps": {
             "init": 1,
-            "ref": 37,
+            "ref": 33,
             "end": 96
         },
         "left": {
@@ -94971,7 +94971,7 @@
         "save_name": "taco_dataset/task_data/(empty, bowl, bowl)-20231013_164.json",
         "key_steps": {
             "init": 1,
-            "ref": 64,
+            "ref": 29,
             "end": 89
         },
         "left": {
@@ -104697,7 +104697,7 @@
         "save_name": "taco_dataset/task_data/(empty, bowl, bowl)-20231013_169.json",
         "key_steps": {
             "init": 1,
-            "ref": 49,
+            "ref": 40,
             "end": 122
         },
         "left": {

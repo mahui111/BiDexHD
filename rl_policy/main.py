@@ -40,7 +40,6 @@ def build_runner(cfg, env):
             train_param=train_param,
             log_dir=log_dir,
             apply_reset=False,
-            is_vision='Point' in train_param['policy']['backbone_type'],
         )
     elif train_param.name == "ippo":
         runner = ppo.IPPO(
@@ -48,7 +47,6 @@ def build_runner(cfg, env):
             train_param=train_param,
             log_dir=log_dir,
             apply_reset=False,
-            is_vision='Point' in train_param['policy']['backbone_type'],
             record_dof=cfg['record']
         )
     elif train_param.name == "dagger":

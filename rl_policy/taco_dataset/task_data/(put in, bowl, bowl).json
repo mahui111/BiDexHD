@@ -3,8 +3,8 @@
         "save_name": "taco_dataset/task_data/(put in, bowl, bowl)-20230927_019.json",
         "key_steps": {
             "init": 1,
-            "ref": 40,
-            "end": 90
+            "ref": 24,
+            "end": 132
         },
         "left": {
             "palm": {
@@ -14657,8 +14657,8 @@
         "save_name": "taco_dataset/task_data/(put in, bowl, bowl)-20231005_134.json",
         "key_steps": {
             "init": 1,
-            "ref": 56,
-            "end": 151
+            "ref": 38,
+            "end": 152
         },
         "left": {
             "palm": {
@@ -29575,8 +29575,8 @@
         "save_name": "taco_dataset/task_data/(put in, bowl, bowl)-20231005_137.json",
         "key_steps": {
             "init": 1,
-            "ref": 25,
-            "end": 118
+            "ref": 20,
+            "end": 119
         },
         "left": {
             "palm": {
@@ -41853,8 +41853,8 @@
         "save_name": "taco_dataset/task_data/(put in, bowl, bowl)-20231013_130.json",
         "key_steps": {
             "init": 1,
-            "ref": 31,
-            "end": 119
+            "ref": 28,
+            "end": 114
         },
         "left": {
             "palm": {
@@ -53603,8 +53603,8 @@
         "save_name": "taco_dataset/task_data/(put in, bowl, bowl)-20231013_135.json",
         "key_steps": {
             "init": 1,
-            "ref": 12,
-            "end": 115
+            "ref": 37,
+            "end": 106
         },
         "left": {
             "palm": {
@@ -64913,8 +64913,8 @@
         "save_name": "taco_dataset/task_data/(put in, bowl, bowl)-20231013_140.json",
         "key_steps": {
             "init": 1,
-            "ref": 26,
-            "end": 99
+            "ref": 27,
+            "end": 92
         },
         "left": {
             "palm": {
@@ -74639,8 +74639,8 @@
         "save_name": "taco_dataset/task_data/(put in, bowl, bowl)-20231013_145.json",
         "key_steps": {
             "init": 1,
-            "ref": 0,
-            "end": 126
+            "ref": 24,
+            "end": 118
         },
         "left": {
             "palm": {
@@ -87093,7 +87093,7 @@
         "save_name": "taco_dataset/task_data/(put in, bowl, bowl)-20231013_150.json",
         "key_steps": {
             "init": 1,
-            "ref": 15,
+            "ref": 27,
             "end": 110
         },
         "left": {
@@ -97787,8 +97787,8 @@
         "save_name": "taco_dataset/task_data/(put in, bowl, bowl)-20231013_155.json",
         "key_steps": {
             "init": 1,
-            "ref": 68,
-            "end": 120
+            "ref": 55,
+            "end": 123
         },
         "left": {
             "palm": {
@@ -110153,8 +110153,8 @@
         "save_name": "taco_dataset/task_data/(put in, bowl, bowl)-20231013_160.json",
         "key_steps": {
             "init": 1,
-            "ref": 63,
-            "end": 125
+            "ref": 56,
+            "end": 118
         },
         "left": {
             "palm": {
@@ -122431,8 +122431,8 @@
         "save_name": "taco_dataset/task_data/(put in, bowl, bowl)-20231013_165.json",
         "key_steps": {
             "init": 1,
-            "ref": 64,
-            "end": 100
+            "ref": 41,
+            "end": 107
         },
         "left": {
             "palm": {

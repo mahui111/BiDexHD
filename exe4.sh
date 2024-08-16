@@ -1,4 +1,4 @@
-export CUDA_LAUNCH_BLOCKING=1
+# export CUDA_LAUNCH_BLOCKING=1
 cd rl_policy
 triplet=$1
 cleaned_triplet=${triplet//[\'\"]/}
@@ -13,7 +13,7 @@ fi
 # python main.py task=BiLeapHandGraspV4 train=LeapHandGraspMultiPPO algo=ippo num_envs=1 triplet="$triplet" test=True mode=visualize
 
 # train
-python main.py task=BiLeapHandGraspV4 train=LeapHandGraspMultiPPO algo=ippo num_envs=8192 triplet="$triplet" exp_name=ema0.1+ol headless=True
+python main.py task=BiLeapHandGraspV4 train=LeapHandGraspMultiPPO algo=ippo num_envs=5600 triplet="$triplet" exp_name=ema0.1+ol2-nogradclip headless=True
 
 # evaluate
 # python main.py task=BiLeapHandGraspV4 train=LeapHandGraspMultiPPO algo=ippo num_envs=100 triplet="$triplet" test=True checkpoint="'\

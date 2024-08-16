@@ -17,8 +17,8 @@ class IPPOAgent(nn.Module):
         self,
         vec_env,
         train_param,
-        is_vision=False,
         obs_type="",
+        **kwargs
     ):
         super(IPPOAgent, self).__init__()
         # PPO parameters
@@ -36,7 +36,6 @@ class IPPOAgent(nn.Module):
         self.init_noise_std = train_param.get("init_noise_std", 0.3)
 
         self.sampler = train_param.get("sampler", "sequential")
-        self.is_vision = is_vision
 
         self.observation_space = vec_env.observation_space
         self.action_space = vec_env.action_space
@@ -51,7 +50,7 @@ class IPPOAgent(nn.Module):
 
         # PPO components
         self.vec_env = vec_env
-        single_observation_space_dim = self.observation_space.shape[0]//2 if not obs_type else vec_env.get_obs_idx_num(obs_type)[-1]//2 # (self.observation_space.shape[0]+train_param['policy']['numDownsample'] * train_param['policy']['numEachPoint'])//2
+        single_observation_space_dim = self.observation_space.shape[0]//2 if not obs_type else vec_env.get_obs_idx_dict(obs_type)[-1]//2 # (self.observation_space.shape[0]+train_param['policy']['numDownsample'] * train_param['policy']['numEachPoint'])//2
         self.single_observation_space_shape = (single_observation_space_dim,)
         self.single_action_space_shape = (self.action_space.shape[0]//2,)
 
@@ -62,13 +61,13 @@ class IPPOAgent(nn.Module):
             self.init_noise_std,
             train_param.policy,
             asymmetric=self.asymmetric,
-            use_pc=self.is_vision,
+            **kwargs
         )
         self.actor_critic.to(self.device)
         self.storage = RolloutStorage(
             self.vec_env.num_envs,
             self.num_transitions_per_env,
-            self.single_observation_space_shape,
+            self.observation_space.shape,
             self.state_space.shape,
             self.single_action_space_shape,
             self.device,
@@ -139,7 +138,7 @@ class IPPOAgent(nn.Module):
                 # Gradient step
                 self.optimizer.zero_grad()
                 loss.backward()
-                nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
+                # nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
                 self.optimizer.step()
 
                 mean_value_loss += value_loss.item()
@@ -175,19 +174,19 @@ class IPPO(nn.Module):
             raise TypeError("vec_env.action_space must be a gym Space")
         self.device = vec_env.device
         # agent
+        self.left_obs_indices, self.right_obs_indices = vec_env.get_obs_idx_dict(obs_type,)[:-1]
         self.left_agent = IPPOAgent(
             vec_env,
             train_param,
-            is_vision,
             obs_type,
+            **self.left_obs_indices
         )
         self.right_agent = IPPOAgent(
             vec_env,
             train_param,
-            is_vision,
             obs_type,
+            **self.right_obs_indices
         )
-        self.left_obs_indices, self.right_obs_indices = vec_env.get_obs_idx_num(obs_type,)[:-1]
 
         # training params
         self.tot_timesteps = 0
@@ -255,8 +254,8 @@ class IPPO(nn.Module):
                     if self.apply_reset:
                         current_obs = self.vec_env.reset()["obs"]
                     # Compute the action
-                    left_actions = self.left_agent.actor_critic.act_inference(current_obs[:, self.left_obs_indices])
-                    right_actions = self.right_agent.actor_critic.act_inference(current_obs[:, self.right_obs_indices])
+                    left_actions = self.left_agent.actor_critic.act_inference(current_obs)
+                    right_actions = self.right_agent.actor_critic.act_inference(current_obs)
                     actions = torch.cat((left_actions, right_actions), dim=1)
                     # Step the vec_environment
                     next_obs_dict, rews, dones, infos = self.vec_env.step(actions)
@@ -294,10 +293,8 @@ class IPPO(nn.Module):
                         current_obs = self.vec_env.reset()["obs"]
                         current_states = self.vec_env.get_state()
                     # Compute the action
-                    left_obs = current_obs[:, self.left_obs_indices]
-                    right_obs = current_obs[:, self.right_obs_indices]
-                    left_actions, left_actions_log_prob, left_values, left_mu, left_sigma = self.left_agent.actor_critic.act(left_obs)
-                    right_actions, right_actions_log_prob, right_values, right_mu, right_sigma = self.right_agent.actor_critic.act(right_obs)
+                    left_actions, left_actions_log_prob, left_values, left_mu, left_sigma = self.left_agent.actor_critic.act(current_obs)
+                    right_actions, right_actions_log_prob, right_values, right_mu, right_sigma = self.right_agent.actor_critic.act(current_obs)
                     actions = torch.cat((left_actions, right_actions), dim=1)
                     # Step the vec_environment
                     with torch.no_grad():
@@ -305,9 +302,10 @@ class IPPO(nn.Module):
                         next_obs = next_obs_dict["obs"]
                     next_states = self.vec_env.get_state()
                     # Record the transition
+                    
                     left_rews = infos["left_reward"]
                     self.left_agent.storage.add_transitions(
-                        left_obs,
+                        current_obs,
                         current_states,
                         left_actions,
                         left_rews,
@@ -319,7 +317,7 @@ class IPPO(nn.Module):
                     )
                     right_rews = infos["right_reward"]
                     self.right_agent.storage.add_transitions(
-                        right_obs,
+                        current_obs,
                         current_states,
                         right_actions,
                         right_rews,
@@ -347,8 +345,8 @@ class IPPO(nn.Module):
                     rewbuffer.extend(reward_sum)
                     lenbuffer.extend(episode_length)
 
-                _, _, left_last_values, _, _ = self.left_agent.actor_critic.act(left_obs, current_states)
-                _, _, right_last_values, _, _ = self.right_agent.actor_critic.act(right_obs, current_states)
+                _, _, left_last_values, _, _ = self.left_agent.actor_critic.act(current_obs, current_states)
+                _, _, right_last_values, _, _ = self.right_agent.actor_critic.act(current_obs, current_states)
                 stop = time.time()
                 collection_time = stop - start
                 left_mean_trajectory_length, left_mean_reward = self.left_agent.storage.get_statistics()
