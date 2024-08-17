@@ -60,10 +60,7 @@ env:
   # set to True if you use camera sensors in the environment
   enableCameraSensors: False
   cameraPosition: [0.0, -2.0, 3.0]
-  cameraTarget: [0.0, 0.0, 1.5]
-  imageWidth: 128
-  imageHeight: 128
-  imageSaveDir: "/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/taco_dataset/sampled_data"
+  cameraTarget: [0.0, 0.0, 2.0]
 
 task:
   is_all_task: ${...test}

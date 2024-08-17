@@ -7,7 +7,7 @@ physics_engine: ${..physics_engine}
 env: 
   numEnvs: ${resolve_default:16384,${...num_envs}}
   envSpacing: 1.5
-  episodeLength: 300
+  episodeLength: 400
   enableDebugVis: ${debug}
   aggregateMode: 1
 
@@ -59,8 +59,8 @@ env:
 
   # set to True if you use camera sensors in the environment
   enableCameraSensors: False
-  cameraPosition: [0.0, -2.0, 1.0]
-  cameraTarget: [0.0, 0.0, 0.5]
+  cameraPosition: [0.0, -2.0, 3.0]
+  cameraTarget: [0.0, 0.0, 2.0]
   vision:
     pointclouds:
       numDownsample: ${numDownsample}

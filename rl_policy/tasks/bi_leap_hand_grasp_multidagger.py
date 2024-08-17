@@ -564,98 +564,111 @@ def read_pointcloud_from_urdf(urdf_file, num_sample=512):
                 points = mesh.sample(num_sample) 
                 all_points.append(points)
     all_points = np.vstack(all_points)
-    return all_points
+    return torch.from_numpy(all_points).cuda()
 
 
 
 class BiLeapHandGraspMultiDagger(VecTask):
-    def get_obs_idx_num(self,obs_type=''):
+    def get_obs_idx_dict(self,obs_type=''):
         if obs_type == '':
             obs_type = self.obs_type
         cnt = 0
-        lidx, ridx = [], []
+        left_robostate_idx, right_robostate_idx = [], []
+        left_pointcloud_idx, right_pointcloud_idx = [], []
+        left_objlabel_idx, right_objlabel_idx = [], []
 
         if 'dofps' in obs_type:  # dof pos, 44 
             num_robot_dofs = 44
-            lidx.extend(list(range(cnt, cnt + num_robot_dofs//2)))
-            ridx.extend(list(range(cnt + num_robot_dofs//2, cnt + num_robot_dofs)))
+            left_robostate_idx.extend(list(range(cnt, cnt + num_robot_dofs//2)))
+            right_robostate_idx.extend(list(range(cnt + num_robot_dofs//2, cnt + num_robot_dofs)))
             cnt += num_robot_dofs
 
         if 'dofvel' in obs_type:  # dof vel, 44
             num_robot_dofs = 44
-            lidx.extend(list(range(cnt, cnt + num_robot_dofs//2)))
-            ridx.extend(list(range(cnt + num_robot_dofs//2, cnt + num_robot_dofs)))
+            left_robostate_idx.extend(list(range(cnt, cnt + num_robot_dofs//2)))
+            right_robostate_idx.extend(list(range(cnt + num_robot_dofs//2, cnt + num_robot_dofs)))
             cnt += num_robot_dofs
 
         if 'ftps' in obs_type:  # fingertip pos, 3 * 4 * 2
             num_ft_states = 4 * 3
-            lidx.extend(list(range(cnt, cnt + num_ft_states)))
-            ridx.extend(list(range(cnt + num_ft_states, cnt + 2 * num_ft_states)))
+            left_robostate_idx.extend(list(range(cnt, cnt + num_ft_states)))
+            right_robostate_idx.extend(list(range(cnt + num_ft_states, cnt + 2 * num_ft_states)))
             cnt += 2 * num_ft_states
 
         if 'ftstate' in obs_type:  # fingertip state, 13 * 4 * 2
             num_ft_states = 4 * 13
-            lidx.extend(list(range(cnt, cnt + num_ft_states)))
-            ridx.extend(list(range(cnt + num_ft_states, cnt + 2 * num_ft_states)))
+            left_robostate_idx.extend(list(range(cnt, cnt + num_ft_states)))
+            right_robostate_idx.extend(list(range(cnt + num_ft_states, cnt + 2 * num_ft_states)))
             cnt += 2 * num_ft_states
 
         if 'lastact' in obs_type:  # last action, 44
             num_actions = 44
-            lidx.extend(list(range(cnt, cnt + num_actions//2)))
-            ridx.extend(list(range(cnt + num_actions//2, cnt + num_actions)))
+            left_robostate_idx.extend(list(range(cnt, cnt + num_actions//2)))
+            right_robostate_idx.extend(list(range(cnt + num_actions//2, cnt + num_actions)))
             cnt += num_actions
 
         if 'objpose' in obs_type:  # object pose, 7 * 2
             obj_dim = 7
-            lidx.extend(list(range(cnt, cnt + obj_dim)))
-            ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
+            left_robostate_idx.extend(list(range(cnt, cnt + obj_dim)))
+            right_robostate_idx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
             cnt += 2 * obj_dim
 
         if 'objstate' in obs_type:  # object state, pose, linvel, angvel. 13 * 2
             obj_dim = 13
-            lidx.extend(list(range(cnt, cnt + obj_dim)))
-            ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
+            left_robostate_idx.extend(list(range(cnt, cnt + obj_dim)))
+            right_robostate_idx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
             cnt += 2 * obj_dim
         
         if 'palmps' in obs_type:  # palm pos, 3 * 2
             obj_dim = 3
-            lidx.extend(list(range(cnt, cnt + obj_dim)))
-            ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
+            left_robostate_idx.extend(list(range(cnt, cnt + obj_dim)))
+            right_robostate_idx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
             cnt += 2 * obj_dim
 
         if 'palmpose' in obs_type:  # palm pose, 7 * 2
             obj_dim = 7
-            lidx.extend(list(range(cnt, cnt + obj_dim)))
-            ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
+            left_robostate_idx.extend(list(range(cnt, cnt + obj_dim)))
+            right_robostate_idx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
             cnt += 2 * obj_dim
 
         if 'palmstate' in obs_type: # palm state, 13 * 2
             obj_dim = 13
-            lidx.extend(list(range(cnt, cnt + obj_dim)))
-            ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
+            left_robostate_idx.extend(list(range(cnt, cnt + obj_dim)))
+            right_robostate_idx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
             cnt += 2 * obj_dim
 
         if 'relps' in obs_type:  # relative pos to object center, 15 * 2
             relpos_dim = 3 * (4 + 1)
-            lidx.extend(list(range(cnt, cnt + relpos_dim)))
-            ridx.extend(list(range(cnt + relpos_dim, cnt + 2 * relpos_dim)))
+            left_robostate_idx.extend(list(range(cnt, cnt + relpos_dim)))
+            right_robostate_idx.extend(list(range(cnt + relpos_dim, cnt + 2 * relpos_dim)))
             cnt += 2 * relpos_dim
 
         if 'meshpc' in obs_type:  # point cloud from object mesh
             self.num_pc_downsample = self.cfg['env']['vision']['pointclouds']['numDownsample']
             self.num_each_pt = self.cfg['env']['vision']['pointclouds']['numEachPoint']
             self.num_pc_flatten = self.num_pc_downsample * self.num_each_pt
-            lidx.extend(list(range(cnt, cnt + self.num_pc_flatten)))
-            ridx.extend(list(range(cnt + self.num_pc_flatten, cnt + 2 * self.num_pc_flatten)))
+            left_pointcloud_idx.extend(list(range(cnt, cnt + self.num_pc_flatten)))
+            right_pointcloud_idx.extend(list(range(cnt + self.num_pc_flatten, cnt + 2 * self.num_pc_flatten)))
             cnt += 2 * self.num_pc_flatten
 
         if 'objlabel' in obs_type:  # object label, 1
             label_dim = 1
-            lidx.extend(list(range(cnt, cnt + label_dim)))
-            ridx.extend(list(range(cnt + label_dim, cnt + 2 * label_dim)))
+            left_objlabel_idx.extend(list(range(cnt, cnt + label_dim)))
+            right_objlabel_idx.extend(list(range(cnt + label_dim, cnt + 2 * label_dim)))
             cnt += 2 * label_dim
 
-        return lidx, ridx, cnt
+        assert cnt == len(left_robostate_idx) + len(right_robostate_idx) + len(left_pointcloud_idx) + len(right_pointcloud_idx) + len(left_objlabel_idx) + len(right_objlabel_idx)  
+        left_indices = dict(
+            robostate_indices=left_robostate_idx,
+            pointcloud_indices=left_pointcloud_idx,
+            objlabel_indices=left_objlabel_idx,
+        )
+        right_indices = dict(
+            robostate_indices=right_robostate_idx,
+            pointcloud_indices=right_pointcloud_idx,
+            objlabel_indices=right_objlabel_idx,
+        )
+        return left_indices, right_indices, cnt
 
     def __init__(
         self,
@@ -721,7 +734,7 @@ class BiLeapHandGraspMultiDagger(VecTask):
         self.fingertip_obs = True
         self.asymmetric_obs = self.cfg["env"]["asymmetric_observations"]
 
-        self.cfg["env"]["numObservations"] = self.get_obs_idx_num()[-1]
+        self.cfg["env"]["numObservations"] = self.get_obs_idx_dict()[-1]
         print(f'number of observation: {self.cfg["env"]["numObservations"]}')
         self.cfg["env"]["numStates"] = 0
         self.cfg["env"]["numActions"] = 44
@@ -1046,6 +1059,8 @@ class BiLeapHandGraspMultiDagger(VecTask):
         self.object_indices = to_torch(self.object_indices, dtype=torch.long, device=self.device)
         self.tool_indices = to_torch(self.tool_indices, dtype=torch.long, device=self.device)
         self.table_heights = to_torch(self.table_heights, device=self.device)
+        self.all_object_labels = to_torch(self.object_labels, dtype=torch.float, device=self.device)[self.all_task_idx] / 255.
+        self.all_tool_labels = to_torch(self.tool_labels, dtype=torch.float, device=self.device)[self.all_task_idx] / 255.
         
         self.ref_init_object_pos_dist = torch.norm(self.all_ref_object_poses[:, :3] - self.object_init_states[:, :3], dim=-1)       # (n,)
         self.ref_init_tool_pos_dist = torch.norm(self.all_ref_tool_poses[:, :3] - self.tool_init_states[:, :3], dim=-1)             # (n,)
@@ -1178,14 +1193,19 @@ class BiLeapHandGraspMultiDagger(VecTask):
         self.dataset_object_poses, self.dataset_tool_poses, \
         self.dataset_ref_timesteps, self.dataset_end_timesteps \
         = [], [], [], [], [], [], [], [], [], [], [], [], [], []
+        self.object_mesh_pointclouds, self.tool_mesh_pointclouds = [], []
+        self.object_labels, self.tool_labels = [], []
         meta_data_path = self.cfg['dataset']['meta_data_path']
         # triplet = os.path.splitext(os.path.basename(meta_data_path))[0]
         with open(meta_data_path, 'r') as f:
             dataset_taco_data = json.load(f)
             if not self.cfg['task']['is_all_task']:
-                iend = int(len(dataset_taco_data) * 0.8)
+                proportion = 0.8 if len(dataset_taco_data) > 3 else 1
+                iend = int(len(dataset_taco_data) * proportion) 
                 print(f'training set: {iend-1}', f'testing set: {len(dataset_taco_data)-(iend-1)}')
                 dataset_taco_data = dataset_taco_data[1:iend]   # at least leave the first and last for testing
+            else:
+                print(f'training set: 0, testing set: {len(dataset_taco_data)}')
         self.num_task = len(dataset_taco_data)
         self.all_task_idx = [i % self.num_task for i in range(self.num_envs)]
         obj_asset_storage = dict()
@@ -1196,7 +1216,6 @@ class BiLeapHandGraspMultiDagger(VecTask):
             dataset_object_pose, dataset_tool_pose, \
             ref_timestep, end_timestep \
             = self._initialize_task(dataset_taco_data[task_id])
-            
             self.dataset_object_poses.append(dataset_object_pose)   
             self.dataset_tool_poses.append(dataset_tool_pose)
             self.dataset_ref_timesteps.append(ref_timestep)
@@ -1213,15 +1232,20 @@ class BiLeapHandGraspMultiDagger(VecTask):
             # create object and tool urdf
             objects_mesh_path = os.path.join(self.cfg["env"]["asset"]["assetRoot"], 'TACOobjects')
             object_id = dataset_taco_data[task_id]['left']['object']['id']
+            self.object_labels.append(int(object_id))
             task_object_urdf_file = os.path.join(objects_mesh_path, f'{object_id}.urdf')   
             if not os.path.exists(task_object_urdf_file):             
                 with open(task_object_urdf_file, 'w') as urdf_file:
                     urdf_file.write(self._generate_urdf(dict(id=object_id)))
+            self.object_mesh_pointclouds.append(read_pointcloud_from_urdf(task_object_urdf_file))
+
             tool_id = dataset_taco_data[task_id]['right']['tool']['id']
+            self.tool_labels.append(int(tool_id))
             task_tool_urdf_file = os.path.join(objects_mesh_path, f'{tool_id}.urdf')
             if not os.path.exists(task_tool_urdf_file):
                 with open(task_tool_urdf_file, 'w') as urdf_file:
                     urdf_file.write(self._generate_urdf(dict(id=tool_id)))
+            self.tool_mesh_pointclouds.append(read_pointcloud_from_urdf(task_tool_urdf_file))
             # get object and tool asset
             object_asset = self._prepare_object_asset(*os.path.split(task_object_urdf_file), vhacd_enabled, obj_asset_storage)
             tool_asset = self._prepare_object_asset(*os.path.split(task_tool_urdf_file), vhacd_enabled, obj_asset_storage)
@@ -1490,8 +1514,8 @@ class BiLeapHandGraspMultiDagger(VecTask):
                 self.obs_buf[i_task::self.num_task, cnt + self.num_pc_flatten : cnt + 2 * self.num_pc_flatten] = transformation_apply(self.tool_pos[i_task::self.num_task,None,:], self.tool_rot[i_task::self.num_task,None,:], self.tool_mesh_pointclouds[i_task]).view(-1, self.num_pc_flatten)
             cnt += 2 * self.num_pc_flatten
         if 'objlabel' in self.obs_type:  
-            self.obs_buf[:, cnt : cnt + 1] = self.object_labels[self.all_task_idx]
-            self.obs_buf[:, cnt + 1 : cnt + 2] = self.tool_labels[self.all_task_idx]
+            self.obs_buf[:, cnt] = self.all_object_labels
+            self.obs_buf[:, cnt + 1] = self.all_tool_labels
             cnt += 2
         # assert dim
         assert cnt == self.obs_buf.shape[1]

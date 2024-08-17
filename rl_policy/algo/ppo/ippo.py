@@ -138,7 +138,7 @@ class IPPOAgent(nn.Module):
                 # Gradient step
                 self.optimizer.zero_grad()
                 loss.backward()
-                # nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
+                nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
                 self.optimizer.step()
 
                 mean_value_loss += value_loss.item()
@@ -230,7 +230,7 @@ class IPPO(nn.Module):
             self.left_agent.optimizer.load_state_dict(left_optimizer_state_dict)
             self.right_agent.optimizer.load_state_dict(right_optimizer_state_dict)
         self.load_state_dict(saved_ckpt["model_state_dict"])
-        self.current_learning_iteration = int(left_optimizer_state_dict['state'][1]['step'].item()//20)
+        self.current_learning_iteration = int(left_optimizer_state_dict['state'][1]['step']//20)
         self.train()
         print(f"Loaded checkpoint from {path}")
 
