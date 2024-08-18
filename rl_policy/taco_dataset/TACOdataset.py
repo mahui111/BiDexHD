@@ -16,6 +16,7 @@ import pickle
 from tqdm import tqdm
 import open3d as o3d
 from scipy.spatial.transform import Rotation as R
+from einops import repeat
 # from pytransform3d import transformations as pt
 # from sapien.asset import create_dome_envmap
 # from sapien.utils import Viewer
@@ -197,7 +198,7 @@ class TACODataset:
             print("Data saved to sampled_taco_task_data.json")
         return total_data
 
-    def make_dataset(self, triplet="(empty, bowl, bowl)", save_dir="taco_dataset/sampled_data", vis_ref=False, num_max=20):
+    def make_dataset(self, triplet="(empty, bowl, bowl)", save_dir="taco_dataset/sampled_data", vis_ref=False, num_max=20, num_finger=4):
         total_dataset = []
         seqname_list = sorted(os.listdir(join(self.dataset_root, "Object_Poses", triplet)))[:num_max]
         for k, sequence_name in tqdm(enumerate(seqname_list), total=len(seqname_list)):
@@ -209,11 +210,17 @@ class TACODataset:
                 elif file_name.startswith("target_"):
                     target_name = file_name.split(".")[0].split("_")[-1]
             
-            # joint pos (N,21,3) -> joint qpos (N,6+16)
-            # all_left_trans[0]==all_left_joint_pos[0,0]
+            # get hand key points (N,21,3)
+            if num_finger == 4:
+                fingertip_idx = [4, 8, 12, 16]
+            elif num_finger == 5:
+                fingertip_idx = [4, 8, 12, 16, 20]
             left_hand_vertices, all_left_joint_pos, all_left_theta, all_left_trans = self.mano_params_to_hand_info(join(hand_pose_dir, "left_hand.pkl"), mano_beta=pickle.load(open(join(hand_pose_dir, "left_hand_shape.pkl"), "rb"))["hand_shape"].reshape(10).detach().cpu().numpy(), side="left", max_cnt=None, return_pose=True, return_faces=False,)
+            left_fingertip_pos = all_left_joint_pos[:,fingertip_idx]  # (N, 4, 3)
+
             right_hand_vertices, all_right_joint_pos, all_right_theta, all_right_trans = self.mano_params_to_hand_info(join(hand_pose_dir, "right_hand.pkl"), mano_beta=pickle.load(open(join(hand_pose_dir, "right_hand_shape.pkl"), "rb"))["hand_shape"].reshape(10).detach().cpu().numpy(), side="right", max_cnt=None, return_pose=True, return_faces=False,)
-            
+            right_fingertip_pos = all_right_joint_pos[:,fingertip_idx]  # (N, 4, 3)
+
             all_left_quat = R.from_rotvec(all_left_theta[:,0:3]).as_quat()
             all_right_quat = R.from_rotvec(all_right_theta[:,0:3]).as_quat()
 
@@ -259,14 +266,19 @@ class TACODataset:
             init_timestep, ref_timestep, end_timestep = self.get_key_timesteps(load_target_poses, load_tool_poses, percentage=75, vis_ref=vis_ref)
             print(f"task: {k}\t| tool: {tool_name}\t| target: {target_name}\t| init_timestep: {init_timestep}\t| ref_timestep: {ref_timestep}\t| end_timestep: {end_timestep}")
 
+            left_fingertip_ref_mean_pos = np.mean(left_fingertip_pos[ref_timestep, [0,2,3]], axis=0,)
+            left_fingertip_init_mean_pos = left_fingertip_ref_mean_pos - load_target_poses[ref_timestep, :3, 3] + load_target_poses[init_timestep, :3, 3]
+            right_fingertip_ref_mean_pos = np.mean(right_fingertip_pos[ref_timestep, [0,2,3]], axis=0,)
+            right_fingertip_init_mean_pos = right_fingertip_ref_mean_pos - load_tool_poses[ref_timestep, :3, 3] + load_tool_poses[init_timestep, :3, 3]
+
             # return all data
             total_data = dict(
                 save_name=os.path.join(save_dir, f'{triplet}-{sequence_name}.json'),
                 key_steps=dict(init=init_timestep, ref=ref_timestep, end=end_timestep),
                 tool=dict(id=tool_name, T=load_tool_poses.tolist()),
                 object=dict(id=target_name, T=load_target_poses.tolist()),
-                left=dict(p=all_left_trans.tolist(), q=all_left_quat.tolist(), qpos=all_left_finger_qpos.tolist()),
-                right=dict(p=all_right_trans.tolist(), q=all_right_quat.tolist(), qpos=all_right_finger_qpos.tolist()),
+                left=dict(p=all_left_trans.tolist(), q=all_left_quat.tolist(), qpos=all_left_finger_qpos.tolist(), fingertip_ref_init_center=left_fingertip_init_mean_pos.tolist(), fingertip_pos=left_fingertip_pos.tolist()),
+                right=dict(p=all_right_trans.tolist(), q=all_right_quat.tolist(), qpos=all_right_finger_qpos.tolist(), fingertip_ref_init_center=right_fingertip_init_mean_pos.tolist(), fingertip_pos=right_fingertip_pos.tolist()),
             )
             total_dataset.append(total_data)
 
@@ -278,6 +290,7 @@ class TACODataset:
         triplet = triplet.strip("'")
         total_dataset = []
         seqname_list = sorted(os.listdir(join(self.dataset_root, "Object_Poses", triplet)))[:num_max]
+        visualizer = Visualizer3D()
         for k, sequence_name in enumerate(seqname_list):
             object_pose_dir = join(self.dataset_root, "Object_Poses", triplet, sequence_name)
             hand_pose_dir = join(self.dataset_root, "Hand_Poses", triplet, sequence_name)
@@ -310,7 +323,6 @@ class TACODataset:
             right_palm_quat = R.from_rotvec(all_right_theta[:,0:3]).as_quat()
             right_fingertip_pos = all_right_joint_pos[:,fingertip_idx]  # (N, 4, 3)
             # visualize the hand key points
-            # visualizer = Visualizer3D()
             # for l in range(1,num_finger):
             #     visualizer.visualize_point_clouds(left_fingertip_pos[0,:l])
             #     visualizer.visualize_point_clouds(right_fingertip_pos[0,:l])
@@ -319,6 +331,14 @@ class TACODataset:
             # get key timesteps
             init_timestep, ref_timestep, end_timestep = self.get_key_timesteps(object_Tposes, tool_Tposes, percentage=75)
             print(f"task: {k}\t| tool: {tool_name}\t| target: {target_name}\t| init_timestep: {init_timestep}\t| ref_timestep: {ref_timestep}\t| end_timestep: {end_timestep}")
+
+            visualizer.visualize_point_clouds(left_fingertip_pos[ref_timestep], colors=np.zeros((num_finger, 3)))
+            left_fingertip_mean_pos = np.mean(left_fingertip_pos[ref_timestep], axis=0, keepdims=True)
+            visualizer.visualize_point_clouds(left_fingertip_mean_pos, colors=[[0,1,0]])
+            visualizer.visualize_point_clouds(right_fingertip_pos[ref_timestep], colors=np.zeros((num_finger, 3)))
+            right_fingertip_mean_pos = np.mean(right_fingertip_pos[ref_timestep], axis=0, keepdims=True)
+            visualizer.visualize_point_clouds(right_fingertip_mean_pos, colors=[[0,1,0]])
+            visualizer.draw(True)
 
             # return all data
             total_data = dict(
@@ -378,7 +398,7 @@ class TACODataset:
             diffs = np.abs(np.diff(sequence))
             cnt = 0
             for i in range(10, len(diffs)-3, 3):
-                cnt += sum(diffs[i: i+3]) > threshold
+                cnt += (sum(diffs[i: i+3]) > threshold)
                 if cnt > 2 and i < 0.7 * len(diffs):
                     return int(i)
             return None
@@ -434,7 +454,11 @@ class TACODataset:
         end_timestep = int(max(end_object_timestep, end_tool_timestep))
         '''reference step: end of stage 1 and beginning of stage 2'''
         # object_tool_dis = np.linalg.norm(smoothed_object_pos - smoothed_tool_pos, axis=1)
-        ref_timestep = find_reftimestep_() # find_reftimestep(object_tool_dis)
+        try:
+            ref_timestep = find_reftimestep_() # find_reftimestep(object_tool_dis)
+        except IndexError:
+            object_tool_dis = np.linalg.norm(smoothed_object_pos - smoothed_tool_pos, axis=1)
+            ref_timestep = find_reftimestep(object_tool_dis)
         if ref_timestep is None:
             ref_timestep = init_timestep + int(0.2 * end_timestep)
             

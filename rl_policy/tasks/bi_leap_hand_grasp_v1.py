@@ -1710,6 +1710,13 @@ class BiLeapHandGraspV1(VecTask):
         self.ref_object_pose = self.dataset_object_pose[self.ref_timestep].unsqueeze(0)     # (1, 7)
         self.ref_tool_pose = self.dataset_tool_pose[self.ref_timestep].unsqueeze(0)         # (1, 7)
 
+        if 'fingertip_ref_init_center' in dataset_left_dof:
+            self.ref_left_fingertip_mean_pos = to_torch(dataset_left_dof['fingertip_ref_init_center'], device=self.device)
+            self.ref_right_fingertip_mean_pos = to_torch(dataset_right_dof['fingertip_ref_init_center'], device=self.device)
+        if 'fingertip_pos': 
+            self.dataset_left_fingertip_pos = to_torch(dataset_left_dof['fingertip_pos'], device=self.device)
+            self.dataset_right_fingertip_pos = to_torch(dataset_right_dof['fingertip_pos'], device=self.device)
+
         if self.mode == "train" and self.is_stage1_hand_object_rew:
             assert 'ref_fingers_pose' in self.sampled_taco_task_data['left'] and 'ref_fingers_pose' in self.sampled_taco_task_data['right']
             self.ref_init_left_fingers_pose = to_torch(self.sampled_taco_task_data['left']['ref_fingers_pose'], device=self.device).unsqueeze(0)     # (1, 4, 7)
@@ -2293,11 +2300,21 @@ class BiLeapHandGraspV1(VecTask):
         for replay_times in range(1,1+replay_times):
             self._prepare_task(task_id=self.task_id)
             metric_collector = defaultdict(list)
+            if self.ref_left_fingertip_mean_pos is not None:
+                self._add_debug_lines(self.envs[0], self.ref_left_fingertip_mean_pos, torch.tensor([0,0,0,1], device=self.device, dtype=torch.float32))
+                self._add_debug_lines(self.envs[0], self.ref_right_fingertip_mean_pos, torch.tensor([0,0,0,1], device=self.device, dtype=torch.float32))
+            
             for i in range(self.init_timestep-1, self.end_timestep+1):
+                if self.dataset_left_fingertip_pos is None:
+                    self.gym.clear_lines(self.viewer)
+                    for l in range(self.dataset_left_fingertip_pos.shape[1]):
+                        self._add_debug_lines(self.envs[0], self.dataset_left_fingertip_pos[i,l], torch.tensor([0,0,0,1], device=self.device, dtype=torch.float32))
+                        self._add_debug_lines(self.envs[0], self.dataset_right_fingertip_pos[i,l], torch.tensor([0,0,0,1], device=self.device, dtype=torch.float32))
                 self.actions = torch.zeros_like(self.robot_dof_pos)
                 self.actions[:, self.both_fingers_dof_indices] = self.both_fingers_dof[i:i+1]
                 self.actions[:, self.both_arm_dof_indices] = self.calculate_ik(self.target_left_pose[i:i+1], self.target_right_pose[i:i+1])
-                
+                # if i == 1:
+                #     breakpoint()
                 if i == self.ref_timestep:
                     time.sleep(1)
                     if append_data: 
