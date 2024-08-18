@@ -1190,8 +1190,9 @@ class BiLeapHandGraspV4(VecTask):
             else:
                 print(f'training set: 0, testing set: {len(dataset_taco_data)}')
         self.num_task = len(dataset_taco_data)
-        self.all_task_idx = [i % self.num_task for i in range(self.num_envs)]
+        self.all_task_idx = torch.tensor([i % self.num_task for i in range(self.num_envs)], dtype=torch.long, device=self.device)
         obj_asset_storage = dict()
+        object_max_shape, tool_max_shape = -1, -1
         for task_id in range(self.num_task):
             object_start_pose, tool_start_pose, \
             left_robot_start_pose, right_robot_start_pose, \
@@ -1228,22 +1229,32 @@ class BiLeapHandGraspV4(VecTask):
                 with open(task_tool_urdf_file, 'w') as urdf_file:
                     urdf_file.write(self._generate_urdf(dict(id=tool_id)))
             # get object and tool asset
-            object_asset = self._prepare_object_asset(*os.path.split(task_object_urdf_file), vhacd_enabled, obj_asset_storage)
-            tool_asset = self._prepare_object_asset(*os.path.split(task_tool_urdf_file), vhacd_enabled, obj_asset_storage)
-            self.object_assets.append(object_asset)
-            self.tool_assets.append(tool_asset)
-            # aggregate size
-            num_object_bodies = self.gym.get_asset_rigid_body_count(object_asset) + self.gym.get_asset_rigid_body_count(tool_asset)
-            num_object_shapes = self.gym.get_asset_rigid_shape_count(object_asset) + self.gym.get_asset_rigid_shape_count(tool_asset)
-            max_agg_bodies = self.num_robot_bodies + num_object_bodies + 2
-            max_agg_shapes = self.num_robot_shapes + num_object_shapes + 2
-            self.max_agg_bodies.append(max_agg_bodies)
-            self.max_agg_shapes.append(max_agg_shapes)
+            while True:
+                object_asset = self._prepare_object_asset(*os.path.split(task_object_urdf_file), vhacd_enabled, obj_asset_storage, object_max_shape)
+                tool_asset = self._prepare_object_asset(*os.path.split(task_tool_urdf_file), vhacd_enabled, obj_asset_storage, tool_max_shape)
+                # aggregate size
+                num_object_bodies = self.gym.get_asset_rigid_body_count(object_asset) + self.gym.get_asset_rigid_body_count(tool_asset)
+                num_object_shape = self.gym.get_asset_rigid_shape_count(object_asset)
+                num_tool_shape = self.gym.get_asset_rigid_shape_count(tool_asset)
+                num_object_shapes = num_object_shape + num_tool_shape
+                max_agg_bodies = self.num_robot_bodies + num_object_bodies + 2
+                max_agg_shapes = self.num_robot_shapes + num_object_shapes + 2
+                print(max_agg_shapes)
+                if max_agg_shapes <= 128:
+                    self.object_assets.append(object_asset)
+                    self.tool_assets.append(tool_asset)
+                    self.max_agg_bodies.append(max_agg_bodies)
+                    self.max_agg_shapes.append(max_agg_shapes)
+                    break
+                spare_max_shape = 126 - self.num_robot_shapes  # 78
+                object_max_shape = int(num_object_shape / (num_object_shape + num_tool_shape) * spare_max_shape)
+                tool_max_shape = spare_max_shape - object_max_shape
+                print(f'task_id:{task_id} | num_object_shape:{num_object_shape} | num_tool_shape:{num_tool_shape} | object_max_shape:{object_max_shape} | tool_max_shape:{tool_max_shape}')
 
         self.dataset_object_poses = torch.stack(self.dataset_object_poses, dim=0)  # (K, T, 7)
         self.dataset_tool_poses = torch.stack(self.dataset_tool_poses, dim=0)  # (K, T, 7)
-        self.dataset_ref_timesteps = torch.tensor(self.dataset_ref_timesteps, dtype=torch.int32, device=self.device)  # (K,)
-        self.dataset_end_timesteps = torch.tensor(self.dataset_end_timesteps, dtype=torch.int32, device=self.device)  # (K,)
+        self.dataset_ref_timesteps = torch.tensor(self.dataset_ref_timesteps, dtype=torch.long, device=self.device)  # (K,)
+        self.dataset_end_timesteps = torch.tensor(self.dataset_end_timesteps, dtype=torch.long, device=self.device)  # (K,)
         # self.dataset_left_palm_ref_poses = torch.stack(self.dataset_left_palm_ref_poses, dim=0)  # (K, 7)
         # self.dataset_right_palm_ref_poses = torch.stack(self.dataset_right_palm_ref_poses, dim=0)  # (K, 7)
 
