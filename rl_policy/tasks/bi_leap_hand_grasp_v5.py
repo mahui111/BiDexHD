@@ -559,7 +559,7 @@ def compute_bvdex_stage12_rewards(
     )
 
 
-class BiLeapHandGraspV4(VecTask):
+class BiLeapHandGraspV5(VecTask):
     '''
     Multi-object training with object label for bimanual manipulation from demonstrations. Stage 1 apporach reward modify to approach grasp point
     '''

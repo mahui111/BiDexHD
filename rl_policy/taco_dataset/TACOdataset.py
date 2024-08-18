@@ -351,12 +351,12 @@ class TACODataset:
                 left=dict(
                     palm=dict(pos=left_palm_pos.tolist(), quat=left_palm_quat.tolist()),
                     fingertip=dict(pos=left_fingertip_pos.tolist()), 
-                    object=dict(id=target_name, pos=object_pos.tolist(), quat=object_quat.tolist(),gpos=left_fingertip_init_mean_pos),
+                    object=dict(id=target_name, pos=object_pos.tolist(), quat=object_quat.tolist(),gpos=left_fingertip_init_mean_pos.tolist()),
                 ),
                 right=dict(
                     palm=dict(pos=right_palm_pos.tolist(), quat=right_palm_quat.tolist()),
                     fingertip=dict(pos=right_fingertip_pos.tolist()), 
-                    tool=dict(id=tool_name, pos=tool_pos.tolist(), quat=tool_quat.tolist(),gpos=right_fingertip_init_mean_pos),
+                    tool=dict(id=tool_name, pos=tool_pos.tolist(), quat=tool_quat.tolist(),gpos=right_fingertip_init_mean_pos.tolist()),
                 ),
             )
             total_dataset.append(total_data)
