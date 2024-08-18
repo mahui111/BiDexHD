@@ -564,7 +564,7 @@ def read_pointcloud_from_urdf(urdf_file, num_sample=512):
                 points = mesh.sample(num_sample) 
                 all_points.append(points)
     all_points = np.vstack(all_points)
-    return torch.from_numpy(all_points).cuda()
+    return torch.from_numpy(all_points).float().cuda()
 
 
 
@@ -832,10 +832,10 @@ class BiLeapHandGraspMultiDagger(VecTask):
         self.total_resets = 0
 
         # customize
-        self.timestep = torch.zeros(self.num_envs, dtype=torch.int32, device=self.device)
-        self.reach_ref_timestep = - torch.ones(self.num_envs, dtype=torch.int32, device=self.device)
-        self.left_reach_ref_timestep = - torch.ones(self.num_envs, dtype=torch.int32, device=self.device)
-        self.right_reach_ref_timestep = - torch.ones(self.num_envs, dtype=torch.int32, device=self.device)
+        self.timestep = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self.reach_ref_timestep = - torch.ones(self.num_envs, dtype=torch.long, device=self.device)
+        self.left_reach_ref_timestep = - torch.ones(self.num_envs, dtype=torch.long, device=self.device)
+        self.right_reach_ref_timestep = - torch.ones(self.num_envs, dtype=torch.long, device=self.device)
 
     def create_sim(self):
         self.dt = self.cfg["sim"]["dt"]
@@ -1153,9 +1153,9 @@ class BiLeapHandGraspMultiDagger(VecTask):
                 arm_dof_indices, hand_dof_indices, robot_dof_indices, \
                 robot_dof_lower_limits, robot_dof_upper_limits
 
-    def _prepare_object_asset(self, asset_root, asset_file, vhacd_enabled, obj_asset_storage):
-        if obj_asset_storage.get(asset_file) is not None:
-            return obj_asset_storage[asset_file]
+    def _prepare_object_asset(self, asset_root, asset_file, vhacd_enabled, obj_asset_storage, max_shape=-1):
+        if obj_asset_storage.get((asset_file, max_shape)) is not None:
+            return obj_asset_storage[asset_file, max_shape]
         # load object asset
         asset_options = gymapi.AssetOptions()
         asset_options.flip_visual_attachments = False
@@ -1172,7 +1172,8 @@ class BiLeapHandGraspMultiDagger(VecTask):
             # asset_options.vhacd_params.alpha = 0.04
             # asset_options.vhacd_params.beta = 1.0
             # asset_options.vhacd_params.convex_hull_downsampling = 1 
-            # asset_options.vhacd_params.max_num_vertices_per_ch = 64 
+            if max_shape > 0:
+                asset_options.vhacd_params.max_convex_hulls = max_shape 
 
         if self.physics_engine == gymapi.SIM_PHYSX:
             asset_options.use_physx_armature = True
@@ -1180,7 +1181,7 @@ class BiLeapHandGraspMultiDagger(VecTask):
         # drive_mode: 0: none, 1: position, 2: velocity, 3: force
         asset_options.default_dof_drive_mode = 0
         object_asset = self.gym.load_asset(self.sim, asset_root, asset_file, asset_options)
-        obj_asset_storage[asset_file] = object_asset
+        obj_asset_storage[asset_file, max_shape] = object_asset
         return object_asset
 
     def _prepare_dataset(self, vhacd_enabled=True):                
@@ -1199,16 +1200,23 @@ class BiLeapHandGraspMultiDagger(VecTask):
         # triplet = os.path.splitext(os.path.basename(meta_data_path))[0]
         with open(meta_data_path, 'r') as f:
             dataset_taco_data = json.load(f)
-            if not self.cfg['task']['is_all_task']:
-                proportion = 0.8 if len(dataset_taco_data) > 3 else 1
-                iend = int(len(dataset_taco_data) * proportion) 
-                print(f'training set: {iend-1}', f'testing set: {len(dataset_taco_data)-(iend-1)}')
-                dataset_taco_data = dataset_taco_data[1:iend]   # at least leave the first and last for testing
-            else:
-                print(f'training set: 0, testing set: {len(dataset_taco_data)}')
+            # TODO
+            proportion = 0.8 if len(dataset_taco_data) > 3 else 1
+            iend = int(len(dataset_taco_data) * proportion) 
+            print(f'training set: {iend-1}', f'testing set: {len(dataset_taco_data)-(iend-1)}')
+            dataset_taco_data = dataset_taco_data[1:iend]
+
+            # if not self.cfg['task']['is_all_task']:
+            #     proportion = 0.8 if len(dataset_taco_data) > 3 else 1
+            #     iend = int(len(dataset_taco_data) * proportion) 
+            #     print(f'training set: {iend-1}', f'testing set: {len(dataset_taco_data)-(iend-1)}')
+            #     dataset_taco_data = dataset_taco_data[1:iend]   # at least leave the first and last for testing
+            # else:
+            #     print(f'training set: 0, testing set: {len(dataset_taco_data)}')
         self.num_task = len(dataset_taco_data)
-        self.all_task_idx = [i % self.num_task for i in range(self.num_envs)]
+        self.all_task_idx = torch.tensor([i % self.num_task for i in range(self.num_envs)], dtype=torch.long, device=self.device)
         obj_asset_storage = dict()
+        object_max_shape, tool_max_shape = -1, -1
         for task_id in range(self.num_task):
             object_start_pose, tool_start_pose, \
             left_robot_start_pose, right_robot_start_pose, \
@@ -1216,6 +1224,7 @@ class BiLeapHandGraspMultiDagger(VecTask):
             dataset_object_pose, dataset_tool_pose, \
             ref_timestep, end_timestep \
             = self._initialize_task(dataset_taco_data[task_id])
+            
             self.dataset_object_poses.append(dataset_object_pose)   
             self.dataset_tool_poses.append(dataset_tool_pose)
             self.dataset_ref_timesteps.append(ref_timestep)
@@ -1247,22 +1256,32 @@ class BiLeapHandGraspMultiDagger(VecTask):
                     urdf_file.write(self._generate_urdf(dict(id=tool_id)))
             self.tool_mesh_pointclouds.append(read_pointcloud_from_urdf(task_tool_urdf_file))
             # get object and tool asset
-            object_asset = self._prepare_object_asset(*os.path.split(task_object_urdf_file), vhacd_enabled, obj_asset_storage)
-            tool_asset = self._prepare_object_asset(*os.path.split(task_tool_urdf_file), vhacd_enabled, obj_asset_storage)
-            self.object_assets.append(object_asset)
-            self.tool_assets.append(tool_asset)
-            # aggregate size
-            num_object_bodies = self.gym.get_asset_rigid_body_count(object_asset) + self.gym.get_asset_rigid_body_count(tool_asset)
-            num_object_shapes = self.gym.get_asset_rigid_shape_count(object_asset) + self.gym.get_asset_rigid_shape_count(tool_asset)
-            max_agg_bodies = self.num_robot_bodies + num_object_bodies + 2
-            max_agg_shapes = self.num_robot_shapes + num_object_shapes + 2
-            self.max_agg_bodies.append(max_agg_bodies)
-            self.max_agg_shapes.append(max_agg_shapes)
+            while True:
+                object_asset = self._prepare_object_asset(*os.path.split(task_object_urdf_file), vhacd_enabled, obj_asset_storage, object_max_shape)
+                tool_asset = self._prepare_object_asset(*os.path.split(task_tool_urdf_file), vhacd_enabled, obj_asset_storage, tool_max_shape)
+                # aggregate size
+                num_object_bodies = self.gym.get_asset_rigid_body_count(object_asset) + self.gym.get_asset_rigid_body_count(tool_asset)
+                num_object_shape = self.gym.get_asset_rigid_shape_count(object_asset)
+                num_tool_shape = self.gym.get_asset_rigid_shape_count(tool_asset)
+                num_object_shapes = num_object_shape + num_tool_shape
+                max_agg_bodies = self.num_robot_bodies + num_object_bodies + 2
+                max_agg_shapes = self.num_robot_shapes + num_object_shapes + 2
+                print(max_agg_shapes)
+                if max_agg_shapes <= 128:
+                    self.object_assets.append(object_asset)
+                    self.tool_assets.append(tool_asset)
+                    self.max_agg_bodies.append(max_agg_bodies)
+                    self.max_agg_shapes.append(max_agg_shapes)
+                    break
+                spare_max_shape = 126 - self.num_robot_shapes  # 78
+                object_max_shape = int(num_object_shape / (num_object_shape + num_tool_shape) * spare_max_shape)
+                tool_max_shape = spare_max_shape - object_max_shape
+                print(f'task_id:{task_id} | num_object_shape:{num_object_shape} | num_tool_shape:{num_tool_shape} | object_max_shape:{object_max_shape} | tool_max_shape:{tool_max_shape}')
 
         self.dataset_object_poses = torch.stack(self.dataset_object_poses, dim=0)  # (K, T, 7)
         self.dataset_tool_poses = torch.stack(self.dataset_tool_poses, dim=0)  # (K, T, 7)
-        self.dataset_ref_timesteps = torch.tensor(self.dataset_ref_timesteps, dtype=torch.int32, device=self.device)  # (K,)
-        self.dataset_end_timesteps = torch.tensor(self.dataset_end_timesteps, dtype=torch.int32, device=self.device)  # (K,)
+        self.dataset_ref_timesteps = torch.tensor(self.dataset_ref_timesteps, dtype=torch.long, device=self.device)  # (K,)
+        self.dataset_end_timesteps = torch.tensor(self.dataset_end_timesteps, dtype=torch.long, device=self.device)  # (K,)
         # self.dataset_left_palm_ref_poses = torch.stack(self.dataset_left_palm_ref_poses, dim=0)  # (K, 7)
         # self.dataset_right_palm_ref_poses = torch.stack(self.dataset_right_palm_ref_poses, dim=0)  # (K, 7)
 
@@ -1513,6 +1532,7 @@ class BiLeapHandGraspMultiDagger(VecTask):
                 self.obs_buf[i_task::self.num_task, cnt : cnt + self.num_pc_flatten] = transformation_apply(self.object_pos[i_task::self.num_task,None,:], self.object_rot[i_task::self.num_task,None,:], self.object_mesh_pointclouds[i_task]).view(-1, self.num_pc_flatten)
                 self.obs_buf[i_task::self.num_task, cnt + self.num_pc_flatten : cnt + 2 * self.num_pc_flatten] = transformation_apply(self.tool_pos[i_task::self.num_task,None,:], self.tool_rot[i_task::self.num_task,None,:], self.tool_mesh_pointclouds[i_task]).view(-1, self.num_pc_flatten)
             cnt += 2 * self.num_pc_flatten
+        
         if 'objlabel' in self.obs_type:  
             self.obs_buf[:, cnt] = self.all_object_labels
             self.obs_buf[:, cnt + 1] = self.all_tool_labels

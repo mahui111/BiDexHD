@@ -159,7 +159,6 @@ class IPPO(nn.Module):
         train_param,
         log_dir="run",
         apply_reset=False,
-        is_vision=False,
         obs_type="",
         **kwargs
     ):
@@ -175,17 +174,19 @@ class IPPO(nn.Module):
         self.device = vec_env.device
         # agent
         self.left_obs_indices, self.right_obs_indices = vec_env.get_obs_idx_dict(obs_type,)[:-1]
+        left_all_obs_indices = kwargs.get('left_all_obs_indices', self.left_obs_indices)
+        right_all_obs_indices = kwargs.get('right_all_obs_indices', self.right_obs_indices)
         self.left_agent = IPPOAgent(
             vec_env,
             train_param,
             obs_type,
-            **self.left_obs_indices
+            **left_all_obs_indices
         )
         self.right_agent = IPPOAgent(
             vec_env,
             train_param,
             obs_type,
-            **self.right_obs_indices
+            **right_all_obs_indices
         )
 
         # training params

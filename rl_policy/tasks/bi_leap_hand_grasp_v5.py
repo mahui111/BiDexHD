@@ -1141,9 +1141,9 @@ class BiLeapHandGraspV5(VecTask):
                 arm_dof_indices, hand_dof_indices, robot_dof_indices, \
                 robot_dof_lower_limits, robot_dof_upper_limits
 
-    def _prepare_object_asset(self, asset_root, asset_file, vhacd_enabled, obj_asset_storage):
-        if obj_asset_storage.get(asset_file) is not None:
-            return obj_asset_storage[asset_file]
+    def _prepare_object_asset(self, asset_root, asset_file, vhacd_enabled, obj_asset_storage, max_shape=-1):
+        if obj_asset_storage.get((asset_file, max_shape)) is not None:
+            return obj_asset_storage[asset_file, max_shape]
         # load object asset
         asset_options = gymapi.AssetOptions()
         asset_options.flip_visual_attachments = False
@@ -1160,7 +1160,8 @@ class BiLeapHandGraspV5(VecTask):
             # asset_options.vhacd_params.alpha = 0.04
             # asset_options.vhacd_params.beta = 1.0
             # asset_options.vhacd_params.convex_hull_downsampling = 1 
-            # asset_options.vhacd_params.max_num_vertices_per_ch = 64 
+            if max_shape > 0:
+                asset_options.vhacd_params.max_convex_hulls = max_shape 
 
         if self.physics_engine == gymapi.SIM_PHYSX:
             asset_options.use_physx_armature = True
@@ -1168,7 +1169,7 @@ class BiLeapHandGraspV5(VecTask):
         # drive_mode: 0: none, 1: position, 2: velocity, 3: force
         asset_options.default_dof_drive_mode = 0
         object_asset = self.gym.load_asset(self.sim, asset_root, asset_file, asset_options)
-        obj_asset_storage[asset_file] = object_asset
+        obj_asset_storage[asset_file, max_shape] = object_asset
         return object_asset
 
     def _prepare_dataset(self, vhacd_enabled=True):                
@@ -1264,8 +1265,9 @@ class BiLeapHandGraspV5(VecTask):
         self.dataset_end_timesteps = torch.tensor(self.dataset_end_timesteps, dtype=torch.long, device=self.device)  # (K,)
         # self.dataset_left_palm_ref_poses = torch.stack(self.dataset_left_palm_ref_poses, dim=0)  # (K, 7)
         # self.dataset_right_palm_ref_poses = torch.stack(self.dataset_right_palm_ref_poses, dim=0)  # (K, 7)
-        self.dataset_object_grasp_pos = torch.stack(self.dataset_object_grasp_pos, dim=0)  # (K, 3)
-        self.dataset_tool_grasp_pos = torch.stack(self.dataset_tool_grasp_pos, dim=0)  # (K, 3)
+        self.dataset_object_grasp_pos = to_torch(self.dataset_object_grasp_pos, dtype=torch.float, device=self.device)  # (K, 3)
+        self.dataset_tool_grasp_pos = to_torch(self.dataset_tool_grasp_pos, dtype=torch.float, device=self.device)  # (K, 3)
+
 
     def _initialize_task(self, taco_task_data):
         epi_len = self.cfg['env']['episodeLength']

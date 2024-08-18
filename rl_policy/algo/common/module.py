@@ -78,8 +78,8 @@ class ActorCritic(nn.Module):
         self.backbone_type = model_cfg["backbone_type"]
         self.freeze_backbone = model_cfg["freeze_backbone"]
 
-        self.use_pc = 'Point' in self.backbone_type and "pointcloud_indices" in kwargs
-        self.use_objlabel = "objlabel_indices" in kwargs
+        self.use_pc = len(kwargs["pointcloud_indices"]) > 0
+        self.use_objlabel = len(kwargs["objlabel_indices"]) > 0
 
         # if model_cfg is None:  # default
         #     actor_hidden_dim = [256, 256, 256]
@@ -95,12 +95,8 @@ class ActorCritic(nn.Module):
         self.robostate_indices = kwargs["robostate_indices"]
         self.pointcloud_indices = kwargs.get("pointcloud_indices", [])
         self.objlabel_indices = kwargs.get("objlabel_indices", [])
-        assert len(self.robostate_indices) + len(self.pointcloud_indices) + len(self.objlabel_indices) == self.num_obs
-        if self.use_objlabel:
-            self.objlabel_dim = len(self.robostate_indices) + len(self.pointcloud_indices)
-            self.objlabel_emb = nn.Embedding(256, self.objlabel_dim)
-            nn.init.xavier_uniform_(self.objlabel_emb.weight)
-
+        # assert len(self.robostate_indices) + len(self.pointcloud_indices) + len(self.objlabel_indices) == self.num_obs
+        
         if self.use_pc:
             self.use_seg = int(model_cfg["useSeg"])
             self.num_downsample = model_cfg["numDownsample"]
@@ -122,6 +118,14 @@ class ActorCritic(nn.Module):
             else:
                 raise ValueError(f"Invalid backbone type: {self.backbone_type}")
             assert len(self.pointcloud_indices) == self.num_pc_flatten
+        else:
+            self.pc_emb_dim = 0
+
+        if self.use_objlabel:
+            self.objlabel_dim = len(self.robostate_indices) + self.pc_emb_dim
+            self.objlabel_emb = nn.Embedding(256, self.objlabel_dim)
+            nn.init.xavier_uniform_(self.objlabel_emb.weight)
+
         self.num_robot_state = (self.num_obs - self.use_objlabel)
         if self.use_pc:
             self.num_robot_state -= (self.num_pc_flatten + self.num_downsample * 2 * self.use_seg)

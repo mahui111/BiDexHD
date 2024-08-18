@@ -1137,9 +1137,9 @@ class BiLeapHandGraspV4(VecTask):
                 arm_dof_indices, hand_dof_indices, robot_dof_indices, \
                 robot_dof_lower_limits, robot_dof_upper_limits
 
-    def _prepare_object_asset(self, asset_root, asset_file, vhacd_enabled, obj_asset_storage):
-        if obj_asset_storage.get(asset_file) is not None:
-            return obj_asset_storage[asset_file]
+    def _prepare_object_asset(self, asset_root, asset_file, vhacd_enabled, obj_asset_storage, max_shape=-1):
+        if obj_asset_storage.get((asset_file, max_shape)) is not None:
+            return obj_asset_storage[asset_file, max_shape]
         # load object asset
         asset_options = gymapi.AssetOptions()
         asset_options.flip_visual_attachments = False
@@ -1156,7 +1156,8 @@ class BiLeapHandGraspV4(VecTask):
             # asset_options.vhacd_params.alpha = 0.04
             # asset_options.vhacd_params.beta = 1.0
             # asset_options.vhacd_params.convex_hull_downsampling = 1 
-            # asset_options.vhacd_params.max_num_vertices_per_ch = 64 
+            if max_shape > 0:
+                asset_options.vhacd_params.max_convex_hulls = max_shape 
 
         if self.physics_engine == gymapi.SIM_PHYSX:
             asset_options.use_physx_armature = True
@@ -1164,7 +1165,7 @@ class BiLeapHandGraspV4(VecTask):
         # drive_mode: 0: none, 1: position, 2: velocity, 3: force
         asset_options.default_dof_drive_mode = 0
         object_asset = self.gym.load_asset(self.sim, asset_root, asset_file, asset_options)
-        obj_asset_storage[asset_file] = object_asset
+        obj_asset_storage[asset_file, max_shape] = object_asset
         return object_asset
 
     def _prepare_dataset(self, vhacd_enabled=True):                
@@ -1200,7 +1201,7 @@ class BiLeapHandGraspV4(VecTask):
             dataset_object_pose, dataset_tool_pose, \
             ref_timestep, end_timestep \
             = self._initialize_task(dataset_taco_data[task_id])
-            
+
             self.dataset_object_poses.append(dataset_object_pose)   
             self.dataset_tool_poses.append(dataset_tool_pose)
             self.dataset_ref_timesteps.append(ref_timestep)
