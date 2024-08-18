@@ -266,9 +266,9 @@ class TACODataset:
             init_timestep, ref_timestep, end_timestep = self.get_key_timesteps(load_target_poses, load_tool_poses, percentage=75, vis_ref=vis_ref)
             print(f"task: {k}\t| tool: {tool_name}\t| target: {target_name}\t| init_timestep: {init_timestep}\t| ref_timestep: {ref_timestep}\t| end_timestep: {end_timestep}")
 
-            left_fingertip_ref_mean_pos = np.mean(left_fingertip_pos[ref_timestep, [0,2,3]], axis=0,)
+            left_fingertip_ref_mean_pos = np.mean(left_fingertip_pos[ref_timestep], axis=0,)
             left_fingertip_init_mean_pos = left_fingertip_ref_mean_pos - load_target_poses[ref_timestep, :3, 3] + load_target_poses[init_timestep, :3, 3]
-            right_fingertip_ref_mean_pos = np.mean(right_fingertip_pos[ref_timestep, [0,2,3]], axis=0,)
+            right_fingertip_ref_mean_pos = np.mean(right_fingertip_pos[ref_timestep], axis=0,)
             right_fingertip_init_mean_pos = right_fingertip_ref_mean_pos - load_tool_poses[ref_timestep, :3, 3] + load_tool_poses[init_timestep, :3, 3]
 
             # return all data
@@ -332,13 +332,17 @@ class TACODataset:
             init_timestep, ref_timestep, end_timestep = self.get_key_timesteps(object_Tposes, tool_Tposes, percentage=75)
             print(f"task: {k}\t| tool: {tool_name}\t| target: {target_name}\t| init_timestep: {init_timestep}\t| ref_timestep: {ref_timestep}\t| end_timestep: {end_timestep}")
 
-            visualizer.visualize_point_clouds(left_fingertip_pos[ref_timestep], colors=np.zeros((num_finger, 3)))
-            left_fingertip_mean_pos = np.mean(left_fingertip_pos[ref_timestep], axis=0, keepdims=True)
-            visualizer.visualize_point_clouds(left_fingertip_mean_pos, colors=[[0,1,0]])
-            visualizer.visualize_point_clouds(right_fingertip_pos[ref_timestep], colors=np.zeros((num_finger, 3)))
-            right_fingertip_mean_pos = np.mean(right_fingertip_pos[ref_timestep], axis=0, keepdims=True)
-            visualizer.visualize_point_clouds(right_fingertip_mean_pos, colors=[[0,1,0]])
-            visualizer.draw(True)
+            left_fingertip_ref_mean_pos = np.mean(left_fingertip_pos[ref_timestep, [0,2,3]], axis=0)
+            left_fingertip_init_mean_pos = left_fingertip_ref_mean_pos - object_pos[ref_timestep] + object_pos[init_timestep]
+            right_fingertip_ref_mean_pos = np.mean(right_fingertip_pos[ref_timestep, [0,2,3]], axis=0)
+            right_fingertip_init_mean_pos = right_fingertip_ref_mean_pos - tool_pos[ref_timestep] + tool_pos[init_timestep]
+            # visualizer.visualize_point_clouds(left_fingertip_pos[ref_timestep], colors=np.zeros((num_finger, 3)))
+            # left_fingertip_mean_pos = np.mean(left_fingertip_pos[ref_timestep], axis=0, keepdims=True)
+            # visualizer.visualize_point_clouds(left_fingertip_mean_pos, colors=[[0,1,0]])
+            # visualizer.visualize_point_clouds(right_fingertip_pos[ref_timestep], colors=np.zeros((num_finger, 3)))
+            # right_fingertip_mean_pos = np.mean(right_fingertip_pos[ref_timestep], axis=0, keepdims=True)
+            # visualizer.visualize_point_clouds(right_fingertip_mean_pos, colors=[[0,1,0]])
+            # visualizer.draw(True)
 
             # return all data
             total_data = dict(
@@ -347,12 +351,12 @@ class TACODataset:
                 left=dict(
                     palm=dict(pos=left_palm_pos.tolist(), quat=left_palm_quat.tolist()),
                     fingertip=dict(pos=left_fingertip_pos.tolist()), 
-                    object=dict(id=target_name, pos=object_pos.tolist(), quat=object_quat.tolist()),
+                    object=dict(id=target_name, pos=object_pos.tolist(), quat=object_quat.tolist(),gpos=left_fingertip_init_mean_pos),
                 ),
                 right=dict(
                     palm=dict(pos=right_palm_pos.tolist(), quat=right_palm_quat.tolist()),
                     fingertip=dict(pos=right_fingertip_pos.tolist()), 
-                    tool=dict(id=tool_name, pos=tool_pos.tolist(), quat=tool_quat.tolist()),
+                    tool=dict(id=tool_name, pos=tool_pos.tolist(), quat=tool_quat.tolist(),gpos=right_fingertip_init_mean_pos),
                 ),
             )
             total_dataset.append(total_data)
