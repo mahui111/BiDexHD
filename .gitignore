@@ -2,8 +2,9 @@
 assets/obj
 assets/TACOobjects
 assets/rm65_shadow_right
-assets/TACOdataset
+assets/TACO*
 rl_policy/dofdemo/
 rl_policy/*runs*
 rl_policy/taco_dataset/sampled_data/*
 exe.sh
+rl_policy/tasks/__init__.py
