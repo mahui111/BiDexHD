@@ -1167,7 +1167,6 @@ class BiLeapHandGraspV4(VecTask):
                 num_object_shapes = num_object_shape + num_tool_shape
                 max_agg_bodies = self.num_robot_bodies + num_object_bodies + 2
                 max_agg_shapes = self.num_robot_shapes + num_object_shapes + 2
-                print(max_agg_shapes)
                 if max_agg_shapes <= 128:
                     self.object_assets.append(object_asset)
                     self.tool_assets.append(tool_asset)
@@ -1177,6 +1176,7 @@ class BiLeapHandGraspV4(VecTask):
                 spare_max_shape = 126 - self.num_robot_shapes  # 78
                 object_max_shape = int(num_object_shape / (num_object_shape + num_tool_shape) * spare_max_shape)
                 tool_max_shape = spare_max_shape - object_max_shape
+                object_max_shape, tool_max_shape = object_max_shape - object_max_shape%10, tool_max_shape - tool_max_shape%10
                 print(f'task_id:{task_id} | num_object_shape:{num_object_shape} | num_tool_shape:{num_tool_shape} | object_max_shape:{object_max_shape} | tool_max_shape:{tool_max_shape}')
 
         self.dataset_object_poses = torch.stack(self.dataset_object_poses, dim=0)  # (K, T, 7)
