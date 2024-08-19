@@ -8,3 +8,5 @@ rl_policy/*runs*
 rl_policy/taco_dataset/sampled_data/*
 exe.sh
 rl_policy/tasks/__init__.py
+rl_policy/taco_dataset/task_data/(cut, knife, plate).json
+rl_policy/taco_dataset/task_data/(scrape off, knife, plate).json
