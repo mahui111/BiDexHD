@@ -400,9 +400,8 @@ class TACODataset:
             left_fingertip_rel_pos = compute_relative_position_po(left_fingertip_pos[ref_timestep], object_pos[ref_timestep], object_quat[ref_timestep])
             right_palm_rel_pos = compute_relative_position_po(all_right_trans[ref_timestep], tool_pos[ref_timestep], tool_quat[ref_timestep])[None,:]
             right_fingertip_rel_pos = compute_relative_position_po(right_fingertip_pos[ref_timestep], tool_pos[ref_timestep], tool_quat[ref_timestep])
-            object_grasp_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, target_name + "_cm.obj"), np.concatenate([left_palm_rel_pos, left_fingertip_rel_pos], axis=0), object_pos[init_timestep], [0, 0, 0, 1])
-            tool_grasp_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, tool_name + "_cm.obj"), np.concatenate([right_palm_rel_pos, right_fingertip_rel_pos], axis=0), tool_pos[init_timestep], [0, 0, 0, 1])
-
+            object_grasp_rel_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, target_name + "_cm.obj"), np.concatenate([left_palm_rel_pos, left_fingertip_rel_pos], axis=0))
+            tool_grasp_rel_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, tool_name + "_cm.obj"), np.concatenate([right_palm_rel_pos, right_fingertip_rel_pos], axis=0))
 
             # object_quat[init_timestep] = self.conjugate(object_quat[init_timestep])
             # tool_quat[init_timestep] = self.conjugate(tool_quat[init_timestep])
@@ -424,12 +423,12 @@ class TACODataset:
                 left=dict(
                     palm=dict(pos=left_palm_pos.tolist(), quat=left_palm_quat.tolist()),
                     fingertip=dict(pos=left_fingertip_pos.tolist()), 
-                    object=dict(id=target_name, pos=object_pos.tolist(), quat=object_quat.tolist(), gpos=object_grasp_center.tolist()), #, gpos=left_fingertip_init_mean_pos.tolist()
+                    object=dict(id=target_name, pos=object_pos.tolist(), quat=object_quat.tolist(), gpos=object_grasp_rel_center.tolist()), #, gpos=left_fingertip_init_mean_pos.tolist()
                 ),
                 right=dict(
                     palm=dict(pos=right_palm_pos.tolist(), quat=right_palm_quat.tolist()),
                     fingertip=dict(pos=right_fingertip_pos.tolist()), 
-                    tool=dict(id=tool_name, pos=tool_pos.tolist(), quat=tool_quat.tolist(), gpos=tool_grasp_center.tolist()), #, gpos=right_fingertip_init_mean_pos.tolist()
+                    tool=dict(id=tool_name, pos=tool_pos.tolist(), quat=tool_quat.tolist(), gpos=tool_grasp_rel_center.tolist()), #, gpos=right_fingertip_init_mean_pos.tolist()
                 ),
             )
             total_dataset.append(total_data)
@@ -910,7 +909,7 @@ class TACODataset:
         # Close viewer
         viewer.close()
         
-    def sample_grasp_center_from_pointcloud(self, object_mesh_file, rel_keypoints, object_init_pos, object_init_quat, scale=0.01, topk=50, num_samples=1024):
+    def sample_grasp_center_from_pointcloud(self, object_mesh_file, rel_keypoints, scale=0.01, topk=50, num_samples=1024):
         '''
         object_mesh_file: str
         rel_keypoints: (4+1, 3)
@@ -935,7 +934,7 @@ class TACODataset:
 
         center = points[idxs].mean(axis=0)
         # apply the initial object pose
-        center = R.from_quat(object_init_quat).apply(center) + object_init_pos
+        # center = R.from_quat(object_init_quat).apply(center) + object_init_pos
         return center
 
 
