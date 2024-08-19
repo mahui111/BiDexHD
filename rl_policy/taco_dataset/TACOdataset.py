@@ -1,6 +1,5 @@
 import os, random, sys, json
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
-from os.path import join, isfile, isdir, dirname, abspath
 import argparse
 from pathlib import Path
 import tempfile
@@ -25,6 +24,59 @@ from dex_retargeting import yourdfpy as urdf
 from dex_retargeting.constants import RobotName, RetargetingType, HandType, get_default_config_path
 from dex_retargeting.retargeting_config import RetargetingConfig
 # from dex_retargeting.seq_retarget import SeqRetargeting
+
+def transformation_inverse_np(quat, pos):
+    """Invert a transformation.
+    
+    Args:
+        quat: Quaternion of the transformation (shape: (...,4))
+        pos: Position of the transformation (shape: (...,3))
+
+    Returns:
+        Inverted quaternion and position.
+    """
+    quat_inv = R.from_quat(quat).inv().as_quat()
+    pos_inv = -R.from_quat(quat_inv).apply(pos)
+    return quat_inv, pos_inv
+
+def compute_relative_position_po(a_position, b_position, b_orientation):
+    """Compute the position of `a` in frame `b`.
+    
+    Args:
+        a_position: Position of `a` in world frame (shape: (...,3))
+        b_position: Position of `b` in world frame (shape: (...,3))
+        b_orientation: Orientation of `b` in world frame (shape: (...,4))
+
+    Returns:
+        Position of `a` in frame `b` (shape: (...,3))
+    """
+    # Compute the inverse of the transformation from `b` to world
+    w2b_rotation, w2b_translation = transformation_inverse_np(b_orientation, b_position)
+
+    # Apply the inverse transformation to `a_position`
+    position_in_b = R.from_quat(w2b_rotation).apply(a_position) + w2b_translation
+    
+    return position_in_b
+
+def compute_relative_position_pose(a_position, b_pose):
+    """Compute the position of `a` in frame `b`.
+    
+    Args:
+        a_position: Position of `a` in world frame (shape: (...,3))
+        b_pose: Pose of `b` in world frame (shape: (...,4,4))
+
+    Returns:
+        Position of `a` in frame `b` (shape: (...,3))
+    """
+    b_orientation = R.from_matrix(b_pose[..., :3, :3]).as_quat()
+    b_position = b_pose[..., :3, 3]
+    # Compute the inverse of the transformation from `b` to world
+    w2b_rotation, w2b_translation = transformation_inverse_np(b_orientation, b_position)
+
+    # Apply the inverse transformation to `a_position`
+    position_in_b = R.from_quat(w2b_rotation).apply(a_position) + w2b_translation
+    
+    return position_in_b
 
 class Visualizer3D:
     def reset(self):
@@ -83,8 +135,9 @@ class TACODataset:
     def __init__(self, dataset_dir, mano_model_path, optimize_wrist):
         self.dataset_root = dataset_dir
         self.mano_model_path = mano_model_path
+        self.mesh_src_path = '/home/zbh/Desktop/zbh/robot/BVDex/assets/TACOobjects'
         self.optimize_wrist = optimize_wrist
-        self.triplet_list = os.listdir(join(self.dataset_root, "Object_Poses"))
+        self.triplet_list = os.listdir(os.path.join(self.dataset_root, "Object_Poses"))
         if optimize_wrist:
             retarget_type = RetargetingType.position
             add_dummy_free_joint = True
@@ -92,6 +145,8 @@ class TACODataset:
             retarget_type = RetargetingType.dexpilot
             add_dummy_free_joint = False
         self.biretargetor = BiRetargetor(RobotName.leap, retarget_type, add_dummy_free_joint)
+        self.visualizer = Visualizer3D()
+        self.trimesh_backup = dict()
         random.seed(0)
 
     # main
@@ -104,10 +159,10 @@ class TACODataset:
         if triplet not in self.triplet_list:
             triplet = random.choice(self.triplet_list)
         if sequence_name == '':
-            sequence_name = random.choice(os.listdir(join(self.dataset_root, "Object_Poses", triplet)))
+            sequence_name = random.choice(os.listdir(os.path.join(self.dataset_root, "Object_Poses", triplet)))
             
-        object_pose_dir = join(self.dataset_root, "Object_Poses", triplet, sequence_name)
-        hand_pose_dir = join(self.dataset_root, "Hand_Poses", triplet, sequence_name)
+        object_pose_dir = os.path.join(self.dataset_root, "Object_Poses", triplet, sequence_name)
+        hand_pose_dir = os.path.join(self.dataset_root, "Hand_Poses", triplet, sequence_name)
         for file_name in sorted(os.listdir(object_pose_dir)):
             if file_name.startswith("tool_"):
                 tool_name = file_name.split(".")[0].split("_")[-1]
@@ -117,8 +172,8 @@ class TACODataset:
         
         # joint pos (N,21,3) -> joint qpos (N,6+16)
         # all_left_trans[0]==all_left_joint_pos[0,0]
-        left_hand_vertices, all_left_joint_pos, all_left_theta, all_left_trans = self.mano_params_to_hand_info(join(hand_pose_dir, "left_hand.pkl"), mano_beta=pickle.load(open(join(hand_pose_dir, "left_hand_shape.pkl"), "rb"))["hand_shape"].reshape(10).detach().cpu().numpy(), side="left", max_cnt=None, return_pose=True, return_faces=False,)
-        right_hand_vertices, all_right_joint_pos, all_right_theta, all_right_trans = self.mano_params_to_hand_info(join(hand_pose_dir, "right_hand.pkl"), mano_beta=pickle.load(open(join(hand_pose_dir, "right_hand_shape.pkl"), "rb"))["hand_shape"].reshape(10).detach().cpu().numpy(), side="right", max_cnt=None, return_pose=True, return_faces=False,)
+        left_hand_vertices, all_left_joint_pos, all_left_theta, all_left_trans = self.mano_params_to_hand_info(os.path.join(hand_pose_dir, "left_hand.pkl"), mano_beta=pickle.load(open(os.path.join(hand_pose_dir, "left_hand_shape.pkl"), "rb"))["hand_shape"].reshape(10).detach().cpu().numpy(), side="left", max_cnt=None, return_pose=True, return_faces=False,)
+        right_hand_vertices, all_right_joint_pos, all_right_theta, all_right_trans = self.mano_params_to_hand_info(os.path.join(hand_pose_dir, "right_hand.pkl"), mano_beta=pickle.load(open(os.path.join(hand_pose_dir, "right_hand_shape.pkl"), "rb"))["hand_shape"].reshape(10).detach().cpu().numpy(), side="right", max_cnt=None, return_pose=True, return_faces=False,)
         
         # visualize vertices and trans
         if is_visualize:
@@ -159,8 +214,8 @@ class TACODataset:
             all_right_qpos[i,-right_hand_dof:] = right_qpos
         
         # get object trajectory
-        load_tool_poses = np.load(join(object_pose_dir, "tool_" + tool_name + ".npy"))
-        load_target_poses = np.load(join(object_pose_dir, "target_" + target_name + ".npy"))
+        load_tool_poses = np.load(os.path.join(object_pose_dir, "tool_" + tool_name + ".npy"))
+        load_target_poses = np.load(os.path.join(object_pose_dir, "target_" + target_name + ".npy"))
         # for target_pose, left_trans in zip(load_target_poses, all_left_trans):
         #     target_pos = target_pose[:3,3]
         #     print(f'object pos:{target_pos}, left hand pos:{left_trans}, distance:{np.linalg.norm(target_pos-left_trans)}')
@@ -176,10 +231,10 @@ class TACODataset:
 
         if is_visualize:
             # load object models and poses
-            object_model_root = join(self.dataset_root, 'object_models/object_models_released')
-            tool_model = trimesh.load(join(object_model_root, tool_name + "_cm.obj"))           # (vertices, faces), unit: cm
+            object_model_root = os.path.join(self.dataset_root, 'object_models/object_models_released')
+            tool_model = trimesh.load(os.path.join(object_model_root, tool_name + "_cm.obj"))           # (vertices, faces), unit: cm
             tool_model.vertices *= 0.01  # unit: m      
-            target_model = trimesh.load(join(object_model_root, target_name + "_cm.obj"))       # (vertices, faces), unit: cm
+            target_model = trimesh.load(os.path.join(object_model_root, target_name + "_cm.obj"))       # (vertices, faces), unit: cm
             target_model.vertices *= 0.01  # unit: m
             # self.visualize_open3d(tool_model, target_model, load_tool_poses, load_target_poses, right_hand_vertices, left_hand_vertices, save_path="./visualization.mp4", sampling_rate=1)
         
@@ -200,10 +255,10 @@ class TACODataset:
 
     def make_dataset(self, triplet="(empty, bowl, bowl)", save_dir="taco_dataset/sampled_data", vis_ref=False, num_max=20, num_finger=4):
         total_dataset = []
-        seqname_list = sorted(os.listdir(join(self.dataset_root, "Object_Poses", triplet)))[:num_max]
+        seqname_list = sorted(os.listdir(os.path.join(self.dataset_root, "Object_Poses", triplet)))[:num_max]
         for k, sequence_name in tqdm(enumerate(seqname_list), total=len(seqname_list)):
-            object_pose_dir = join(self.dataset_root, "Object_Poses", triplet, sequence_name)
-            hand_pose_dir = join(self.dataset_root, "Hand_Poses", triplet, sequence_name)
+            object_pose_dir = os.path.join(self.dataset_root, "Object_Poses", triplet, sequence_name)
+            hand_pose_dir = os.path.join(self.dataset_root, "Hand_Poses", triplet, sequence_name)
             for file_name in os.listdir(object_pose_dir):
                 if file_name.startswith("tool_"):
                     tool_name = file_name.split(".")[0].split("_")[-1]
@@ -215,10 +270,10 @@ class TACODataset:
                 fingertip_idx = [4, 8, 12, 16]
             elif num_finger == 5:
                 fingertip_idx = [4, 8, 12, 16, 20]
-            left_hand_vertices, all_left_joint_pos, all_left_theta, all_left_trans = self.mano_params_to_hand_info(join(hand_pose_dir, "left_hand.pkl"), mano_beta=pickle.load(open(join(hand_pose_dir, "left_hand_shape.pkl"), "rb"))["hand_shape"].reshape(10).detach().cpu().numpy(), side="left", max_cnt=None, return_pose=True, return_faces=False,)
+            left_hand_vertices, all_left_joint_pos, all_left_theta, all_left_trans = self.mano_params_to_hand_info(os.path.join(hand_pose_dir, "left_hand.pkl"), mano_beta=pickle.load(open(os.path.join(hand_pose_dir, "left_hand_shape.pkl"), "rb"))["hand_shape"].reshape(10).detach().cpu().numpy(), side="left", max_cnt=None, return_pose=True, return_faces=False,)
             left_fingertip_pos = all_left_joint_pos[:,fingertip_idx]  # (N, 4, 3)
 
-            right_hand_vertices, all_right_joint_pos, all_right_theta, all_right_trans = self.mano_params_to_hand_info(join(hand_pose_dir, "right_hand.pkl"), mano_beta=pickle.load(open(join(hand_pose_dir, "right_hand_shape.pkl"), "rb"))["hand_shape"].reshape(10).detach().cpu().numpy(), side="right", max_cnt=None, return_pose=True, return_faces=False,)
+            right_hand_vertices, all_right_joint_pos, all_right_theta, all_right_trans = self.mano_params_to_hand_info(os.path.join(hand_pose_dir, "right_hand.pkl"), mano_beta=pickle.load(open(os.path.join(hand_pose_dir, "right_hand_shape.pkl"), "rb"))["hand_shape"].reshape(10).detach().cpu().numpy(), side="right", max_cnt=None, return_pose=True, return_faces=False,)
             right_fingertip_pos = all_right_joint_pos[:,fingertip_idx]  # (N, 4, 3)
 
             all_left_quat = R.from_rotvec(all_left_theta[:,0:3]).as_quat()
@@ -252,8 +307,8 @@ class TACODataset:
                     all_right_finger_qpos[i] = right_qpos
 
             # get object trajectory
-            load_tool_poses = np.load(join(object_pose_dir, "tool_" + tool_name + ".npy"))
-            load_target_poses = np.load(join(object_pose_dir, "target_" + target_name + ".npy"))
+            load_tool_poses = np.load(os.path.join(object_pose_dir, "tool_" + tool_name + ".npy"))
+            load_target_poses = np.load(os.path.join(object_pose_dir, "target_" + target_name + ".npy"))
         
             '''smooth trajectory'''
             if not self.optimize_wrist:
@@ -263,25 +318,34 @@ class TACODataset:
                 all_right_trans = self.low_pass_filter(all_right_trans)
 
             # get key timesteps
-            init_timestep, ref_timestep, end_timestep = self.get_key_timesteps(load_target_poses, load_tool_poses, percentage=75, vis_ref=vis_ref)
-            print(f"task: {k}\t| tool: {tool_name}\t| target: {target_name}\t| init_timestep: {init_timestep}\t| ref_timestep: {ref_timestep}\t| end_timestep: {end_timestep}")
+            init_timestep, ref_timestep, end_timestep, grasp_timestep = self.get_key_timesteps(load_target_poses, load_tool_poses)
+            print(f"task: {k}\t| tool: {tool_name}\t| target: {target_name}\t| init_timestep: {init_timestep}\t| ref_timestep: {ref_timestep}\t| end_timestep: {end_timestep}\t| grasp_timestep: {grasp_timestep}")
 
             left_fingertip_ref_mean_pos = np.mean(left_fingertip_pos[ref_timestep], axis=0,)
             left_fingertip_init_mean_pos = left_fingertip_ref_mean_pos - load_target_poses[ref_timestep, :3, 3] + load_target_poses[init_timestep, :3, 3]
             right_fingertip_ref_mean_pos = np.mean(right_fingertip_pos[ref_timestep], axis=0,)
             right_fingertip_init_mean_pos = right_fingertip_ref_mean_pos - load_tool_poses[ref_timestep, :3, 3] + load_tool_poses[init_timestep, :3, 3]
 
+            # find grasp center from object mesh
+            left_palm_rel_pos = compute_relative_position_pose(all_left_trans[ref_timestep], load_target_poses[[ref_timestep]])
+            left_fingertip_rel_pos = compute_relative_position_pose(left_fingertip_pos[ref_timestep], load_target_poses[[ref_timestep]])
+            right_palm_rel_pos = compute_relative_position_pose(all_right_trans[ref_timestep], load_tool_poses[[ref_timestep]])
+            right_fingertip_rel_pos = compute_relative_position_pose(right_fingertip_pos[ref_timestep], load_tool_poses[[ref_timestep]])
+            object_grasp_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, target_name + "_cm.obj"), np.concatenate([left_palm_rel_pos, left_fingertip_rel_pos], axis=0), load_target_poses[init_timestep,:3,3], [0, 0, 0, 1])
+            tool_grasp_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, tool_name + "_cm.obj"), np.concatenate([right_palm_rel_pos, right_fingertip_rel_pos], axis=0), load_tool_poses[init_timestep,:3,3], [0, 0, 0, 1])
+
             # return all data
             total_data = dict(
                 save_name=os.path.join(save_dir, f'{triplet}-{sequence_name}.json'),
-                key_steps=dict(init=init_timestep, ref=ref_timestep, end=end_timestep),
-                tool=dict(id=tool_name, T=load_tool_poses.tolist()),
-                object=dict(id=target_name, T=load_target_poses.tolist()),
+                key_steps=dict(init=init_timestep, ref=ref_timestep, end=end_timestep, grasp=grasp_timestep),
+                tool=dict(id=tool_name, T=load_tool_poses.tolist(), grasp_center=tool_grasp_center.tolist()),
+                object=dict(id=target_name, T=load_target_poses.tolist(), grasp_center=object_grasp_center.tolist()),
                 left=dict(p=all_left_trans.tolist(), q=all_left_quat.tolist(), qpos=all_left_finger_qpos.tolist(), fingertip_ref_init_center=left_fingertip_init_mean_pos.tolist(), fingertip_pos=left_fingertip_pos.tolist()),
                 right=dict(p=all_right_trans.tolist(), q=all_right_quat.tolist(), qpos=all_right_finger_qpos.tolist(), fingertip_ref_init_center=right_fingertip_init_mean_pos.tolist(), fingertip_pos=right_fingertip_pos.tolist()),
             )
             total_dataset.append(total_data)
 
+        
         with open(os.path.join(save_dir,f"{triplet}.json"), "w") as f:
             json.dump(total_dataset, f, indent=4)
         return total_dataset
@@ -289,11 +353,10 @@ class TACODataset:
     def make_mano_dataset(self, triplet="(empty, bowl, bowl)", save_dir="taco_dataset/task_data", num_finger=4, num_max=20):
         triplet = triplet.strip("'")
         total_dataset = []
-        seqname_list = sorted(os.listdir(join(self.dataset_root, "Object_Poses", triplet)))[:num_max]
-        visualizer = Visualizer3D()
+        seqname_list = sorted(os.listdir(os.path.join(self.dataset_root, "Object_Poses", triplet)))[:num_max]
         for k, sequence_name in enumerate(seqname_list):
-            object_pose_dir = join(self.dataset_root, "Object_Poses", triplet, sequence_name)
-            hand_pose_dir = join(self.dataset_root, "Hand_Poses", triplet, sequence_name)
+            object_pose_dir = os.path.join(self.dataset_root, "Object_Poses", triplet, sequence_name)
+            hand_pose_dir = os.path.join(self.dataset_root, "Hand_Poses", triplet, sequence_name)
             for file_name in os.listdir(object_pose_dir):
                 if file_name.startswith("tool_"):
                     tool_name = file_name.split(".")[0].split("_")[-1]
@@ -301,10 +364,10 @@ class TACODataset:
                     target_name = file_name.split(".")[0].split("_")[-1]
             
             # get object trajectory
-            object_Tposes = np.load(join(object_pose_dir, "target_" + target_name + ".npy"))
+            object_Tposes = np.load(os.path.join(object_pose_dir, "target_" + target_name + ".npy"))
             object_pos = object_Tposes[:, :3, 3]
             object_quat = R.from_matrix(object_Tposes[:, :3, :3]).as_quat()
-            tool_Tposes = np.load(join(object_pose_dir, "tool_" + tool_name + ".npy"))
+            tool_Tposes = np.load(os.path.join(object_pose_dir, "tool_" + tool_name + ".npy"))
             tool_pos = tool_Tposes[:, :3, 3]
             tool_quat = R.from_matrix(tool_Tposes[:, :3, :3]).as_quat()
             
@@ -313,12 +376,12 @@ class TACODataset:
                 fingertip_idx = [4, 8, 12, 16]
             elif num_finger == 5:
                 fingertip_idx = [4, 8, 12, 16, 20]
-            left_hand_vertices, all_left_joint_pos, all_left_theta, all_left_trans = self.mano_params_to_hand_info(join(hand_pose_dir, "left_hand.pkl"), mano_beta=pickle.load(open(join(hand_pose_dir, "left_hand_shape.pkl"), "rb"))["hand_shape"].reshape(10).detach().cpu().numpy(), side="left", max_cnt=None, return_pose=True, return_faces=False,)
+            left_hand_vertices, all_left_joint_pos, all_left_theta, all_left_trans = self.mano_params_to_hand_info(os.path.join(hand_pose_dir, "left_hand.pkl"), mano_beta=pickle.load(open(os.path.join(hand_pose_dir, "left_hand_shape.pkl"), "rb"))["hand_shape"].reshape(10).detach().cpu().numpy(), side="left", max_cnt=None, return_pose=True, return_faces=False,)
             left_palm_pos = all_left_trans
             left_palm_quat = R.from_rotvec(all_left_theta[:,0:3]).as_quat()
             left_fingertip_pos = all_left_joint_pos[:,fingertip_idx]  # (N, 4, 3)
 
-            right_hand_vertices, all_right_joint_pos, all_right_theta, all_right_trans = self.mano_params_to_hand_info(join(hand_pose_dir, "right_hand.pkl"), mano_beta=pickle.load(open(join(hand_pose_dir, "right_hand_shape.pkl"), "rb"))["hand_shape"].reshape(10).detach().cpu().numpy(), side="right", max_cnt=None, return_pose=True, return_faces=False,)
+            right_hand_vertices, all_right_joint_pos, all_right_theta, all_right_trans = self.mano_params_to_hand_info(os.path.join(hand_pose_dir, "right_hand.pkl"), mano_beta=pickle.load(open(os.path.join(hand_pose_dir, "right_hand_shape.pkl"), "rb"))["hand_shape"].reshape(10).detach().cpu().numpy(), side="right", max_cnt=None, return_pose=True, return_faces=False,)
             right_palm_pos = all_right_trans
             right_palm_quat = R.from_rotvec(all_right_theta[:,0:3]).as_quat()
             right_fingertip_pos = all_right_joint_pos[:,fingertip_idx]  # (N, 4, 3)
@@ -329,13 +392,23 @@ class TACODataset:
             #     visualizer.draw(True)
 
             # get key timesteps
-            init_timestep, ref_timestep, end_timestep = self.get_key_timesteps(object_Tposes, tool_Tposes, percentage=75)
+            init_timestep, ref_timestep, end_timestep, grasp_timestep = self.get_key_timesteps(object_Tposes, tool_Tposes)
             print(f"task: {k}\t| tool: {tool_name}\t| target: {target_name}\t| init_timestep: {init_timestep}\t| ref_timestep: {ref_timestep}\t| end_timestep: {end_timestep}")
+            
+            # find grasp center from object mesh
+            left_palm_rel_pos = compute_relative_position_po(all_left_trans[ref_timestep], object_pos[ref_timestep], object_quat[ref_timestep])[None,:]
+            left_fingertip_rel_pos = compute_relative_position_po(left_fingertip_pos[ref_timestep], object_pos[ref_timestep], object_quat[ref_timestep])
+            right_palm_rel_pos = compute_relative_position_po(all_right_trans[ref_timestep], tool_pos[ref_timestep], tool_quat[ref_timestep])[None,:]
+            right_fingertip_rel_pos = compute_relative_position_po(right_fingertip_pos[ref_timestep], tool_pos[ref_timestep], tool_quat[ref_timestep])
+            object_grasp_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, target_name + "_cm.obj"), np.concatenate([left_palm_rel_pos, left_fingertip_rel_pos], axis=0), object_pos[init_timestep], [0, 0, 0, 1])
+            tool_grasp_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, tool_name + "_cm.obj"), np.concatenate([right_palm_rel_pos, right_fingertip_rel_pos], axis=0), tool_pos[init_timestep], [0, 0, 0, 1])
 
-            left_fingertip_ref_mean_pos = np.mean(left_fingertip_pos[ref_timestep, [0,2,3]], axis=0)
-            left_fingertip_init_mean_pos = left_fingertip_ref_mean_pos - object_pos[ref_timestep] + object_pos[init_timestep]
-            right_fingertip_ref_mean_pos = np.mean(right_fingertip_pos[ref_timestep, [0,2,3]], axis=0)
-            right_fingertip_init_mean_pos = right_fingertip_ref_mean_pos - tool_pos[ref_timestep] + tool_pos[init_timestep]
+
+            # object_quat[init_timestep] = self.conjugate(object_quat[init_timestep])
+            # tool_quat[init_timestep] = self.conjugate(tool_quat[init_timestep])
+
+            # left_fingertip_init_mean_pos = object_pos[init_timestep] + (np.mean(left_fingertip_pos[grasp_timestep], axis=0) - object_pos[grasp_timestep]) 
+            # right_fingertip_init_mean_pos = tool_pos[init_timestep] + (np.mean(right_fingertip_pos[grasp_timestep], axis=0) - tool_pos[grasp_timestep])
             # visualizer.visualize_point_clouds(left_fingertip_pos[ref_timestep], colors=np.zeros((num_finger, 3)))
             # left_fingertip_mean_pos = np.mean(left_fingertip_pos[ref_timestep], axis=0, keepdims=True)
             # visualizer.visualize_point_clouds(left_fingertip_mean_pos, colors=[[0,1,0]])
@@ -346,17 +419,17 @@ class TACODataset:
 
             # return all data
             total_data = dict(
-                save_name=os.path.join(save_dir, f'{triplet}-{sequence_name}.json'),
-                key_steps=dict(init=init_timestep, ref=ref_timestep, end=end_timestep),
+                # save_name=os.path.join(save_dir, f'{triplet}-{sequence_name}.json'),
+                key_steps=dict(init=init_timestep, ref=ref_timestep, end=end_timestep), # , grasp=grasp_timestep
                 left=dict(
                     palm=dict(pos=left_palm_pos.tolist(), quat=left_palm_quat.tolist()),
                     fingertip=dict(pos=left_fingertip_pos.tolist()), 
-                    object=dict(id=target_name, pos=object_pos.tolist(), quat=object_quat.tolist(),gpos=left_fingertip_init_mean_pos.tolist()),
+                    object=dict(id=target_name, pos=object_pos.tolist(), quat=object_quat.tolist(), gpos=object_grasp_center.tolist()), #, gpos=left_fingertip_init_mean_pos.tolist()
                 ),
                 right=dict(
                     palm=dict(pos=right_palm_pos.tolist(), quat=right_palm_quat.tolist()),
                     fingertip=dict(pos=right_fingertip_pos.tolist()), 
-                    tool=dict(id=tool_name, pos=tool_pos.tolist(), quat=tool_quat.tolist(),gpos=right_fingertip_init_mean_pos.tolist()),
+                    tool=dict(id=tool_name, pos=tool_pos.tolist(), quat=tool_quat.tolist(), gpos=tool_grasp_center.tolist()), #, gpos=right_fingertip_init_mean_pos.tolist()
                 ),
             )
             total_dataset.append(total_data)
@@ -365,7 +438,7 @@ class TACODataset:
             json.dump(total_dataset, f, indent=4)
         return total_dataset
 
-    def get_key_timesteps(self, object_poses, tool_poses, percentage=75, vis_ref=False):
+    def get_key_timesteps(self, object_poses, tool_poses,):
         def visualize_ax(ax, trajectory, label, color, highlight=-1):
             ax.plot(*trajectory.T, label=label, color=color)
             ax.scatter(*trajectory[:5].T, color='green', s=50)
@@ -425,7 +498,7 @@ class TACODataset:
             # ax.scatter(end_timestep, object_tool_dis[end_timestep], color='black', s=50)
             # plt.show()
         
-        def find_reftimestep_(percentage=30):
+        def find_reftimestep_(object_heights, tool_heights, percentage=30):
             ref_object_height = np.percentile(object_heights[object_heights>object_heights[init_timestep]], percentage)
             ref_tool_height = np.percentile(tool_heights[tool_heights>tool_heights[init_timestep]], percentage)
             # find the first False
@@ -444,12 +517,31 @@ class TACODataset:
             # ax2.scatter(ref_timestep, tool_heights[ref_timestep], color='red', s=50)
             # ax2.scatter(end_timestep, tool_heights[end_timestep], color='black', s=50)
             # plt.show()
+
+        def find_grasptimestep(object_tool_dis, window_size=10):
+            # object_tool_dis = self.low_pass_filter(object_tool_dis_, cutoff=2, fs=20, order=10)
+            # fig = plt.figure(figsize=(7, 7))
+            # ax = fig.add_subplot(111)
+            # ax.plot(object_tool_dis_, label='Object-Tool Distance')
+            # ax.plot(object_tool_dis, label='Smoothed Object-Tool Distance')
+            # plt.legend()
+            # plt.show()    
+            for i in range(window_size,len(object_tool_dis) - window_size, 1):
+                current_deviation = np.std(object_tool_dis[i:i+window_size:2])
+                previous_deviation = np.std(object_tool_dis[i-window_size:i:2])
+                if abs(current_deviation - previous_deviation) > 0.005:
+                    return i
+            return None
             
         # get key timesteps
         smoothed_object_pos = self.low_pass_filter(object_poses[:, :3, 3])
         smoothed_tool_pos = self.low_pass_filter(tool_poses[:, :3, 3])
         object_heights = smoothed_object_pos[:, 2]
         tool_heights = smoothed_tool_pos[:, 2]
+        object_tool_dis = np.linalg.norm(smoothed_object_pos - smoothed_tool_pos, axis=1)
+        
+
+
         '''initial step: for initial object pose'''
         init_timestep = 1
         '''terminal step: for stage 2 trajectory following end'''
@@ -457,17 +549,46 @@ class TACODataset:
         end_tool_timestep = find_endtimestep(tool_heights)
         end_timestep = int(max(end_object_timestep, end_tool_timestep))
         '''reference step: end of stage 1 and beginning of stage 2'''
-        # object_tool_dis = np.linalg.norm(smoothed_object_pos - smoothed_tool_pos, axis=1)
         try:
-            ref_timestep = find_reftimestep_() # find_reftimestep(object_tool_dis)
+            ref_timestep = find_reftimestep_(object_heights, tool_heights) # find_reftimestep(object_tool_dis)
         except IndexError:
-            object_tool_dis = np.linalg.norm(smoothed_object_pos - smoothed_tool_pos, axis=1)
             ref_timestep = find_reftimestep(object_tool_dis)
         if ref_timestep is None:
             ref_timestep = init_timestep + int(0.2 * end_timestep)
-            
-        return init_timestep, ref_timestep, end_timestep
+        '''grasp step: end of approach'''
+        grasp_timestep = find_grasptimestep(object_tool_dis)
+        if grasp_timestep is None:
+            grasp_timestep = ref_timestep
 
+        # fig = plt.figure(figsize=(7, 7))
+        # ax = fig.add_subplot(111)
+        # ax.plot(object_tool_dis, label='Object-Tool Distance')
+        # ax.scatter(grasp_timestep, object_tool_dis[grasp_timestep], color='red', s=50)
+        # ax.scatter(ref_timestep, object_tool_dis[ref_timestep], color='blue', s=50)
+        # ax.scatter(end_timestep, object_tool_dis[end_timestep], color='black', s=50)
+        # plt.show()    
+        return init_timestep, ref_timestep, end_timestep, grasp_timestep
+
+    def conjugate(self, objrot):
+        '''useless'''
+        if objrot.size == 9:
+            if R.from_matrix(objrot).apply([0,0,1])[2] < 0:
+                objrotvec = R.from_matrix(objrot).as_rotvec()
+                theta = np.linalg.norm(objrotvec)
+                objrotvec /= theta 
+                if theta > 0:
+                    theta -= np.pi
+                elif theta < 0:
+                    theta += np.pi
+                objrot_conjugate = R.from_rotvec(theta * objrotvec).as_matrix()
+            else:
+                objrot_conjugate = objrot
+
+        elif objrot.size == 4:
+            objrot_conjugate = R.from_quat(objrot).inv().as_quat() if R.from_quat(objrot).apply([0,0,1])[2] < 0 else objrot
+            objrot_conjugate = np.sign(objrot_conjugate[-1]) * objrot_conjugate
+        return objrot_conjugate
+    
     @staticmethod    
     def low_pass_filter(data, cutoff=2.0, fs=20, order=5):  # smooth trajectory
         nyquist = 0.5 * fs
@@ -508,7 +629,7 @@ class TACODataset:
                 hand_pose_fns = hand_pose_fns[:max_cnt]
 
             for hand_pose_fn in hand_pose_fns:
-                hand_pose_data = pickle.load(open(join(hand_pose_path, hand_pose_fn), "rb"))
+                hand_pose_data = pickle.load(open(os.path.join(hand_pose_path, hand_pose_fn), "rb"))
                 theta_list.append(hand_pose_data["hand_pose"].detach().cpu().numpy())  # (48,)
                 trans_list.append(hand_pose_data["hand_trans"].detach().cpu().numpy())  # (3,)
                 
@@ -542,10 +663,10 @@ class TACODataset:
             return hand_vertices, hand_joints, batch_theta.detach().cpu().numpy(), batch_trans.detach().cpu().numpy()
 
     def create_urdf(self, tool_dict, target_dict, save_path="assets/meshobjects"):
-        with open(join(save_path, "tool.urdf"), 'w') as urdf_file:
+        with open(os.path.join(save_path, "tool.urdf"), 'w') as urdf_file:
             urdf_file.write(self._generate_urdf(tool_dict))
         
-        with open(join(save_path, "target.urdf"), 'w') as urdf_file:
+        with open(os.path.join(save_path, "target.urdf"), 'w') as urdf_file:
             urdf_file.write(self._generate_urdf(target_dict))
 
     def visualize_open3d(self, tool_model, target_model, tool_poses, target_poses, right_hand_meshes, left_hand_meshes, save_path=None, sampling_rate=1, device="cuda:0"):
@@ -618,10 +739,10 @@ class TACODataset:
     def _generate_urdf(self, object_dict):
         assert "id" in object_dict
         link_id = object_dict["id"]
-        xyz = ' '.join(map(str, object_dict["xyz"])) if "xyz" in object_dict else '0 0 0'
-        rpy = ' '.join(map(str, object_dict["rpy"])) if "rpy" in object_dict else '0 0 0'
+        xyz = ' '.os.path.join(map(str, object_dict["xyz"])) if "xyz" in object_dict else '0 0 0'
+        rpy = ' '.os.path.join(map(str, object_dict["rpy"])) if "rpy" in object_dict else '0 0 0'
         # TODO: modify the scale of object here
-        scale = ' '.join(map(str, object_dict["scale"])) if "scale" in object_dict else "0.01 0.01 0.01"
+        scale = ' '.os.path.join(map(str, object_dict["scale"])) if "scale" in object_dict else "0.01 0.01 0.01"
         link_section = f"""
 <robot name="objects_{link_id}">
 <link name="link_{link_id}">
@@ -646,19 +767,19 @@ class TACODataset:
         return link_section
 
     def visualize_robot_and_mano(self, triplet, side):
-        sequence_name = os.listdir(join(self.dataset_root, "Egocentric_RGB_Videos", triplet))[-1]
+        sequence_name = os.listdir(os.path.join(self.dataset_root, "Egocentric_RGB_Videos", triplet))[-1]
         print(f"Triplet: {triplet} | Sequence: {sequence_name}")
 
-        hand_pose_dir = join(self.dataset_root, "Hand_Poses", triplet, sequence_name)
+        hand_pose_dir = os.path.join(self.dataset_root, "Hand_Poses", triplet, sequence_name)
         left_hand_vertices, left_hand_faces, all_left_joint_pos, all_left_theta, all_left_trans = self.mano_params_to_hand_info(
-            join(hand_pose_dir, "left_hand.pkl"), 
-            mano_beta=pickle.load(open(join(hand_pose_dir, "left_hand_shape.pkl"), "rb"))["hand_shape"].reshape(10).detach().cpu().numpy(), 
+            os.path.join(hand_pose_dir, "left_hand.pkl"), 
+            mano_beta=pickle.load(open(os.path.join(hand_pose_dir, "left_hand_shape.pkl"), "rb"))["hand_shape"].reshape(10).detach().cpu().numpy(), 
             side="left", 
             max_cnt=None, return_pose=True, return_faces=True,
         )
         right_hand_vertices, right_hand_faces, all_right_joint_pos, all_right_theta, all_right_trans = self.mano_params_to_hand_info(
-            join(hand_pose_dir, "right_hand.pkl"), 
-            mano_beta=pickle.load(open(join(hand_pose_dir, "right_hand_shape.pkl"), "rb"))["hand_shape"].reshape(10).detach().cpu().numpy(), 
+            os.path.join(hand_pose_dir, "right_hand.pkl"), 
+            mano_beta=pickle.load(open(os.path.join(hand_pose_dir, "right_hand_shape.pkl"), "rb"))["hand_shape"].reshape(10).detach().cpu().numpy(), 
             side="right", 
             max_cnt=None, return_pose=True, return_faces=True,
         )
@@ -789,6 +910,34 @@ class TACODataset:
         # Close viewer
         viewer.close()
         
+    def sample_grasp_center_from_pointcloud(self, object_mesh_file, rel_keypoints, object_init_pos, object_init_quat, scale=0.01, topk=50, num_samples=1024):
+        '''
+        object_mesh_file: str
+        rel_keypoints: (4+1, 3)
+        '''
+        if object_mesh_file not in self.trimesh_backup:
+            mesh = trimesh.load_mesh(object_mesh_file)
+            mesh.apply_scale(scale)
+            points = mesh.sample(num_samples)#mesh.vertices
+            self.trimesh_backup[object_mesh_file] = points
+        else:
+            points = self.trimesh_backup[object_mesh_file]
+        
+        # calculate the distance between each point and keypoints and select topk points
+        dists = np.linalg.norm(points[:,None,:] - rel_keypoints[None,:,:], axis=-1).sum(axis=1)
+        if topk < 0:
+            topk = int(len(points) / 20)
+        idxs = np.argsort(dists)[:topk]
+        # visualize the selected points
+        # self.visualizer.visualize_point_clouds(points, colors=np.zeros((len(idxs), 3)))
+        # self.visualizer.visualize_point_clouds(points[idxs], colors=[[1,0,0]]*len(idxs))
+        # self.visualizer.draw(True)
+
+        center = points[idxs].mean(axis=0)
+        # apply the initial object pose
+        center = R.from_quat(object_init_quat).apply(center) + object_init_pos
+        return center
+
 
 class BiRetargetor:
     def __init__(self, robot_name:RobotName, retarget_type:RetargetingType, add_dummy_free_joint:bool=False):

@@ -133,79 +133,6 @@ def rotation_matrix_z(angles):
         
     return R_z
 
-@torch.jit.script
-def _sqrt_positive_part(x: torch.Tensor) -> torch.Tensor:
-    """
-    Returns torch.sqrt(torch.max(0, x))
-    but with a zero subgradient where x is 0.
-    """
-    ret = torch.zeros_like(x)
-    positive_mask = x > 0
-    ret[positive_mask] = torch.sqrt(x[positive_mask])
-    return ret
-
-@torch.jit.script
-def matrix_to_quaternion(matrix: torch.Tensor) -> torch.Tensor:
-    """
-    Convert rotations given as rotation matrices to quaternions.
-
-    Args:
-        matrix: Rotation matrices as tensor of shape (..., 3, 3).
-
-    Returns:
-        quaternions with real part first, as tensor of shape (..., 4).
-    """
-    if matrix.size(-1) != 3 or matrix.size(-2) != 3:
-        raise ValueError(f"Invalid rotation matrix shape {matrix.shape}.")
-
-    batch_dim = matrix.shape[:-2]
-    m00, m01, m02, m10, m11, m12, m20, m21, m22 = torch.unbind(
-        matrix.reshape(batch_dim + (9,)), dim=-1
-    )
-
-    q_abs = _sqrt_positive_part(
-        torch.stack(
-            [
-                1.0 + m00 + m11 + m22,
-                1.0 + m00 - m11 - m22,
-                1.0 - m00 + m11 - m22,
-                1.0 - m00 - m11 + m22,
-            ],
-            dim=-1,
-        )
-    )
-
-    # we produce the desired quaternion multiplied by each of r, i, j, k
-    quat_by_rijk = torch.stack(
-        [
-            # pyre-fixme[58]: `**` is not supported for operand types `Tensor` and
-            #  `int`.
-            torch.stack([q_abs[..., 0] ** 2, m21 - m12, m02 - m20, m10 - m01], dim=-1),
-            # pyre-fixme[58]: `**` is not supported for operand types `Tensor` and
-            #  `int`.
-            torch.stack([m21 - m12, q_abs[..., 1] ** 2, m10 + m01, m02 + m20], dim=-1),
-            # pyre-fixme[58]: `**` is not supported for operand types `Tensor` and
-            #  `int`.
-            torch.stack([m02 - m20, m10 + m01, q_abs[..., 2] ** 2, m12 + m21], dim=-1),
-            # pyre-fixme[58]: `**` is not supported for operand types `Tensor` and
-            #  `int`.
-            torch.stack([m10 - m01, m20 + m02, m21 + m12, q_abs[..., 3] ** 2], dim=-1),
-        ],
-        dim=-2,
-    )
-
-    # We floor here at 0.1 but the exact level is not important; if q_abs is small,
-    # the candidate won't be picked.
-    flr = torch.tensor(0.1).to(dtype=q_abs.dtype, device=q_abs.device)
-    quat_candidates = quat_by_rijk / (2.0 * q_abs[..., None].max(flr))
-
-    # if not for numerical problems, quat_candidates[i] should be same (up to a sign),
-    # forall i; we pick the best-conditioned one (with the largest denominator)
-    out = quat_candidates[
-        F.one_hot(q_abs.argmax(dim=-1), num_classes=4) > 0.5, :
-    ].reshape(batch_dim + (4,))
-    out = standardize_quaternion(out)
-    return torch.cat([out[..., 3:4], out[..., 0:3]], dim=-1)
 
 @torch.jit.script
 def transformation_multiply(
@@ -338,23 +265,23 @@ def compute_bvdex_stage12_rewards(
     info = {}
 
     left_palm_object_dist = torch.norm(object_pose[:, :3] - left_palm_pose[:, :3], dim=-1) 
-    left_palm_object_dist = torch.where(left_palm_object_dist >= 0.5, 0.5, left_palm_object_dist)
+    left_palm_object_dist = torch.where(left_palm_object_dist >= 0.5, 0.5 * torch.ones_like(left_palm_object_dist), left_palm_object_dist)
     right_palm_tool_dist = torch.norm(tool_pose[:, :3] - right_palm_pose[:, :3], dim=-1)  
-    right_palm_tool_dist = torch.where(right_palm_tool_dist >= 0.5, 0.5, right_palm_tool_dist)
+    right_palm_tool_dist = torch.where(right_palm_tool_dist >= 0.5, 0.5 * torch.ones_like(right_palm_tool_dist), right_palm_tool_dist)
 
     num_fingers = left_fingertip_pose.shape[1]
     left_fingertips_object_dist = torch.zeros_like(left_palm_object_dist)
     for i in range(num_fingers):
         left_fingertips_object_dist += torch.norm(left_fingertip_pose[:, i, :3] - object_pose[:, :3], dim=-1)
     left_fingertips_object_dist = torch.where(
-        left_fingertips_object_dist >= 3.0, 3.0, left_fingertips_object_dist
+        left_fingertips_object_dist >= 3.0, 3.0 * torch.ones_like(left_fingertips_object_dist), left_fingertips_object_dist
     )  # Important!
 
     right_fingertips_tool_dist = torch.zeros_like(right_palm_tool_dist)
     for i in range(num_fingers):
         right_fingertips_tool_dist += torch.norm(right_fingertip_pose[:, i, :3] - tool_pose[:, :3], dim=-1)
     right_fingertips_tool_dist = torch.where(
-        right_fingertips_tool_dist >= 3.0, 3.0, right_fingertips_tool_dist
+        right_fingertips_tool_dist >= 3.0, 3.0 * torch.ones_like(right_fingertips_tool_dist), right_fingertips_tool_dist
     )  # Important!
     info["left_palm_object_dist"] = left_palm_object_dist
     info["right_palm_tool_dist"] = right_palm_tool_dist

@@ -340,23 +340,23 @@ def compute_bvdex_stage12_rewards(
 
     # approach penalty
     left_palm_object_dist = torch.norm(object_grasp_pos - left_palm_pose[:, :3], dim=-1) 
-    left_palm_object_dist = torch.where(left_palm_object_dist >= 0.5, 0.5, left_palm_object_dist)
+    left_palm_object_dist = torch.where(left_palm_object_dist >= 0.5, 0.5 * torch.ones_like(left_palm_object_dist), left_palm_object_dist)
     right_palm_tool_dist = torch.norm(tool_grasp_pos - right_palm_pose[:, :3], dim=-1)  
-    right_palm_tool_dist = torch.where(right_palm_tool_dist >= 0.5, 0.5, right_palm_tool_dist)
+    right_palm_tool_dist = torch.where(right_palm_tool_dist >= 0.5, 0.5 * torch.ones_like(right_palm_tool_dist), right_palm_tool_dist)
 
     num_fingers = left_fingertip_pose.shape[1]
     left_fingertips_object_dist = torch.zeros_like(left_palm_object_dist)
     for i in range(num_fingers):
         left_fingertips_object_dist += torch.norm(left_fingertip_pose[:, i, :3] - object_grasp_pos, dim=-1)
     left_fingertips_object_dist = torch.where(
-        left_fingertips_object_dist >= 3.0, 3.0, left_fingertips_object_dist
+        left_fingertips_object_dist >= 3.0, 3.0 * torch.ones_like(left_fingertips_object_dist), left_fingertips_object_dist
     )  # Important!
 
     right_fingertips_tool_dist = torch.zeros_like(right_palm_tool_dist)
     for i in range(num_fingers):
         right_fingertips_tool_dist += torch.norm(right_fingertip_pose[:, i, :3] - tool_grasp_pos, dim=-1)
     right_fingertips_tool_dist = torch.where(
-        right_fingertips_tool_dist >= 3.0, 3.0, right_fingertips_tool_dist
+        right_fingertips_tool_dist >= 3.0, 3.0 * torch.ones_like(right_fingertips_tool_dist), right_fingertips_tool_dist
     )  # Important!
     info["left_palm_object_dist"] = left_palm_object_dist
     info["right_palm_tool_dist"] = right_palm_tool_dist
@@ -1294,7 +1294,7 @@ class BiLeapHandGraspV5(VecTask):
         dataset_object_init_quat = dataset_object_quat[init_timestep]
         object_start_pose = gymapi.Transform()
         object_start_pose.p = gymapi.Vec3(*dataset_object_init_pos)
-        object_start_pose.r = gymapi.Quat(*dataset_object_init_quat)
+        object_start_pose.r = gymapi.Quat(0,0,0,1)#*dataset_object_init_quat
         # tool poses
         dataset_tool_pos = np.array(taco_task_data['right']['tool']['pos'])
         dataset_tool_quat = np.array(taco_task_data['right']['tool']['quat'])
@@ -1311,7 +1311,7 @@ class BiLeapHandGraspV5(VecTask):
         dataset_tool_init_quat = dataset_tool_quat[init_timestep]
         tool_start_pose = gymapi.Transform()
         tool_start_pose.p = gymapi.Vec3(*dataset_tool_init_pos)
-        tool_start_pose.r = gymapi.Quat(*dataset_tool_init_quat)
+        tool_start_pose.r = gymapi.Quat(0,0,0,1)#*dataset_tool_init_quat
         '''
         # left palm poses
         dataset_left_palm_pos = np.array(self.sampled_taco_task_data['left']['palm']['pos'])
