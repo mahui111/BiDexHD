@@ -13,12 +13,12 @@ task_id=$2
 # python main.py task=BiLeapHandGraspMultiDagger train=LeapHandGraspMultiDagger algo=dagger triplet="$triplet" num_envs=1 test=True mode=visualize
 
 # train
-python main.py task=BiLeapHandGraspMultiDagger train=LeapHandGraspMultiDagger algo=dagger triplet="$triplet" num_envs=1500 exp_name=dagger_avhuber headless=True #checkpoint="'\
+# python main.py task=BiLeapHandGraspMultiDagger train=LeapHandGraspMultiDagger algo=dagger triplet="$triplet" num_envs=1500 exp_name=dagger_avhuber headless=True #checkpoint="'\
 # /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-dagger/distill4/dagger_avhuber/dagger_500.pt\
 # '"
 
 # evaluate
-# python main.py task=BiLeapHandGraspMultiDagger train=LeapHandGraspMultiDagger algo=dagger num_envs=4 test=True checkpoint="'\
-# /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-dagger/distill4/dagger_avhuber/dagger_500.pt\
-# '"
+python main.py task=BiLeapHandGraspMultiDagger train=LeapHandGraspMultiDagger algo=dagger num_envs=50 test=True checkpoint="'\
+/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-dagger/(empty, bowl, bowl)/dagger_avhuber/dagger_2500.pt\
+'"
 

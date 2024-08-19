@@ -114,10 +114,12 @@ class DaggerValue(nn.Module):
         self.eval()
 
     def load(self, path):
-        self.load_state_dict(torch.load(path))
+        ckpt = torch.load(path)
+        self.left_actor_critic.load_state_dict(ckpt['left'])
+        self.right_actor_critic.load_state_dict(ckpt['right'])
 
     def save(self, path):
-        torch.save(self.state_dict(), path)
+        torch.save(dict(left=self.left_actor_critic.state_dict(),right=self.right_actor_critic.state_dict()), path)
 
     def run(self,):
         self.train()
