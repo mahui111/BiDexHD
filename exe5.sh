@@ -13,7 +13,7 @@ fi
 # python main.py task=BiLeapHandGraspV5 train=LeapHandGraspMultiPPO algo=ippo num_envs=1 triplet="$triplet" test=True mode=visualize
 
 # train
-CUDA_VISIBLE_DEVICES=2 python main.py task=BiLeapHandGraspV5 train=LeapHandGraspMultiPPO algo=ippo num_envs=10000 triplet="$triplet" exp_name=ema0.1+ol2 headless=True
+CUDA_VISIBLE_DEVICES=4 python main.py task=BiLeapHandGraspV5 train=LeapHandGraspMultiPPO algo=ippo num_envs=10000 triplet="$triplet" exp_name=ema0.1+ol2 headless=True
 
 # evaluate
 # python main.py task=BiLeapHandGraspV5 train=LeapHandGraspMultiPPO algo=ippo num_envs=100 triplet="$triplet" test=True checkpoint="'\
