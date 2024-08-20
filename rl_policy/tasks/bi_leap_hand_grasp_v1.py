@@ -1265,12 +1265,13 @@ class BiLeapHandGraspV1(VecTask):
         return link_section
     
     def _create_urdf(self, tool_id, target_id, save_path):
-        print(f'Creating URDFs for object {target_id} and tool {tool_id}')
-        with open(os.path.join(save_path, "tool.urdf"), 'w') as urdf_file:
+        task_tool_urdf_file = os.path.join(save_path, "tool.urdf")
+        with open(task_tool_urdf_file, 'w') as urdf_file:
             urdf_file.write(self._generate_urdf(dict(id=tool_id)))
-        
-        with open(os.path.join(save_path, "object.urdf"), 'w') as urdf_file:
+        task_object_urdf_file = os.path.join(save_path, "object.urdf")
+        with open(task_object_urdf_file, 'w') as urdf_file:
             urdf_file.write(self._generate_urdf(dict(id=target_id)))
+        return task_object_urdf_file, task_tool_urdf_file
 
     def _create_ground_plane(self):
         plane_params = gymapi.PlaneParams()
@@ -1588,7 +1589,7 @@ class BiLeapHandGraspV1(VecTask):
                 arm_dof_indices, hand_dof_indices, robot_dof_indices, \
                 robot_dof_lower_limits, robot_dof_upper_limits
 
-    def _prepare_object_asset(self, asset_root, asset_file, vhacd_enabled):
+    def _prepare_object_asset(self, asset_root, asset_file, vhacd_enabled, max_shape=-1):
         # load object asset
         asset_options = gymapi.AssetOptions()
         asset_options.flip_visual_attachments = False
@@ -1605,8 +1606,8 @@ class BiLeapHandGraspV1(VecTask):
             # asset_options.vhacd_params.alpha = 0.04
             # asset_options.vhacd_params.beta = 1.0
             # asset_options.vhacd_params.convex_hull_downsampling = 1 
-            # asset_options.vhacd_params.max_num_vertices_per_ch = 64 
-
+            if max_shape > 0:
+                asset_options.vhacd_params.max_convex_hulls = max_shape 
 
         if self.physics_engine == gymapi.SIM_PHYSX:
             asset_options.use_physx_armature = True
@@ -1734,9 +1735,27 @@ class BiLeapHandGraspV1(VecTask):
     def _prepare_object_tool_pair(self, asset_root, vhacd_enabled=True):  
         assert isinstance(self.sampled_taco_task_data, dict), "Please load the dataset first!"
         object_mesh_path = os.path.join(asset_root, 'TACOobjects')
-        self._create_urdf(self.sampled_taco_task_data['tool']['id'], self.sampled_taco_task_data['object']['id'], object_mesh_path)
-        object_asset = self._prepare_object_asset(object_mesh_path, 'object.urdf', vhacd_enabled)
-        tool_asset = self._prepare_object_asset(object_mesh_path, 'tool.urdf', vhacd_enabled)
+        task_object_urdf_file, task_tool_urdf_file = self._create_urdf(self.sampled_taco_task_data['tool']['id'], self.sampled_taco_task_data['object']['id'], object_mesh_path)
+        # get object and tool asset
+        object_max_shape, tool_max_shape = -1, -1
+        while True:
+            object_asset = self._prepare_object_asset(*os.path.split(task_object_urdf_file), vhacd_enabled, object_max_shape)
+            tool_asset = self._prepare_object_asset(*os.path.split(task_tool_urdf_file), vhacd_enabled, tool_max_shape)
+            # aggregate size
+            num_object_bodies = self.gym.get_asset_rigid_body_count(object_asset) + self.gym.get_asset_rigid_body_count(tool_asset)
+            num_object_shape = self.gym.get_asset_rigid_shape_count(object_asset)
+            num_tool_shape = self.gym.get_asset_rigid_shape_count(tool_asset)
+            num_object_shapes = num_object_shape + num_tool_shape
+            max_agg_bodies = self.num_robot_bodies + num_object_bodies + 2
+            max_agg_shapes = self.num_robot_shapes + num_object_shapes + 2
+            if max_agg_shapes <= 128:
+                break
+            spare_max_shape = 126 - self.num_robot_shapes  # 78
+            object_max_shape = int(num_object_shape / (num_object_shape + num_tool_shape) * spare_max_shape)
+            tool_max_shape = spare_max_shape - object_max_shape
+            object_max_shape, tool_max_shape = object_max_shape - object_max_shape%10, tool_max_shape - tool_max_shape%10
+            print(f'num_object_shape:{num_object_shape} | num_tool_shape:{num_tool_shape} | object_max_shape:{object_max_shape} | tool_max_shape:{tool_max_shape}')
+
         return object_asset, tool_asset
 
     def _prepare_table_asset(self):
