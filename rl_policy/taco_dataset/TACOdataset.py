@@ -331,8 +331,8 @@ class TACODataset:
             left_fingertip_rel_pos = compute_relative_position_pose(left_fingertip_pos[ref_timestep], load_target_poses[[ref_timestep]])
             right_palm_rel_pos = compute_relative_position_pose(all_right_trans[ref_timestep], load_tool_poses[[ref_timestep]])
             right_fingertip_rel_pos = compute_relative_position_pose(right_fingertip_pos[ref_timestep], load_tool_poses[[ref_timestep]])
-            object_grasp_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, target_name + "_cm.obj"), np.concatenate([left_palm_rel_pos, left_fingertip_rel_pos], axis=0), load_target_poses[init_timestep,:3,3], [0, 0, 0, 1])
-            tool_grasp_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, tool_name + "_cm.obj"), np.concatenate([right_palm_rel_pos, right_fingertip_rel_pos], axis=0), load_tool_poses[init_timestep,:3,3], [0, 0, 0, 1])
+            object_grasp_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, target_name + "_cm.obj"), left_fingertip_rel_pos)
+            tool_grasp_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, tool_name + "_cm.obj"), right_fingertip_rel_pos)
 
             # return all data
             total_data = dict(
@@ -932,11 +932,10 @@ class TACODataset:
         # center = R.from_quat(object_init_quat).apply(center) + object_init_pos
 
         # visualize the selected points
-        # self.visualizer.visualize_point_clouds(points, colors=np.zeros((len(idxs), 3)))
-        # self.visualizer.visualize_point_clouds(points[idxs], colors=[[1,0,0]]*len(idxs))
-        # self.visualizer.visualize_point_clouds(center[None,:], colors=[[0.5,0.5,0.5]])
-        # self.visualizer.draw(True)
-
+        self.visualizer.visualize_point_clouds(points, colors=np.zeros((len(idxs), 3)))
+        self.visualizer.visualize_point_clouds(points[idxs], colors=[[1,0,0]]*len(idxs))
+        self.visualizer.visualize_point_clouds(center[None,:], colors=[[0.5,0.5,0.5]])
+        self.visualizer.draw(True)
 
         return center
 
