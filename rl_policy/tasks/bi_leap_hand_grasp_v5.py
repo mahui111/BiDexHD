@@ -340,11 +340,9 @@ def compute_bvdex_stage12_rewards(
 
     # approach penalty
     left_palm_object_dist = torch.norm(object_grasp_pos - left_palm_pose[:, :3], dim=-1)
-    left_palm_object_dist = left_palm_object_dist.clip(max=0) 
-    # left_palm_object_dist = torch.where(left_palm_object_dist >= 0.5, 0.5 * torch.ones_like(left_palm_object_dist), left_palm_object_dist)
+    left_palm_object_dist = torch.where(left_palm_object_dist >= 0.5, 0.5 * torch.ones_like(left_palm_object_dist), left_palm_object_dist)
     right_palm_tool_dist = torch.norm(tool_grasp_pos - right_palm_pose[:, :3], dim=-1)  
-    left_palm_object_dist = left_palm_object_dist.clip(max=0)
-    # right_palm_tool_dist = torch.where(right_palm_tool_dist >= 0.5, 0.5 * torch.ones_like(right_palm_tool_dist), right_palm_tool_dist)
+    right_palm_tool_dist = torch.where(right_palm_tool_dist >= 0.5, 0.5 * torch.ones_like(right_palm_tool_dist), right_palm_tool_dist)
 
     num_fingers = left_fingertip_pose.shape[1]
     left_fingertips_object_dist = torch.zeros_like(left_palm_object_dist)
@@ -1398,8 +1396,6 @@ class BiLeapHandGraspV5(VecTask):
             ref_object_pose = self.dataset_object_poses[self.all_task_idx,tl.clip(max=self.dataset_end_timesteps[self.all_task_idx])] 
             ref_tool_pose = self.dataset_tool_poses[self.all_task_idx,tr.clip(max=self.dataset_end_timesteps[self.all_task_idx])]
             is_expect_end = (self.dataset_end_timesteps[self.all_task_idx] == t.clip(max=self.dataset_end_timesteps[self.all_task_idx]))
-            all_object_grasp_pos = transformation_apply(self.object_pos, self.object_rot, self.all_object_grasp_pos)
-            all_tool_grasp_pos = transformation_apply(self.tool_pos, self.tool_rot, self.all_tool_grasp_pos)
             (
                 self.rew_buf[:],
                 self.reset_buf[:],
@@ -1426,7 +1422,7 @@ class BiLeapHandGraspV5(VecTask):
                 self.timestep, self.reach_ref_timestep, self.left_reach_ref_timestep, self.right_reach_ref_timestep,
                 ref_object_pose, self.ref_init_object_pos_dist, #self.ref_ref_object_palm_pose_diff, self.ref_ref_object_left_fingers_pos_diff,
                 ref_tool_pose, self.ref_init_tool_pos_dist,     #self.ref_ref_tool_palm_pose_diff, self.ref_ref_tool_right_fingers_pos_diff,
-                all_object_grasp_pos, all_tool_grasp_pos,
+                self.actual_object_grasp_pos, self.actual_tool_grasp_pos,
                 is_expect_end, # self.is_stage1_hand_object_rew, self.is_stage1_lin_rew, self.is_stage2_pos_rew_exp,
             )
 
@@ -1553,10 +1549,12 @@ class BiLeapHandGraspV5(VecTask):
             cnt += 2 * obj_dim
 
         if 'relps' in self.obs_type:  # relative pos to object center, 15 * 2
-            self.obs_buf[:, cnt : cnt + 3] = self.object_pos - self.left_palm_pos
-            self.obs_buf[:, cnt + 3 : cnt + 15] = (self.object_pos.unsqueeze(1) - self.left_fingertip_pos).reshape(-1,12)
-            self.obs_buf[:, cnt + 15: cnt + 18] = self.tool_pos - self.right_palm_pos
-            self.obs_buf[:, cnt + 18 : cnt + 30] = (self.tool_pos.unsqueeze(1) - self.right_fingertip_pos).reshape(-1,12)
+            self.actual_object_grasp_pos = transformation_apply(self.object_pos, self.object_rot, self.all_object_grasp_pos)
+            self.actual_tool_grasp_pos = transformation_apply(self.tool_pos, self.tool_rot, self.all_tool_grasp_pos)
+            self.obs_buf[:, cnt : cnt + 3] = self.actual_object_grasp_pos - self.left_palm_pos
+            self.obs_buf[:, cnt + 3 : cnt + 15] = (self.actual_object_grasp_pos.unsqueeze(1) - self.left_fingertip_pos).reshape(-1,12)
+            self.obs_buf[:, cnt + 15: cnt + 18] = self.actual_tool_grasp_pos - self.right_palm_pos
+            self.obs_buf[:, cnt + 18 : cnt + 30] = (self.actual_tool_grasp_pos.unsqueeze(1) - self.right_fingertip_pos).reshape(-1,12)
             cnt += 30
 
         if 'objlabel' in self.obs_type:  
