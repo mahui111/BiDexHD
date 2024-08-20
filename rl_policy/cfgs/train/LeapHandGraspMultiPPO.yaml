@@ -4,8 +4,8 @@ params:
   policy: # only works for MlpPolicy right now
     backbone_type: ''
     freeze_backbone: False
-    pi_hid_sizes: [1024, 1024, 512, 512]
-    vf_hid_sizes: [1024, 1024, 512, 512]
+    pi_hid_sizes: [1024, 1024, 512, 512, 256, 128]
+    vf_hid_sizes: [1024, 1024, 512, 512, 256, 128]
     activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
     objlabel_dim: 128
 

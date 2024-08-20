@@ -400,8 +400,8 @@ class TACODataset:
             left_fingertip_rel_pos = compute_relative_position_po(left_fingertip_pos[ref_timestep], object_pos[ref_timestep], object_quat[ref_timestep])
             right_palm_rel_pos = compute_relative_position_po(all_right_trans[ref_timestep], tool_pos[ref_timestep], tool_quat[ref_timestep])[None,:]
             right_fingertip_rel_pos = compute_relative_position_po(right_fingertip_pos[ref_timestep], tool_pos[ref_timestep], tool_quat[ref_timestep])
-            object_grasp_rel_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, target_name + "_cm.obj"), np.concatenate([left_palm_rel_pos, left_fingertip_rel_pos], axis=0))
-            tool_grasp_rel_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, tool_name + "_cm.obj"), np.concatenate([right_palm_rel_pos, right_fingertip_rel_pos], axis=0))
+            object_grasp_rel_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, target_name + "_cm.obj"), left_fingertip_rel_pos)#np.concatenate([left_palm_rel_pos, left_fingertip_rel_pos], axis=0)
+            tool_grasp_rel_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, tool_name + "_cm.obj"), right_fingertip_rel_pos)#np.concatenate([right_palm_rel_pos, right_fingertip_rel_pos], axis=0)
 
             # object_quat[init_timestep] = self.conjugate(object_quat[init_timestep])
             # tool_quat[init_timestep] = self.conjugate(tool_quat[init_timestep])
@@ -909,7 +909,7 @@ class TACODataset:
         # Close viewer
         viewer.close()
         
-    def sample_grasp_center_from_pointcloud(self, object_mesh_file, rel_keypoints, scale=0.01, topk=50, num_samples=1024):
+    def sample_grasp_center_from_pointcloud(self, object_mesh_file, rel_keypoints, scale=0.01, topk=100, num_samples=512):
         '''
         object_mesh_file: str
         rel_keypoints: (4+1, 3)
@@ -926,15 +926,18 @@ class TACODataset:
         dists = np.linalg.norm(points[:,None,:] - rel_keypoints[None,:,:], axis=-1).sum(axis=1)
         if topk < 0:
             topk = int(len(points) / 20)
-        idxs = np.argsort(dists)[:topk]
-        # visualize the selected points
-        # self.visualizer.visualize_point_clouds(points, colors=np.zeros((len(idxs), 3)))
-        # self.visualizer.visualize_point_clouds(points[idxs], colors=[[1,0,0]]*len(idxs))
-        # self.visualizer.draw(True)
-
+        idxs = np.argsort(dists)[:topk]        
         center = points[idxs].mean(axis=0)
         # apply the initial object pose
         # center = R.from_quat(object_init_quat).apply(center) + object_init_pos
+
+        # visualize the selected points
+        # self.visualizer.visualize_point_clouds(points, colors=np.zeros((len(idxs), 3)))
+        # self.visualizer.visualize_point_clouds(points[idxs], colors=[[1,0,0]]*len(idxs))
+        # self.visualizer.visualize_point_clouds(center[None,:], colors=[[0.5,0.5,0.5]])
+        # self.visualizer.draw(True)
+
+
         return center
 
 

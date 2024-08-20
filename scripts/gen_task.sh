@@ -7,9 +7,10 @@ if [ -n "$1" ]; then
     task_list=("$@")
 else
     # Default to all directories in the task path and extract them as a list
-    task_list=($(find "$task_path" -maxdepth 1 -mindepth 1 -type d -exec basename {} \;))
+    mapfile -t task_list < <(find "$task_path" -maxdepth 1 -mindepth 1 -type d -exec basename {} \;)
 fi
-echo "Number of tasks: ${#task_list[@]}, tasks: ${task_list[@]}"
+echo "Number of tasks: ${#task_list[@]}"
+echo "tasks: ${task_list[@]}"
 for triplet in "${task_list[@]}"; do
-    python taco_dataset/TACOdataset.py --mode make_mano_dataset --triplet "$triplet" --num_max 200
+    python taco_dataset/TACOdataset.py --mode make_mano_dataset --triplet "'$triplet'" --num_max 200
 done

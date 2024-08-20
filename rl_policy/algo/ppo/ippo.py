@@ -249,27 +249,28 @@ class IPPO(nn.Module):
         current_states = self.vec_env.get_state()
         
         if self.is_testing:
-            if self.record_dof: traj_dof = self.vec_env.robot_dof_pos[:1].detach().cpu().numpy()
-            for i in range(self.vec_env.max_episode_length):
-                with torch.no_grad():
-                    if self.apply_reset:
-                        current_obs = self.vec_env.reset()["obs"]
-                    # Compute the action
-                    left_actions = self.left_agent.actor_critic.act_inference(current_obs)
-                    right_actions = self.right_agent.actor_critic.act_inference(current_obs)
-                    actions = torch.cat((left_actions, right_actions), dim=1)
-                    # Step the vec_environment
-                    next_obs_dict, rews, dones, infos = self.vec_env.step(actions)
-                    if self.record_dof: traj_dof = np.concatenate((traj_dof, self.vec_env.robot_dof_pos[:1].detach().cpu().numpy()), axis=0)
-                    next_obs = next_obs_dict["obs"]
-                    current_obs.copy_(next_obs)
-                if i == self.vec_env.max_episode_length - 2:
-                    for metrics in ['stage1_left_successes', 'stage1_right_successes', 'stage1_successes', 'stage2_left_successes', 'stage2_right_successes', 'stage2_successes']:
-                        if hasattr(self.vec_env, metrics):
-                            print(f'{metrics}:\t', getattr(self.vec_env, metrics).mean().item())
-            if self.record_dof: 
-                np.save(f"dofdemo/{os.path.basename(self.vec_env.sampled_taco_task_data['save_name']).split('-')[0]}.npy", traj_dof)
-            exit()
+            for _ in range(10):
+                if self.record_dof: traj_dof = self.vec_env.robot_dof_pos[:1].detach().cpu().numpy()
+                for i in range(self.vec_env.max_episode_length):
+                    with torch.no_grad():
+                        if self.apply_reset:
+                            current_obs = self.vec_env.reset()["obs"]
+                        # Compute the action
+                        left_actions = self.left_agent.actor_critic.act_inference(current_obs)
+                        right_actions = self.right_agent.actor_critic.act_inference(current_obs)
+                        actions = torch.cat((left_actions, right_actions), dim=1)
+                        # Step the vec_environment
+                        next_obs_dict, rews, dones, infos = self.vec_env.step(actions)
+                        if self.record_dof: traj_dof = np.concatenate((traj_dof, self.vec_env.robot_dof_pos[:1].detach().cpu().numpy()), axis=0)
+                        next_obs = next_obs_dict["obs"]
+                        current_obs.copy_(next_obs)
+                    if i == self.vec_env.max_episode_length - 2:
+                        for metrics in ['stage1_left_successes', 'stage1_right_successes', 'stage1_successes', 'stage2_left_successes', 'stage2_right_successes', 'stage2_successes']:
+                            if hasattr(self.vec_env, metrics):
+                                print(f'{metrics}:\t', getattr(self.vec_env, metrics).mean().item())
+                if self.record_dof: 
+                    np.save(f"dofdemo/{os.path.basename(self.vec_env.sampled_taco_task_data['save_name']).split('-')[0]}.npy", traj_dof)
+                exit()
 
         else:
             rewbuffer = deque(maxlen=100)
