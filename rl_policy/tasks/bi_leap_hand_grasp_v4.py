@@ -1111,10 +1111,18 @@ class BiLeapHandGraspV4(VecTask):
         with open(meta_data_path, 'r') as f:
             dataset_taco_data = json.load(f)
             if not self.cfg['task']['is_all_task']:
-                proportion = 0.8 if len(dataset_taco_data) > 7 else 1
-                iend = int(len(dataset_taco_data) * proportion) 
-                print(f'training set: {iend-1}', f'testing set: {len(dataset_taco_data)-(iend-1)}')
-                dataset_taco_data = dataset_taco_data[1:iend]   # at least leave the first and last for testing
+                if len(dataset_taco_data) < 4:
+                    b, e = 0, len(dataset_taco_data)
+                    nb, ne = 0, len(dataset_taco_data)
+                elif len(dataset_taco_data) < 9:
+                    b, e = 1, len(dataset_taco_data)
+                    nb, ne = 1, len(dataset_taco_data)-1
+                else:
+                    proportion = 0.8
+                    b, e = 1, int(len(dataset_taco_data) * proportion)
+                    nb, ne = 1, len(dataset_taco_data)-(e-1)
+                print(f'training set: {nb}', f'testing set: {ne}')
+                dataset_taco_data = dataset_taco_data[b:e] 
             else:
                 print(f'training set: 0, testing set: {len(dataset_taco_data)}')
         self.num_task = len(dataset_taco_data)
