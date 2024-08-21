@@ -950,6 +950,9 @@ def get_pointcloud_from_src(asset_dir, device, num_sample=1024):
 
 
 class BiLeapHandGraspDagger(VecTask):
+    '''
+    Dagger for single object id
+    '''
     def get_obs_idx_num(self,obs_type=''):
         if obs_type == '':
             obs_type = self.obs_type

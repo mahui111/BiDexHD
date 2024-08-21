@@ -568,7 +568,7 @@ def read_pointcloud_from_urdf(urdf_file, num_sample=512):
 
 
 
-class BiLeapHandGraspMultiDagger(VecTask):
+class BiLeapHandGraspM2Dagger(VecTask):
     '''
     Dagger for multi object objects diversities and ids
     '''
@@ -682,6 +682,7 @@ class BiLeapHandGraspMultiDagger(VecTask):
         headless,
         virtual_screen_capture,
         force_render,
+        **kwargs
     ):
         self.cfg = cfg
         self.mode = self.cfg["mode"]
@@ -772,6 +773,7 @@ class BiLeapHandGraspMultiDagger(VecTask):
             headless,
             virtual_screen_capture,
             force_render,
+            **kwargs
         )
 
         control_freq_inv = self.cfg["env"].get("controlFrequencyInv", 1)
@@ -1195,27 +1197,45 @@ class BiLeapHandGraspMultiDagger(VecTask):
         self.table_assets, self.table_start_poses, \
         self.max_agg_bodies, self.max_agg_shapes, \
         self.dataset_object_poses, self.dataset_tool_poses, \
-        self.dataset_ref_timesteps, self.dataset_end_timesteps \
-        = [], [], [], [], [], [], [], [], [], [], [], [], [], []
-        self.object_mesh_pointclouds, self.tool_mesh_pointclouds = [], []
-        self.object_labels, self.tool_labels = [], []
-        meta_data_path = self.cfg['dataset']['meta_data_path']
-        # triplet = os.path.splitext(os.path.basename(meta_data_path))[0]
-        with open(meta_data_path, 'r') as f:
-            dataset_taco_data = json.load(f)
-            if len(dataset_taco_data) < 5:
-                b, e = 0, len(dataset_taco_data)
-            elif len(dataset_taco_data) < 9:
-                b, e = 1, len(dataset_taco_data)
-            else:
-                proportion = 0.8
-                b, e = 1, int(len(dataset_taco_data) * proportion)
-            ne = e-b
-            nb = len(dataset_taco_data) - ne
-            print(f'training set: {ne}', f'testing set: {nb}')
-            dataset_taco_data = dataset_taco_data[b:e] 
-        self.num_task = len(dataset_taco_data)
+        self.dataset_ref_timesteps, self.dataset_end_timesteps, \
+        self.object_mesh_pointclouds, self.tool_mesh_pointclouds, \
+        self.object_labels, self.tool_labels \
+        = [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []
+
+
+        self.all_triplet = [ecfile.split('/')[-3] for ecfile in self.train_cfg['expertCkptFiles']]
+        assert len(self.all_triplet) == len(set(self.all_triplet)), 'triplet names should be unique'
+        self.num_task = 0
+        self.dataset_taco_datas, self.expert_ids = [], []
+        with open(os.path.join('taco_dataset/task_data/blacklist.txt')) as f:
+            regen_hull_task_list = [line.strip('\n') for line in f]
+        is_regen_hull_list = []
+        for itriplet, triplet in enumerate(self.all_triplet):
+            with open(f'taco_dataset/task_data/{triplet}.json', 'r') as f:
+                dataset_taco_data = json.load(f)
+                if not self.cfg['task']['is_all_task']:
+                    if len(dataset_taco_data) < 5:
+                        b, e = 0, len(dataset_taco_data)
+                    elif len(dataset_taco_data) < 9:
+                        b, e = 1, len(dataset_taco_data)
+                    else:
+                        proportion = 0.8
+                        b, e = 1, int(len(dataset_taco_data) * proportion)
+                    ne = e-b
+                    nb = len(dataset_taco_data) - ne
+                    print(f'triplet:{triplet}, training set: {ne}', f'testing set: {nb}')
+                    dataset_taco_data = dataset_taco_data[b:e] 
+                else:
+                    print(f'training set: 0, testing set: {len(dataset_taco_data)}')
+                len_dataset_taco_data = len(dataset_taco_data)
+                self.dataset_taco_datas.extend(dataset_taco_data)
+                is_regen_hull_list.extend([triplet in regen_hull_task_list] * len_dataset_taco_data)
+                self.expert_ids.extend([itriplet] * len_dataset_taco_data)
+                self.num_task += len_dataset_taco_data
+        
         self.all_task_idx = torch.tensor([i % self.num_task for i in range(self.num_envs)], dtype=torch.long, device=self.device)
+        self.expert_ids = torch.tensor(self.expert_ids * int(len(self.num_envs) / self.num_task) + self.expert_ids[:int(len(self.num_envs) % self.num_task)], dtype=torch.long, device=self.device)
+        
         obj_asset_storage = dict()
         object_max_shape, tool_max_shape = -1, -1
         for task_id in range(self.num_task):
@@ -1224,7 +1244,7 @@ class BiLeapHandGraspMultiDagger(VecTask):
             table_asset, table_start_pose, \
             dataset_object_pose, dataset_tool_pose, \
             ref_timestep, end_timestep \
-            = self._initialize_task(dataset_taco_data[task_id])
+            = self._initialize_task(self.dataset_taco_datas[task_id])
             
             self.dataset_object_poses.append(dataset_object_pose)   
             self.dataset_tool_poses.append(dataset_tool_pose)
@@ -1241,7 +1261,7 @@ class BiLeapHandGraspMultiDagger(VecTask):
             self.table_start_poses.append(table_start_pose)
             # create object and tool urdf
             objects_mesh_path = os.path.join(self.cfg["env"]["asset"]["assetRoot"], 'TACOobjects')
-            object_id = dataset_taco_data[task_id]['left']['object']['id']
+            object_id = self.dataset_taco_datas[task_id]['left']['object']['id']
             self.object_labels.append(int(object_id))
             task_object_urdf_file = os.path.join(objects_mesh_path, f'{object_id}.urdf')   
             if not os.path.exists(task_object_urdf_file):             
@@ -1249,7 +1269,7 @@ class BiLeapHandGraspMultiDagger(VecTask):
                     urdf_file.write(self._generate_urdf(dict(id=object_id)))
             self.object_mesh_pointclouds.append(read_pointcloud_from_urdf(task_object_urdf_file))
 
-            tool_id = dataset_taco_data[task_id]['right']['tool']['id']
+            tool_id = self.dataset_taco_datas[task_id]['right']['tool']['id']
             self.tool_labels.append(int(tool_id))
             task_tool_urdf_file = os.path.join(objects_mesh_path, f'{tool_id}.urdf')
             if not os.path.exists(task_tool_urdf_file):
@@ -1267,8 +1287,7 @@ class BiLeapHandGraspMultiDagger(VecTask):
                 num_object_shapes = num_object_shape + num_tool_shape
                 max_agg_bodies = self.num_robot_bodies + num_object_bodies + 2
                 max_agg_shapes = self.num_robot_shapes + num_object_shapes + 2
-                print(max_agg_shapes)
-                if max_agg_shapes <= 128:
+                if not is_regen_hull_list[task_id] or max_agg_shapes <= 128:
                     self.object_assets.append(object_asset)
                     self.tool_assets.append(tool_asset)
                     self.max_agg_bodies.append(max_agg_bodies)

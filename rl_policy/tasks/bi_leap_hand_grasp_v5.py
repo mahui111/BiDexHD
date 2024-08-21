@@ -1207,6 +1207,7 @@ class BiLeapHandGraspV5(VecTask):
                 print(f'training set: 0, testing set: {len(dataset_taco_data)}')
         self.num_task = len(dataset_taco_data)
         self.all_task_idx = torch.tensor([i % self.num_task for i in range(self.num_envs)], dtype=torch.long, device=self.device)
+        
         obj_asset_storage = {}
         object_max_shape, tool_max_shape = -1, -1
         for task_id in range(self.num_task):
