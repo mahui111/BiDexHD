@@ -268,9 +268,10 @@ class IPPO(nn.Module):
                         for metrics in ['stage1_left_successes', 'stage1_right_successes', 'stage1_successes', 'stage2_left_successes', 'stage2_right_successes', 'stage2_successes']:
                             if hasattr(self.vec_env, metrics):
                                 print(f'{metrics}:\t', getattr(self.vec_env, metrics).mean().item())
+                        print('-'*80)
                 if self.record_dof: 
                     np.save(f"dofdemo/{os.path.basename(self.vec_env.sampled_taco_task_data['save_name']).split('-')[0]}.npy", traj_dof)
-                exit()
+            exit()
 
         else:
             rewbuffer = deque(maxlen=100)
