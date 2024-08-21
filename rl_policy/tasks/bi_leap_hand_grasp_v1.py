@@ -363,22 +363,22 @@ def compute_grasp_rewards(
     # stage 1: after hand approach object, lift_object
     lift_object_rew = torch.zeros_like(goal_object_dist)
     lift_object_rew = torch.where(
-        is_grasp_left == True, 3 * (goal_height - table_height) - 2 * goal_object_dist, lift_object_rew
+        is_grasp_left, 3 * (goal_height - table_height) - 2 * goal_object_dist, lift_object_rew
     )
     lift_tool_rew = torch.zeros_like(goal_tool_dist)
     lift_tool_rew = torch.where(
-        is_grasp_right == True, 3 * (goal_height - table_height) - 2 * goal_tool_dist, lift_tool_rew
+        is_grasp_right, 3 * (goal_height - table_height) - 2 * goal_tool_dist, lift_tool_rew
     )
     # stage 2: lift up reward
     left_hand_up_rew = torch.zeros_like(goal_object_dist)
-    left_hand_up_rew = torch.where(is_grasp_left == True, 1 * (left_palm_pos[:, 2] - goal_height), left_hand_up_rew)
+    left_hand_up_rew = torch.where(is_grasp_left, 1 * (left_palm_pos[:, 2] - goal_height), left_hand_up_rew)
     right_hand_up_rew = torch.zeros_like(goal_tool_dist)
-    right_hand_up_rew = torch.where(is_grasp_right == True, 1 * (right_palm_pos[:, 2] - goal_height), right_hand_up_rew)
+    right_hand_up_rew = torch.where(is_grasp_right, 1 * (right_palm_pos[:, 2] - goal_height), right_hand_up_rew)
 
     # stage 3: lift near goal bonus
     left_bonus = torch.zeros_like(goal_object_dist)
     left_bonus = torch.where(
-        is_grasp_left == True,
+        is_grasp_left,
         torch.where(
             goal_object_dist <= success_tolerance, 1.0 / (0.5 + goal_object_dist), left_bonus
         ),
@@ -386,7 +386,7 @@ def compute_grasp_rewards(
     )
     right_bonus = torch.zeros_like(goal_tool_dist)
     right_bonus = torch.where(
-        is_grasp_right == True,
+        is_grasp_right,
         torch.where(
             goal_tool_dist <= success_tolerance, 1.0 / (0.5 + goal_tool_dist), right_bonus
         ),
@@ -528,14 +528,14 @@ def compute_bvdex_stage1_rewards(
     ref_object_pos_dist = torch.norm(ref_object_pose[:, :3] - object_pos, dim=-1)
     ref_object_rot_rew = quat_rew(ref_object_pose[:, 3:7].repeat(len(object_pose),1), object_pose[:, 3:7]) # [-1,1]
     left_lift_object_pos_rew, left_lift_object_rot_rew = torch.zeros_like(ref_object_pos_dist), torch.zeros_like(ref_object_rot_rew)
-    left_lift_object_pos_rew = torch.where(is_grasp_left == True, 1 - ref_object_pos_dist / ref_init_object_pos_dist, left_lift_object_pos_rew)
-    left_lift_object_rot_rew = torch.where(is_grasp_left == True, ref_object_rot_rew, left_lift_object_rot_rew)
+    left_lift_object_pos_rew = torch.where(is_grasp_left, 1 - ref_object_pos_dist / ref_init_object_pos_dist, left_lift_object_pos_rew)
+    left_lift_object_rot_rew = torch.where(is_grasp_left, ref_object_rot_rew, left_lift_object_rot_rew)
 
     ref_tool_pos_dist = torch.norm(ref_tool_pose[:, :3] - tool_pos, dim=-1)
     ref_tool_rot_rew = quat_rew(ref_tool_pose[:, 3:7].repeat(len(tool_pose),1), tool_pose[:, 3:7])  # [-1,1]
     right_lift_tool_pos_rew, right_lift_tool_rot_rew = torch.zeros_like(ref_tool_pos_dist), torch.zeros_like(ref_tool_rot_rew)
-    right_lift_tool_pos_rew = torch.where(is_grasp_right == True, 1 - ref_tool_pos_dist / ref_init_tool_pos_dist, right_lift_tool_pos_rew)
-    right_lift_tool_rot_rew = torch.where(is_grasp_right == True, ref_tool_rot_rew, right_lift_tool_rot_rew)
+    right_lift_tool_pos_rew = torch.where(is_grasp_right, 1 - ref_tool_pos_dist / ref_init_tool_pos_dist, right_lift_tool_pos_rew)
+    right_lift_tool_rot_rew = torch.where(is_grasp_right, ref_tool_rot_rew, right_lift_tool_rot_rew)
 
     # stage 2: hand-object joint rotation, no grasp condition
     if object_hand_joint_rot_diff:
@@ -552,7 +552,7 @@ def compute_bvdex_stage1_rewards(
     # stage 3: lift near goal bonus
     left_bonus = torch.zeros_like(ref_object_pos_dist)
     left_bonus = torch.where(
-        is_grasp_left == True,
+        is_grasp_left,
         torch.where(
             ref_object_pos_dist <= success_tolerance, 1.0 / (1 + ref_object_pos_dist), left_bonus
         ),
@@ -560,7 +560,7 @@ def compute_bvdex_stage1_rewards(
     )
     right_bonus = torch.zeros_like(ref_object_pos_dist)
     right_bonus = torch.where(
-        is_grasp_right == True,
+        is_grasp_right,
         torch.where(
             ref_tool_pos_dist <= success_tolerance, 1.0 / (1 + ref_tool_pos_dist), right_bonus
         ),
@@ -633,7 +633,7 @@ def compute_bvdex_stage1_rewards(
     )
     num_resets = torch.sum(resets)
     finished_cons_successes = torch.sum(successes * resets.float())
-    current_successes = torch.where(resets==True, successes, current_successes)
+    current_successes = torch.where(resets, successes, current_successes)
     cons_successes = torch.where(
         num_resets > 0,
         av_factor * finished_cons_successes / num_resets
@@ -847,7 +847,7 @@ def compute_bvdex_stage12_rewards(
     # stage 3: lift near goal bonus
     left_bonus = torch.zeros_like(ref_object_pos_dist)
     left_bonus = torch.where(
-        is_grasp_left == True,
+        is_grasp_left,
         torch.where(
             ref_object_pos_dist <= success_tolerance, 1.0 / (1 + ref_object_pos_dist), left_bonus
         ),
@@ -855,7 +855,7 @@ def compute_bvdex_stage12_rewards(
     )
     right_bonus = torch.zeros_like(ref_object_pos_dist)
     right_bonus = torch.where(
-        is_grasp_right == True,
+        is_grasp_right,
         torch.where(
             ref_tool_pos_dist <= success_tolerance, 1.0 / (1 + ref_tool_pos_dist), right_bonus
         ),
@@ -955,7 +955,7 @@ def compute_bvdex_stage12_rewards(
     # print(f'timestep:{self.timestep[0]} | left_approach_dist:{(left_fingertips_object_dist + left_palm_object_dist)[0]:.3f} | right_approach_dist:{(right_fingers_tool_dist + right_palm_object_dist)[0]:.3f} | ref_object_pos_dist:{ref_object_pos_dist[0]:.3f} | ref_tool_pos_dist:{ref_tool_pos_dist[0]:.3f}')
     num_resets = torch.sum(resets)
     finished_cons_successes = torch.sum(successes * resets.float())
-    current_successes = torch.where(resets==True, successes, current_successes)
+    current_successes = torch.where(resets, successes, current_successes)
     cons_successes = torch.where(
         num_resets > 0,
         av_factor * finished_cons_successes / num_resets

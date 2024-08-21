@@ -147,7 +147,7 @@ class TACODataset:
         self.biretargetor = BiRetargetor(RobotName.leap, retarget_type, add_dummy_free_joint)
         self.visualizer = Visualizer3D()
         self.trimesh_backup = dict()
-        self.use_origin_object_list = ['bowl']
+        self.use_origin_object_list = ['bowl', 'brush']
         random.seed(0)
 
     # main
@@ -255,6 +255,7 @@ class TACODataset:
         return total_data
 
     def make_dataset(self, triplet="(empty, bowl, bowl)", save_dir="taco_dataset/sampled_data", vis_ref=False, num_max=20, num_finger=4):
+        verb, tool, obj = triplet.strip('()').split(', ')
         total_dataset = []
         seqname_list = sorted(os.listdir(os.path.join(self.dataset_root, "Object_Poses", triplet)))[:num_max]
         for k, sequence_name in tqdm(enumerate(seqname_list), total=len(seqname_list)):
@@ -328,7 +329,6 @@ class TACODataset:
             right_fingertip_init_mean_pos = right_fingertip_ref_mean_pos - load_tool_poses[ref_timestep, :3, 3] + load_tool_poses[init_timestep, :3, 3]
 
             # find grasp center from object mesh
-            verb, tool, obj = triplet.strip('()').split(', ')
             if obj not in self.use_origin_object_list: 
                 left_palm_rel_pos = compute_relative_position_pose(all_left_trans[ref_timestep], load_target_poses[[ref_timestep]])
                 left_fingertip_rel_pos = compute_relative_position_pose(left_fingertip_pos[ref_timestep], load_target_poses[[ref_timestep]])
@@ -361,6 +361,7 @@ class TACODataset:
 
     def make_mano_dataset(self, triplet="(empty, bowl, bowl)", save_dir="taco_dataset/task_data", num_finger=4, num_max=20):
         triplet = triplet.strip("'")
+        verb, tool, obj = triplet.strip('()').split(', ')
         total_dataset = []
         seqname_list = sorted(os.listdir(os.path.join(self.dataset_root, "Object_Poses", triplet)))[:num_max]
         for k, sequence_name in enumerate(seqname_list):
@@ -405,7 +406,6 @@ class TACODataset:
             print(f"task: {k}\t| tool: {tool_name}\t| target: {target_name}\t| init_timestep: {init_timestep}\t| ref_timestep: {ref_timestep}\t| end_timestep: {end_timestep}")
             
             # find grasp center from object mesh
-            verb, tool, obj = triplet.strip('()').split(', ')
             if obj not in self.use_origin_object_list: 
                 left_palm_rel_pos = compute_relative_position_po(all_left_trans[ref_timestep], object_pos[ref_timestep], object_quat[ref_timestep])[None,:]
                 left_fingertip_rel_pos = compute_relative_position_po(left_fingertip_pos[ref_timestep], object_pos[ref_timestep], object_quat[ref_timestep])
