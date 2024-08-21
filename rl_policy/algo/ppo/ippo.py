@@ -249,7 +249,7 @@ class IPPO(nn.Module):
         current_states = self.vec_env.get_state()
         
         if self.is_testing:
-            for _ in range(10):
+            for substep in range(10):
                 if self.record_dof: traj_dof = self.vec_env.robot_dof_pos[:1].detach().cpu().numpy()
                 for i in range(self.vec_env.max_episode_length):
                     with torch.no_grad():
@@ -291,10 +291,19 @@ class IPPO(nn.Module):
                 ep_infos = []
 
                 # Rollout
-                for _ in range(self.num_transitions_per_env):
+                substep = 0
+                while substep < self.num_transitions_per_env:
                     if self.apply_reset:
                         current_obs = self.vec_env.reset()["obs"]
                         current_states = self.vec_env.get_state()
+
+                    # if current_obs.isnan().sum():
+                    #     print(f"it:{it} substep:{substep} | NaN detected in observation")
+                    #     with torch.no_grad():
+                    #         next_obs_dict, rews, dones, infos = self.vec_env.step(torch.zeros_like(actions))
+                    #         current_obs.copy_(next_obs_dict["obs"])
+                    #     continue
+
                     # Compute the action
                     left_actions, left_actions_log_prob, left_values, left_mu, left_sigma = self.left_agent.actor_critic.act(current_obs)
                     right_actions, right_actions_log_prob, right_values, right_mu, right_sigma = self.right_agent.actor_critic.act(current_obs)
@@ -343,13 +352,13 @@ class IPPO(nn.Module):
                         episode_length.extend(cur_episode_length[new_ids][:, 0].cpu().numpy().tolist())
                         cur_reward_sum[new_ids] = 0
                         cur_episode_length[new_ids] = 0
-
+                    substep += 1
                 if self.print_log:
                     rewbuffer.extend(reward_sum)
                     lenbuffer.extend(episode_length)
 
-                _, _, left_last_values, _, _ = self.left_agent.actor_critic.act(current_obs, current_states)
-                _, _, right_last_values, _, _ = self.right_agent.actor_critic.act(current_obs, current_states)
+                substep, substep, left_last_values, substep, substep = self.left_agent.actor_critic.act(current_obs, current_states)
+                substep, substep, right_last_values, substep, substep = self.right_agent.actor_critic.act(current_obs, current_states)
                 stop = time.time()
                 collection_time = stop - start
                 left_mean_trajectory_length, left_mean_reward = self.left_agent.storage.get_statistics()

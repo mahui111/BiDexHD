@@ -43,4 +43,4 @@ candidate:
 
 
 replace:
-"gpos": \[.*\n.*\n.*\n.*\n.*   -> "gpos": [0,0,0]
+"gpos": \[.*\n.*\n.*\n.*\n.*   -> "gpos": [0.0,0.0,0.0]
