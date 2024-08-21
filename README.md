@@ -26,3 +26,21 @@ triplet can be:
 ```bash
 python -m pdb main.py task=BiLeapHandGrasp train=LeapHandGraspPPO num_envs=10000 headless=True algo=ppo
 ```
+
+candidate:
+(empty, bowl, bowl)            done
+(put out, bowl, bowl)
+(pour in some, bowl, bowl)
+(put in, bowl, bowl)
+(skim off, bowl, bowl)
+(brush, brush, bowl)
+(dust, roller, bowl)
+
+(empty, cup, bowl)
+(brush, brush, cup)
+(brush, brush, box)
+(skim off, spoon, bowl)
+
+
+replace:
+"gpos": \[.*\n.*\n.*\n.*\n.*   -> "gpos": [0,0,0]

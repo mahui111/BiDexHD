@@ -20,3 +20,4 @@ python main.py task=BiLeapHandGraspV5 train=LeapHandGraspMultiPPO algo=ippo num_
 /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/(dust, roller, bowl)/task1/ema0.1+ol2/model_12000.pt\
 '"
 
+
