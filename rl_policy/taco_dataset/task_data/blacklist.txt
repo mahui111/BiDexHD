@@ -1,0 +1,3 @@
+(put out, bowl, bowl)
+(skim off, spoon, bowl)
+(empty, cup, bowl)

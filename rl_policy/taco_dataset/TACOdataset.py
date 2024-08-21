@@ -147,6 +147,7 @@ class TACODataset:
         self.biretargetor = BiRetargetor(RobotName.leap, retarget_type, add_dummy_free_joint)
         self.visualizer = Visualizer3D()
         self.trimesh_backup = dict()
+        self.use_origin_object_list = ['bowl']
         random.seed(0)
 
     # main
@@ -327,12 +328,20 @@ class TACODataset:
             right_fingertip_init_mean_pos = right_fingertip_ref_mean_pos - load_tool_poses[ref_timestep, :3, 3] + load_tool_poses[init_timestep, :3, 3]
 
             # find grasp center from object mesh
-            left_palm_rel_pos = compute_relative_position_pose(all_left_trans[ref_timestep], load_target_poses[[ref_timestep]])
-            left_fingertip_rel_pos = compute_relative_position_pose(left_fingertip_pos[ref_timestep], load_target_poses[[ref_timestep]])
-            right_palm_rel_pos = compute_relative_position_pose(all_right_trans[ref_timestep], load_tool_poses[[ref_timestep]])
-            right_fingertip_rel_pos = compute_relative_position_pose(right_fingertip_pos[ref_timestep], load_tool_poses[[ref_timestep]])
-            object_grasp_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, target_name + "_cm.obj"), left_fingertip_rel_pos)
-            tool_grasp_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, tool_name + "_cm.obj"), right_fingertip_rel_pos)
+            verb, tool, obj = triplet.strip('()').split(', ')
+            if obj not in self.use_origin_object_list: 
+                left_palm_rel_pos = compute_relative_position_pose(all_left_trans[ref_timestep], load_target_poses[[ref_timestep]])
+                left_fingertip_rel_pos = compute_relative_position_pose(left_fingertip_pos[ref_timestep], load_target_poses[[ref_timestep]])
+                object_grasp_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, target_name + "_cm.obj"), left_fingertip_rel_pos)
+            else:
+                object_grasp_center = np.zeros(3)
+
+            if tool not in self.use_origin_object_list:
+                right_palm_rel_pos = compute_relative_position_pose(all_right_trans[ref_timestep], load_tool_poses[[ref_timestep]])
+                right_fingertip_rel_pos = compute_relative_position_pose(right_fingertip_pos[ref_timestep], load_tool_poses[[ref_timestep]])
+                tool_grasp_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, tool_name + "_cm.obj"), right_fingertip_rel_pos)
+            else:
+                tool_grasp_center = np.zeros(3)
 
             # return all data
             total_data = dict(
@@ -396,12 +405,20 @@ class TACODataset:
             print(f"task: {k}\t| tool: {tool_name}\t| target: {target_name}\t| init_timestep: {init_timestep}\t| ref_timestep: {ref_timestep}\t| end_timestep: {end_timestep}")
             
             # find grasp center from object mesh
-            left_palm_rel_pos = compute_relative_position_po(all_left_trans[ref_timestep], object_pos[ref_timestep], object_quat[ref_timestep])[None,:]
-            left_fingertip_rel_pos = compute_relative_position_po(left_fingertip_pos[ref_timestep], object_pos[ref_timestep], object_quat[ref_timestep])
-            right_palm_rel_pos = compute_relative_position_po(all_right_trans[ref_timestep], tool_pos[ref_timestep], tool_quat[ref_timestep])[None,:]
-            right_fingertip_rel_pos = compute_relative_position_po(right_fingertip_pos[ref_timestep], tool_pos[ref_timestep], tool_quat[ref_timestep])
-            object_grasp_rel_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, target_name + "_cm.obj"), left_fingertip_rel_pos)#np.concatenate([left_palm_rel_pos, left_fingertip_rel_pos], axis=0)
-            tool_grasp_rel_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, tool_name + "_cm.obj"), right_fingertip_rel_pos)#np.concatenate([right_palm_rel_pos, right_fingertip_rel_pos], axis=0)
+            verb, tool, obj = triplet.strip('()').split(', ')
+            if obj not in self.use_origin_object_list: 
+                left_palm_rel_pos = compute_relative_position_po(all_left_trans[ref_timestep], object_pos[ref_timestep], object_quat[ref_timestep])[None,:]
+                left_fingertip_rel_pos = compute_relative_position_po(left_fingertip_pos[ref_timestep], object_pos[ref_timestep], object_quat[ref_timestep])
+                object_grasp_rel_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, target_name + "_cm.obj"), left_fingertip_rel_pos)#np.concatenate([left_palm_rel_pos, left_fingertip_rel_pos], axis=0)
+            else:
+                object_grasp_rel_center = np.zeros(3)
+
+            if tool not in self.use_origin_object_list: 
+                right_palm_rel_pos = compute_relative_position_po(all_right_trans[ref_timestep], tool_pos[ref_timestep], tool_quat[ref_timestep])[None,:]
+                right_fingertip_rel_pos = compute_relative_position_po(right_fingertip_pos[ref_timestep], tool_pos[ref_timestep], tool_quat[ref_timestep])
+                tool_grasp_rel_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, tool_name + "_cm.obj"), right_fingertip_rel_pos)#np.concatenate([right_palm_rel_pos, right_fingertip_rel_pos], axis=0)
+            else:
+                tool_grasp_rel_center = np.zeros(3)
 
             # object_quat[init_timestep] = self.conjugate(object_quat[init_timestep])
             # tool_quat[init_timestep] = self.conjugate(tool_quat[init_timestep])
@@ -932,10 +949,10 @@ class TACODataset:
         # center = R.from_quat(object_init_quat).apply(center) + object_init_pos
 
         # visualize the selected points
-        self.visualizer.visualize_point_clouds(points, colors=np.zeros((len(idxs), 3)))
-        self.visualizer.visualize_point_clouds(points[idxs], colors=[[1,0,0]]*len(idxs))
-        self.visualizer.visualize_point_clouds(center[None,:], colors=[[0.5,0.5,0.5]])
-        self.visualizer.draw(True)
+        # self.visualizer.visualize_point_clouds(points, colors=np.zeros((len(idxs), 3)))
+        # self.visualizer.visualize_point_clouds(points[idxs], colors=[[1,0,0]]*len(idxs))
+        # self.visualizer.visualize_point_clouds(center[None,:], colors=[[0.5,0.5,0.5]])
+        # self.visualizer.draw(True)
 
         return center
 

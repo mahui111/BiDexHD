@@ -17,6 +17,6 @@ CUDA_VISIBLE_DEVICES=0 python main.py task=BiLeapHandGraspV5 train=LeapHandGrasp
 
 # evaluate
 # python main.py task=BiLeapHandGraspV5 train=LeapHandGraspMultiPPO algo=ippo num_envs=100 triplet="$triplet" test=True checkpoint="'\
-# /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/(put in, spoon, bowl)/task1/ema0.1+ol2/v5/model_5000.pt\
+# /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/exp/(put out, bowl, bowl)/task1/ema0.1+ol2/model_18000.pt\
 # '"
 
