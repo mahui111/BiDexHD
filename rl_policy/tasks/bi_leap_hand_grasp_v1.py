@@ -1061,6 +1061,7 @@ class BiLeapHandGraspV1(VecTask):
         headless,
         virtual_screen_capture,
         force_render,
+        **kwargs,
     ):
         self.cfg = cfg
         self.mode = self.cfg["mode"]
@@ -1152,6 +1153,7 @@ class BiLeapHandGraspV1(VecTask):
             headless,
             virtual_screen_capture,
             force_render,
+            **kwargs,
         )
 
         control_freq_inv = self.cfg["env"].get("controlFrequencyInv", 1)
