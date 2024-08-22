@@ -516,8 +516,8 @@ def compute_bvdex_stage12_rewards(
     
     # bonus for second stage success
     # stage12_successes = torch.logical_and(stage1_successes, stage2_successes >= 0.5).float()
-    left_stage2_bonus = torch.where(is_expect_end, stage2_left_successes, torch.zeros_like(stage2_successes))
-    right_stage2_bonus = torch.where(is_expect_end, stage2_right_successes, torch.zeros_like(stage2_successes))
+    left_stage2_bonus = torch.where(is_expect_end, 10 * (stage2_left_successes >= 0.8), torch.zeros_like(stage2_successes))
+    right_stage2_bonus = torch.where(is_expect_end, 10 * (stage2_right_successes >= 0.4), torch.zeros_like(stage2_successes))
     info["left_stage2_bonus"] = left_stage2_bonus
     info["right_stage2_bonus"] = right_stage2_bonus
 
@@ -531,8 +531,8 @@ def compute_bvdex_stage12_rewards(
     info["right_approach_penalty"] = right_approach_penalty
     info["right_lift_to_refpose_reward"] = right_lift_to_refpose_reward
 
-    left_reward = - left_approach_penalty + left_lift_to_refpose_reward + left_stage1_bonus   # + left_stage2_bonus + left_object_hand_pose_rew 
-    right_reward = - right_approach_penalty + right_lift_to_refpose_reward + right_stage1_bonus# + right_stage2_bonus + right_tool_hand_pose_rew
+    left_reward = - left_approach_penalty + left_lift_to_refpose_reward + left_stage1_bonus + left_stage2_bonus #+ left_object_hand_pose_rew 
+    right_reward = - right_approach_penalty + right_lift_to_refpose_reward + right_stage1_bonus + right_stage2_bonus #+ right_tool_hand_pose_rew
     reward = left_reward + right_reward
     info["left_reward"] = left_reward
     info["right_reward"] = right_reward
@@ -546,7 +546,7 @@ def compute_bvdex_stage12_rewards(
     resets = reset_buf.clone()
     resets = torch.where(progress_buf >= max_episode_length, torch.ones_like(resets), resets)
     resets = torch.where(torch.logical_or(object_pose[:, 2] <= table_heights, tool_pose[:, 2] <= table_heights), torch.ones_like(resets), resets)
-    # resets = torch.where(torch.logical_and(stage12_successes, is_expect_end), torch.ones_like(resets), resets)
+    resets = torch.where(is_expect_end, torch.ones_like(resets), resets)
 
     return (
         reward,
