@@ -415,7 +415,7 @@ def compute_bvdex_stage12_rewards(
     # stage 3: lift near goal bonus
     left_stage1_bonus = torch.zeros_like(ref_object_pos_dist)
     left_stage1_bonus = torch.where(
-        is_grasp_left == True,
+        is_grasp_left,
         torch.where(
             ref_object_pos_dist <= success_tolerance, 1.0 / (1 + ref_object_pos_dist), left_stage1_bonus
         ),
@@ -423,7 +423,7 @@ def compute_bvdex_stage12_rewards(
     )
     right_stage1_bonus = torch.zeros_like(ref_object_pos_dist)
     right_stage1_bonus = torch.where(
-        is_grasp_right == True,
+        is_grasp_right,
         torch.where(
             ref_tool_pos_dist <= success_tolerance, 1.0 / (1 + ref_tool_pos_dist), right_stage1_bonus
         ),
