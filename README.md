@@ -34,13 +34,12 @@ candidate:
 (brush, brush, bowl)            done
 (brush, brush, box)             done
 (dust, roller, bowl)            done
+(empty, teapot, plate)          done
 (put in, bowl, bowl)
-(empty, teapot, plate)
-(empty, kettle, cup)
 (hit, hammer, box)
 (skim off, bowl, pan)
 
-
+(empty, kettle, cup)            x
 (skim off, bowl, bowl)          x
 (dust, roller, bowl)            x
 (empty, cup, bowl)              x left-right-inverse
