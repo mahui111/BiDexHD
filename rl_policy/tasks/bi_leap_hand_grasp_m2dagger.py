@@ -1234,8 +1234,7 @@ class BiLeapHandGraspM2Dagger(VecTask):
                 self.num_task += len_dataset_taco_data
         
         self.all_task_idx = torch.tensor([i % self.num_task for i in range(self.num_envs)], dtype=torch.long, device=self.device)
-        self.expert_ids = torch.tensor(self.expert_ids * int(len(self.num_envs) / self.num_task) + self.expert_ids[:int(len(self.num_envs) % self.num_task)], dtype=torch.long, device=self.device)
-        
+        self.expert_ids = torch.tensor(self.expert_ids * (self.num_envs // self.num_task) + self.expert_ids[:(self.num_envs % self.num_task)], dtype=torch.long, device=self.device)
         obj_asset_storage = dict()
         object_max_shape, tool_max_shape = -1, -1
         for task_id in range(self.num_task):

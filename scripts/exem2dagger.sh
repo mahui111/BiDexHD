@@ -4,21 +4,21 @@ triplet=$1
 task_id=$2
 
 # debug
-python -m pdb main.py task=BiLeapHandGraspM2Dagger train=LeapHandGraspM2Dagger algo=dagger num_envs=50 exp_name=debug_dagger # checkpoint="'\
+# python -m pdb main.py task=BiLeapHandGraspM2Dagger train=LeapHandGraspM2Dagger algo=m2dagger num_envs=550 exp_name=debug_dagger # checkpoint="'\
 # /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-dagger/distill4/dagger_avhuber/dagger_2000.pt\
 # '"
 
 
 # visualize
-# python main.py task=BiLeapHandGraspM2Dagger train=LeapHandGraspM2Dagger algo=dagger num_envs=1 test=True mode=visualize
+# python main.py task=BiLeapHandGraspM2Dagger train=LeapHandGraspM2Dagger algo=m2dagger num_envs=1 test=True mode=visualize
 
 # train
-# python main.py task=BiLeapHandGraspM2Dagger train=LeapHandGraspM2Dagger algo=dagger num_envs=1500 exp_name=dagger_avhuber headless=True #checkpoint="'\
+# python main.py task=BiLeapHandGraspM2Dagger train=LeapHandGraspM2Dagger algo=m2dagger num_envs=1600 exp_name=dagger_avhuber headless=True #checkpoint="'\
 # /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-dagger/distill4/dagger_avhuber/dagger_500.pt\
 # '"
 
 # evaluate
-# python main.py task=BiLeapHandGraspM2Dagger train=LeapHandGraspM2Dagger algo=dagger num_envs=50 test=True checkpoint="'\
-# /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-dagger/(empty, bowl, bowl)/dagger_avhuber/dagger_2500.pt\
-# '"
+python main.py task=BiLeapHandGraspM2Dagger train=LeapHandGraspM2Dagger algo=m2dagger num_envs=550 test=True checkpoint="'\
+/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-dagger/distill2/dagger_avhuber/dagger_24500.pt\
+'"
 

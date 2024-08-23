@@ -66,6 +66,7 @@ env:
       numDownsample: ${numDownsample}
       numEachPoint: ${numEachPoint}
 task:
+  is_all_task: ${...test}
   frequency: 2
   horizon: 2
   isStage1HOReward: ${isStage1HOReward}

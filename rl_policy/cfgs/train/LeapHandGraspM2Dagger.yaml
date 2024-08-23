@@ -26,7 +26,7 @@ params:
   cliprange: 0.2
   ent_coef: 0.0001
   nsteps: 8
-  noptepochs: 5
+  noptepochs: 2
   nminibatches: 4 # this is per agent
   max_grad_norm: 1
   optim_stepsize: 3.e-4 # 3e-4 is default for single agent training with constant schedule
@@ -47,7 +47,6 @@ params:
     
   expertCkptFiles: [
     '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(empty, bowl, bowl)/ema0.1+ol2/model_18000.pt',
-    '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(empty, bowl, bowl)/ema0.1+ol2/model_18500.pt'
+    '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(pour in some, bowl, bowl)/ema0.1+ol2/model_14000.pt'
   ]
-  expertObservationType: "dofps+dofvel+ftps+lastact+objstate+palmpose+relps+objlabel"
-  
+  expertObservationType: "dofps+dofvel+ftps+lastact+objstate+palmpose+relps+objlabel"  
