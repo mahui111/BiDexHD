@@ -29,17 +29,18 @@ python -m pdb main.py task=BiLeapHandGrasp train=LeapHandGraspPPO num_envs=10000
 
 candidate:
 (empty, bowl, bowl)             done
-(put out, bowl, bowl)           soso
-(pour in some, bowl, bowl)      soso
+(put out, bowl, bowl)           done
+(pour in some, bowl, bowl)      done
+(brush, brush, bowl)            done
+(brush, brush, box)             done
 (put in, bowl, bowl)
-(skim off, bowl, bowl)
-(brush, brush, bowl)            soso
-(dust, roller, bowl)            x
 
+
+(skim off, bowl, bowl)          x
+(dust, roller, bowl)            x
 (empty, cup, bowl)              x left-right-inverse
 (brush, brush, cup)             x
-(brush, brush, box)             done
-(skim off, spoon, bowl)
+(skim off, spoon, bowl)         x
 
 
 replace:

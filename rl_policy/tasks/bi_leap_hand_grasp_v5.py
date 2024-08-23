@@ -531,8 +531,8 @@ def compute_bvdex_stage12_rewards(
     info["right_approach_penalty"] = right_approach_penalty
     info["right_lift_to_refpose_reward"] = right_lift_to_refpose_reward
 
-    left_reward = - left_approach_penalty + left_lift_to_refpose_reward + left_stage1_bonus + left_stage2_bonus #+ left_object_hand_pose_rew 
-    right_reward = - right_approach_penalty + right_lift_to_refpose_reward + right_stage1_bonus + right_stage2_bonus #+ right_tool_hand_pose_rew
+    left_reward = - left_approach_penalty + left_lift_to_refpose_reward + left_stage1_bonus #+ left_stage2_bonus + left_object_hand_pose_rew 
+    right_reward = - right_approach_penalty + right_lift_to_refpose_reward + right_stage1_bonus #+ right_stage2_bonus + right_tool_hand_pose_rew
     reward = left_reward + right_reward
     info["left_reward"] = left_reward
     info["right_reward"] = right_reward
@@ -756,7 +756,7 @@ class BiLeapHandGraspV5(VecTask):
             headless,
             virtual_screen_capture,
             force_render,
-            **kwargs
+            **kwargs,
         )
 
         control_freq_inv = self.cfg["env"].get("controlFrequencyInv", 1)
