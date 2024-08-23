@@ -1,3 +1,6 @@
 (put out, bowl, bowl)
 (skim off, spoon, bowl)
 (empty, cup, bowl)
+(pour in some, bowl, cup)
+(skim off, spatula, bowl)
+(put in, spoon, pan)

@@ -32,7 +32,7 @@ torch_info = importlib.util.find_spec("torch")
 if torch_info is not None:
     version = importlib.metadata.version("torch")
     major_version = version.split(".")[0]
-    if int(major_version) >= 2:
+    if int(major_version) >= 1:
         print(f"A valid torch with version {version}: has been already installed, skip it.")
     else:
         raise RuntimeError(

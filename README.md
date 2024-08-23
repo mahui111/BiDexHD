@@ -14,7 +14,7 @@ cd /home/zbh/Downloads/IsaacGym_Preview_4_Package/isaacgym/python
 pip install -e .
 cd /home/zbh/Downloads/IsaacGymEnvs/
 pip install -e .
-pip install ipdb addict yapf h5py sorcery pynvml seaborn einops tensorboard accelerate open3d anytree chumpy kornia pytransform3d nlopt natsort hydra omegaconf trimesh gym -i https://pypi.tuna.tsinghua.edu.cn/simple  # git+https://github.com/isaac-sim/IsaacGymEnvs.git 
+pip install ipdb addict yapf h5py sorcery pynvml seaborn einops tensorboard accelerate open3d anytree chumpy kornia pytransform3d nlopt natsort hydra omegaconf nvitop trimesh gym -i https://pypi.tuna.tsinghua.edu.cn/simple  # git+https://github.com/isaac-sim/IsaacGymEnvs.git 
 
 ```bash
 python taco_dataset/TACOdataset.py --mode make_dataset --triplet "(stir, spoon, pan)"
