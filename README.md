@@ -33,7 +33,12 @@ candidate:
 (pour in some, bowl, bowl)      done
 (brush, brush, bowl)            done
 (brush, brush, box)             done
+(dust, roller, bowl)            done
 (put in, bowl, bowl)
+(empty, teapot, plate)
+(empty, kettle, cup)
+(hit, hammer, box)
+(skim off, bowl, pan)
 
 
 (skim off, bowl, bowl)          x
