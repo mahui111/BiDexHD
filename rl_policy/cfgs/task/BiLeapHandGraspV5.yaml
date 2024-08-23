@@ -40,7 +40,7 @@ env:
 
   observationType: ${observationType}
   asymmetric_observations: False
-  successTolerance: 0.05
+  successTolerance: 0.03
   printNumSuccesses: False
   maxConsecutiveSuccesses: 0
 
