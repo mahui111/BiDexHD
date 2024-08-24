@@ -27,17 +27,8 @@ triplet can be:
 python -m pdb main.py task=BiLeapHandGrasp train=LeapHandGraspPPO num_envs=10000 headless=True algo=ppo
 ```
 
-candidate:
-(empty, bowl, bowl)             done
-(put out, bowl, bowl)           done
-(pour in some, bowl, bowl)      done
-(brush, brush, bowl)            done
-(brush, brush, box)             done
-(dust, roller, bowl)            done
-(empty, teapot, plate)          done
-(put in, bowl, bowl)
-(hit, hammer, box)
-(skim off, bowl, pan)
+replace:
+"gpos": \[.*\n.*\n.*\n.*\n.*   -> "gpos": [0.0,0.0,0.0]
 
 (empty, kettle, cup)            x
 (skim off, bowl, bowl)          x
@@ -47,5 +38,19 @@ candidate:
 (skim off, spoon, bowl)         x
 
 
-replace:
-"gpos": \[.*\n.*\n.*\n.*\n.*   -> "gpos": [0.0,0.0,0.0]
+candidate:
+(empty, bowl, bowl)             done
+(put out, bowl, bowl)           done
+(pour in some, bowl, bowl)      done
+(brush, brush, bowl)            done
+(brush, brush, box)             done
+(dust, roller, bowl)            done
+(empty, teapot, plate)          done
+(smear, glue gun, box)          done (soso)
+(dust, brush, bowl)             done (soso)
+(empty, cup, teapot)            done
+(empty, bowl, plate)            done
+(empty, teapot, teapot)         done
+(pour in some, cup, cup)        done (soso)
+(put out, bowl, pan)            done
+(put out, bowl, plate)          down
