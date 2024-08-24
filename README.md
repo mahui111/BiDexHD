@@ -40,17 +40,17 @@ replace:
 
 candidate:
 (empty, bowl, bowl)             done
-(put out, bowl, bowl)           done
-(pour in some, bowl, bowl)      done
-(brush, brush, bowl)            done
-(brush, brush, box)             done
-(dust, roller, bowl)            done
 (empty, teapot, plate)          done
-(smear, glue gun, box)          done (soso)
-(dust, brush, bowl)             done (soso)
 (empty, cup, teapot)            done
 (empty, bowl, plate)            done
 (empty, teapot, teapot)         done
+(brush, brush, bowl)            done
+(brush, brush, box)             done
+(dust, roller, bowl)            done
+(dust, brush, bowl)             done (soso)
+(pour in some, bowl, bowl)      done
 (pour in some, cup, cup)        done (soso)
+(put out, bowl, bowl)           done
 (put out, bowl, pan)            done
 (put out, bowl, plate)          down
+(smear, glue gun, box)          done (soso)
