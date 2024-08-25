@@ -1,5 +1,6 @@
 import os
 import time
+from collections import defaultdict
 from gym.spaces import Space
 import numpy as np
 import statistics
@@ -249,7 +250,10 @@ class IPPO(nn.Module):
         current_states = self.vec_env.get_state()
         
         if self.is_testing:
-            for substep in range(10):
+            log_metrics = ['stage1_left_successes', 'stage1_right_successes', 'stage1_successes', 'stage2_left_successes', 'stage2_right_successes', 'stage2_successes']
+            record_metrics = ['stage1_successes', 'stage2_successes']
+            avg_sr = defaultdict(list)
+            for testepi in range(10):
                 if self.record_dof: traj_dof = self.vec_env.robot_dof_pos[:1].detach().cpu().numpy()
                 for i in range(self.vec_env.max_episode_length):
                     with torch.no_grad():
@@ -265,12 +269,17 @@ class IPPO(nn.Module):
                         next_obs = next_obs_dict["obs"]
                         current_obs.copy_(next_obs)
                     if i == self.vec_env.max_episode_length - 2:
-                        for metrics in ['stage1_left_successes', 'stage1_right_successes', 'stage1_successes', 'stage2_left_successes', 'stage2_right_successes', 'stage2_successes']:
+                        for metrics in log_metrics:
                             if hasattr(self.vec_env, metrics):
-                                print(f'{metrics}:\t', getattr(self.vec_env, metrics).mean().item())
-                        print('-'*80)
+                                v = getattr(self.vec_env, metrics).mean().item()
+                                print(f'{metrics}:\t', v)
+                                if metrics in record_metrics:
+                                   avg_sr[metrics].append(v) 
                 if self.record_dof: 
                     np.save(f"dofdemo/{os.path.basename(self.vec_env.sampled_taco_task_data['save_name']).split('-')[0]}.npy", traj_dof)
+                for metrics in record_metrics:
+                    print(f'episode: {testepi}\t | {metrics}:\t', np.mean(avg_sr[metrics]))
+                print('-'*80)
             exit()
 
         else:

@@ -132,7 +132,7 @@ class M2DaggerValue(nn.Module):
         if self.is_testing:
             self.vec_env.random_time = False
         current_obs = self.vec_env.reset()["obs"]
-        current_obs = torch.cat([current_obs, self.vec_env.expert_ids.view(-1,1) / 255.], dim=-1)
+        current_obs = torch.cat([current_obs, self.vec_env.verb_category.view(-1,1) / 255.], dim=-1)
         current_states = self.vec_env.get_state()
 
         if self.is_testing:
@@ -173,7 +173,7 @@ class M2DaggerValue(nn.Module):
                     with torch.no_grad():
                         next_obs_dict, rews, dones, infos = self.vec_env.step(stu_actions)
                         next_obs = next_obs_dict["obs"]
-                        next_obs = torch.cat([next_obs, self.vec_env.expert_ids.view(-1,1) / 255.], dim=-1)
+                        next_obs = torch.cat([next_obs, self.vec_env.verb_category.view(-1,1) / 255.], dim=-1)
                     current_obs.copy_(next_obs)
                     current_states.copy_(self.vec_env.get_state())
                     left_rews, right_rews = infos["left_reward"], infos["right_reward"]

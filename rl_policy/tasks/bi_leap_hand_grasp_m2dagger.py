@@ -1204,6 +1204,25 @@ class BiLeapHandGraspM2Dagger(VecTask):
 
 
         self.all_triplet = [ecfile.split('/')[-3] for ecfile in self.train_cfg['expertCkptFiles']]
+        category2idx = {
+            'brush': 0,
+            'cut': 1,
+            'dust': 2,
+            'empty': 3,
+            'hit': 4,
+            'measure': 5,
+            'pour in some': 6,
+            'put in': 7,
+            'put out': 8,
+            'scrape off': 9,
+            'screw': 10,
+            'skim off': 11,
+            'smear': 12,
+            'stir-fry': 13,
+            'stir': 14,
+        }
+        # get verb category
+        self.verb_category = [category2idx[triplet.strip('()').split(', ')[0]] for triplet in self.all_triplet]
         assert len(self.all_triplet) == len(set(self.all_triplet)), 'triplet names should be unique'
         self.num_task = 0
         self.dataset_taco_datas, self.expert_ids = [], []
@@ -1235,6 +1254,7 @@ class BiLeapHandGraspM2Dagger(VecTask):
         
         self.all_task_idx = torch.tensor([i % self.num_task for i in range(self.num_envs)], dtype=torch.long, device=self.device)
         self.expert_ids = torch.tensor(self.expert_ids * (self.num_envs // self.num_task) + self.expert_ids[:(self.num_envs % self.num_task)], dtype=torch.long, device=self.device)
+        self.verb_category = torch.tensor(self.verb_category * (self.num_envs // self.num_task) + self.verb_category[:(self.num_envs % self.num_task)], dtype=torch.long, device=self.device)
         obj_asset_storage = dict()
         object_max_shape, tool_max_shape = -1, -1
         for task_id in range(self.num_task):

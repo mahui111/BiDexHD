@@ -44,6 +44,7 @@ replace:
 (stir, spoon, plate)            x    
 (empty, plate, box)             x   
 (smear, soap, plate)            x tiny
+(skim off, bowl, pan)           x
 
 
 candidate:
@@ -63,3 +64,4 @@ candidate:
 (put out, bowl, pan)            done
 (put out, bowl, plate)          done
 (smear, glue gun, box)          done (soso)
+(scrape off, knife, bowl)       done (soso)
