@@ -36,21 +36,30 @@ replace:
 (empty, cup, bowl)              x left-right-inverse
 (brush, brush, cup)             x
 (skim off, spoon, bowl)         x
+(pour in some, bowl, cup)       x left-right-inverse
+(put in, spoon, bowl)           x
+(screw, screwdriver, box)       x
+(put in, spoon, pan)            x
+(smear, eraser, plate)          x
+(stir, spoon, plate)            x    
+(empty, plate, box)             x   
+(smear, soap, plate)            x tiny
 
 
 candidate:
-(empty, bowl, bowl)             done
-(empty, teapot, plate)          done
-(empty, cup, teapot)            done
-(empty, bowl, plate)            done
-(empty, teapot, teapot)         done
 (brush, brush, bowl)            done
 (brush, brush, box)             done
-(dust, roller, bowl)            done
 (dust, brush, bowl)             done (soso)
+(dust, brush, pan)              done 
+(dust, roller, bowl)            done
+(empty, bowl, bowl)             done
+(empty, bowl, plate)            done (soso)
+(empty, cup, teapot)            done
+(empty, teapot, plate)          done
+(empty, teapot, teapot)         done
 (pour in some, bowl, bowl)      done
 (pour in some, cup, cup)        done (soso)
 (put out, bowl, bowl)           done
 (put out, bowl, pan)            done
-(put out, bowl, plate)          down
+(put out, bowl, plate)          done
 (smear, glue gun, box)          done (soso)
