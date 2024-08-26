@@ -13,9 +13,9 @@ task_id=$2
 # python main.py task=BiLeapHandGraspM2Dagger train=LeapHandGraspM2Dagger algo=m2dagger num_envs=1 test=True mode=visualize
 
 # train
-python main.py task=BiLeapHandGraspM2Dagger train=LeapHandGraspM2Dagger algo=m2dagger num_envs=1600 exp_name=dagger_avhuber headless=True #checkpoint="'\
-# /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-dagger/distill4/dagger_avhuber/dagger_500.pt\
-# '"
+python main.py task=BiLeapHandGraspM2Dagger train=LeapHandGraspM2Dagger algo=m2dagger num_envs=1500 exp_name=dagger_avhuber headless=True checkpoint="'\
+/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-dagger/distill16/dagger_avhuber/dagger_28500.pt\
+'"
 
 # evaluate
 # python main.py task=BiLeapHandGraspM2Dagger train=LeapHandGraspM2Dagger algo=m2dagger num_envs=550 test=True checkpoint="'\

@@ -1221,11 +1221,9 @@ class BiLeapHandGraspM2Dagger(VecTask):
             'stir-fry': 13,
             'stir': 14,
         }
-        # get verb category
-        self.verb_category = [category2idx[triplet.strip('()').split(', ')[0]] for triplet in self.all_triplet]
         assert len(self.all_triplet) == len(set(self.all_triplet)), 'triplet names should be unique'
         self.num_task = 0
-        self.dataset_taco_datas, self.expert_ids = [], []
+        self.dataset_taco_datas, self.expert_ids, self.verb_category = [], [], []
         with open(os.path.join('taco_dataset/task_data/blacklist.txt')) as f:
             regen_hull_task_list = [line.strip('\n') for line in f]
         is_regen_hull_list = []
@@ -1250,11 +1248,16 @@ class BiLeapHandGraspM2Dagger(VecTask):
                 self.dataset_taco_datas.extend(dataset_taco_data)
                 is_regen_hull_list.extend([triplet in regen_hull_task_list] * len_dataset_taco_data)
                 self.expert_ids.extend([itriplet] * len_dataset_taco_data)
+                self.verb_category.extend([category2idx[triplet.strip('()').split(', ')[0]]] * len_dataset_taco_data)
                 self.num_task += len_dataset_taco_data
         
         self.all_task_idx = torch.tensor([i % self.num_task for i in range(self.num_envs)], dtype=torch.long, device=self.device)
-        self.expert_ids = torch.tensor(self.expert_ids * (self.num_envs // self.num_task) + self.expert_ids[:(self.num_envs % self.num_task)], dtype=torch.long, device=self.device)
-        self.verb_category = torch.tensor(self.verb_category * (self.num_envs // self.num_task) + self.verb_category[:(self.num_envs % self.num_task)], dtype=torch.long, device=self.device)
+        self.expert_ids = torch.tensor(self.expert_ids, dtype=torch.long, device=self.device)
+        assert len(self.expert_ids) == self.num_task
+        self.expert_ids = self.expert_ids[self.all_task_idx]
+        self.verb_category = torch.tensor(self.verb_category, dtype=torch.long, device=self.device)
+        assert len(self.verb_category) == self.num_task
+        self.verb_category = self.verb_category[self.all_task_idx]
         obj_asset_storage = dict()
         object_max_shape, tool_max_shape = -1, -1
         for task_id in range(self.num_task):
