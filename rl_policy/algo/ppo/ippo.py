@@ -250,9 +250,8 @@ class IPPO(nn.Module):
         current_states = self.vec_env.get_state()
         
         if self.is_testing:
-            log_metrics = ['stage1_left_successes', 'stage1_right_successes', 'stage1_successes', 'stage2_left_successes', 'stage2_right_successes', 'stage2_successes']
-            record_metrics = ['stage1_successes', 'stage2_successes']
-            avg_sr = defaultdict(list)
+            log_metric_names = ['stage1_left_successes', 'stage1_right_successes', 'stage1_successes', 'stage2_left_successes', 'stage2_right_successes', 'stage2_successes']
+            record_metric_names = ['stage1_successes', 'stage2_successes']
             for testepi in range(10):
                 if self.record_dof: traj_dof = self.vec_env.robot_dof_pos[:1].detach().cpu().numpy()
                 for i in range(self.vec_env.max_episode_length):
@@ -268,17 +267,31 @@ class IPPO(nn.Module):
                         if self.record_dof: traj_dof = np.concatenate((traj_dof, self.vec_env.robot_dof_pos[:1].detach().cpu().numpy()), axis=0)
                         next_obs = next_obs_dict["obs"]
                         current_obs.copy_(next_obs)
-                    if i == self.vec_env.max_episode_length - 2:
-                        for metrics in log_metrics:
-                            if hasattr(self.vec_env, metrics):
-                                v = getattr(self.vec_env, metrics).mean().item()
-                                print(f'{metrics}:\t', v)
-                                if metrics in record_metrics:
-                                   avg_sr[metrics].append(v) 
+                    if i == self.vec_env.max_episode_length - 2:  # logs
+                        record_metrics = {metric: getattr(self.vec_env, metric) for metric in record_metric_names}
+                        # 1. log success rate for train & test
+                        print('-'*90 + f'\nTrain & Test')
+                        train_env_ids = [l for l in range(self.vec_env.num_envs) if l in self.vec_env.train_task_ids]
+                        test_env_ids = [l for l in range(self.vec_env.num_envs) if l in self.vec_env.test_task_ids]
+                        print(f"training set\t| stage1_successes: {record_metrics['stage1_successes'][train_env_ids].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][train_env_ids].mean()}")
+                        print(f"testing set\t| stage1_successes: {record_metrics['stage1_successes'][test_env_ids].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][test_env_ids].mean()}")
+                        
+                        # 2. log success rate for each id-pair
+                        print('-'*90 + f'\n Trained Tasks')
+                        for task_id in range(self.vec_env.num_task):
+                            if task_id in self.vec_env.train_task_ids:
+                                print(f"task: {task_id}\t| stage1_successes: {record_metrics['stage1_successes'][task_id::self.vec_env.num_task].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][task_id::self.vec_env.num_task].mean()}")
+                        print(f'\n Tested Tasks')
+                        for task_id in range(self.vec_env.num_task):
+                            if task_id in self.vec_env.test_task_ids:
+                                print(f"task: {task_id}\t| stage1_successes: {record_metrics['stage1_successes'][task_id::self.vec_env.num_task].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][task_id::self.vec_env.num_task].mean()}")
+
+                        # 3. log total
+                        print('-'*90 + f'\n Total')
+                        print(f"episode {testepi}\t| stage1_successes: {record_metrics['stage1_successes'].mean()}\t| stage2_successes: {record_metrics['stage2_successes'].mean()}")
                 if self.record_dof: 
                     np.save(f"dofdemo/{os.path.basename(self.vec_env.sampled_taco_task_data['save_name']).split('-')[0]}.npy", traj_dof)
-                for metrics in record_metrics:
-                    print(f'episode: {testepi}\t | {metrics}:\t', np.mean(avg_sr[metrics]))
+                    
                 print('-'*80)
             exit()
 

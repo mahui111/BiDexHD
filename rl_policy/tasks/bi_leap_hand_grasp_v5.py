@@ -1193,20 +1193,22 @@ class BiLeapHandGraspV5(VecTask):
             is_regen_hull = triplet in regen_hull_task_list
         with open(meta_data_path, 'r') as f:
             dataset_taco_data = json.load(f)
+            if len(dataset_taco_data) < 5:
+                b, e = 0, len(dataset_taco_data)
+            elif len(dataset_taco_data) < 9:
+                b, e = 1, len(dataset_taco_data)
+            else:
+                proportion = 0.8
+                b, e = 1, int(len(dataset_taco_data) * proportion)
+            self.train_task_ids = list(range(b, e))
+            self.test_task_ids = list(range(0, b)) + list(range(e, len(dataset_taco_data))) 
+            num_train_set = len(self.train_task_ids)
+            num_test_set = len(self.test_task_ids)
             if not self.cfg['task']['is_all_task']:
-                if len(dataset_taco_data) < 5:
-                    b, e = 0, len(dataset_taco_data)
-                elif len(dataset_taco_data) < 9:
-                    b, e = 1, len(dataset_taco_data)
-                else:
-                    proportion = 0.8
-                    b, e = 1, int(len(dataset_taco_data) * proportion)
-                ne = e-b
-                nb = len(dataset_taco_data) - ne
-                print(f'training set: {ne}', f'testing set: {nb}')
+                print(f'training set: {num_train_set}', f'testing set: {num_test_set}')
                 dataset_taco_data = dataset_taco_data[b:e] 
             else:
-                print(f'training set: 0, testing set: {len(dataset_taco_data)}')
+                print(f'training set: 0, testing set: {num_train_set + num_test_set}')
         self.num_task = len(dataset_taco_data)
         self.all_task_idx = torch.tensor([i % self.num_task for i in range(self.num_envs)], dtype=torch.long, device=self.device)
         
