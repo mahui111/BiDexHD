@@ -65,6 +65,14 @@ env:
     pointclouds:
       numDownsample: ${numDownsample}
       numEachPoint: ${numEachPoint}
+      nResample: 32
+      nMaxSamplePoints: 4096
+      nSamplePoints: 512
+    noise: 
+      apply: False
+      scale: 0.005
+      threshold: 0.4
+
 task:
   is_all_task: ${...test}
   frequency: 2

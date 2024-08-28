@@ -236,12 +236,17 @@ class M2DaggerValue(nn.Module):
         mean_policy_loss = 0
         batch = self.storage.mini_batch_generator(self.num_mini_batches)
         mean_value_loss = 0
+        # get expert labels
+        self.add_expert_labels()
         for _ in range(self.num_learning_epochs):
             for indices in batch:
                 obs_batch = self.storage.observations.view(-1, *self.storage.observations.size()[2:])[indices]
-                expertid_batch = self.storage.expert_ids.view(-1)[indices]
-                # TODO: Compute expert action
-                expert_left_actions_batch, expert_left_values_batch, expert_right_actions_batch, expert_right_values_batch = self.expert_batch_act(obs_batch, expertid_batch)
+                # expertid_batch = self.storage.expert_ids.view(-1)[indices]
+                expert_left_actions_batch, expert_left_values_batch, expert_right_actions_batch, expert_right_values_batch = \
+                    self.storage.expert_left_actions.view(-1, self.storage.expert_left_actions.size(-1))[indices], \
+                    self.storage.expert_left_values.view(-1, 1)[indices], \
+                    self.storage.expert_right_actions.view(-1, self.storage.expert_right_actions.size(-1))[indices], \
+                    self.storage.expert_right_values.view(-1, 1)[indices]
                 # Policy loss
                 cur_left_actions_batch = self.left_actor_critic.act(obs_batch, grad=True)[3]
                 cur_right_actions_batch = self.right_actor_critic.act(obs_batch, grad=True)[3]
@@ -311,6 +316,14 @@ class M2DaggerValue(nn.Module):
                 batch_expert_left_actions = torch.clamp(batch_expert_left_actions, -c, c)
                 batch_expert_right_actions = torch.clamp(batch_expert_right_actions, -c, c)
         return batch_expert_left_actions, batch_expert_left_values, batch_expert_right_actions, batch_expert_right_values
+    
+    def add_expert_labels(self,):
+        buffer_expert_left_actions, buffer_expert_left_values, buffer_expert_right_actions, buffer_expert_right_values = self.expert_batch_act(
+            self.storage.observations.view(-1, *self.storage.observations.size()[2:]), self.storage.expert_ids.view(-1)
+        )
+        self.storage.expert_left_actions[:], self.storage.expert_left_values[:] = buffer_expert_left_actions.view_as(self.storage.expert_left_actions), buffer_expert_left_values.view_as(self.storage.expert_left_values)
+        self.storage.expert_right_actions[:], self.storage.expert_right_values[:] = buffer_expert_right_actions.view_as(self.storage.expert_right_actions), buffer_expert_right_values.view_as(self.storage.expert_right_values)
+        
     
     @staticmethod
     def symlog(x):

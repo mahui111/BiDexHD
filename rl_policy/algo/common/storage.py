@@ -340,6 +340,20 @@ class M2DaggerStorage:
         self.right_returns = torch.zeros(
             num_transitions_per_env, num_envs, 1, device=self.device
         )
+        
+        # For Dagger
+        self.expert_left_actions = torch.zeros(
+            num_transitions_per_env, num_envs, *actions_shape, device=self.device
+        )
+        self.expert_right_actions = torch.zeros(
+            num_transitions_per_env, num_envs, *actions_shape, device=self.device
+        )
+        self.expert_left_values = torch.zeros(
+            num_transitions_per_env, num_envs, 1, device=self.device
+        )
+        self.expert_right_values = torch.zeros(
+            num_transitions_per_env, num_envs, 1, device=self.device
+        )
 
         self.num_transitions_per_env = num_transitions_per_env
         self.num_envs = num_envs

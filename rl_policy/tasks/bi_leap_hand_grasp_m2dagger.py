@@ -251,6 +251,51 @@ def transformation_apply(pos: torch.Tensor, quat: torch.Tensor, vec: torch.Tenso
     quaternion_shape = pos.shape[:-1] + (4,)
     quat = torch.broadcast_to(quat, quaternion_shape)
     return quat_apply(quat, vec) + pos
+    
+# sample object point cloud & transform within the world coordinate
+def farthest_point_sample(xyz, npoint, device, init=None):
+    """
+    Input:
+        xyz: pointcloud data, [B, N, 3]
+        npoint: number of samples
+    Return:
+        centroids: sampled pointcloud index, [B, npoint]
+    """
+    B, N, C = xyz.size()
+    centroids = torch.zeros(B, npoint, dtype=torch.long).to(device)
+    distance = torch.ones(B, N).to(device) * 1e10
+    if init is not None:
+        farthest = torch.tensor(init).long().reshape(B).to(device)
+    else:
+        farthest = torch.randint(0, N, (B,), dtype=torch.long).to(device)
+    batch_indices = torch.arange(B, dtype=torch.long).to(device)
+    for i in range(npoint):
+        centroids[:, i] = farthest
+        centroid = xyz[batch_indices, farthest, :].view(B, 1, C)
+        dist = torch.sum((xyz - centroid) ** 2, -1)
+        mask = dist < distance
+        distance[mask] = dist[mask]
+        farthest = torch.max(distance, -1)[1]
+    return centroids.cuda()
+
+def index_points(points, idx, device):
+    """
+    Input:
+        points: input points data, [B, N, C]
+        idx: sample index data, [B, S]
+    Return:
+        new_points:, indexed points data, [B, S, C]
+    """
+    B = points.size()[0]
+    view_shape = list(idx.size())
+    view_shape[1:] = [1] * (len(view_shape) - 1)
+    repeat_shape = list(idx.size())
+    repeat_shape[0] = 1
+    batch_indices = torch.arange(B, dtype=torch.long).to(device).view(view_shape).repeat(repeat_shape)
+    new_points = points[batch_indices, idx, :]
+    return new_points
+
+
 
 @torch.jit.script
 def compute_relative_pose(
@@ -553,7 +598,7 @@ def compute_bvdex_stage12_rewards(
     )
 
 
-def read_pointcloud_from_urdf(urdf_file, num_sample=512):
+def read_pointcloud_from_urdf(urdf_file, num_sample=4096):
     robot = URDF.load(urdf_file)
     all_points = []
     for link in robot.links:
@@ -727,9 +772,13 @@ class BiLeapHandGraspM2Dagger(VecTask):
         self.max_consecutive_successes = self.cfg["env"]["maxConsecutiveSuccesses"]
         self.av_factor = self.cfg["env"].get("averFactor", 0.1)
         
-        # self.palm_offset = self.cfg["env"]["palm_offset"]
-        # self.fingertip_offset = self.cfg["env"]["finger_offset"]
-        # self.thumb_offset = self.cfg["env"]["thumb_offset"]
+        # pointcloud
+        self.n_resample = self.cfg['env']['vision']['pointclouds']['numDownsample']
+        self.num_max_sample_points = self.cfg['env']['vision']['pointclouds']['nMaxSamplePoints']
+        self.num_sample_points = self.cfg['env']['vision']['pointclouds']['nSamplePoints']
+        self.apply_pointcloud_noise = self.cfg['env']['vision']['noise']['apply']
+        self.pointcloud_noise_scale = self.cfg['env']['vision']['noise']['scale']
+        self.pointcloud_noise_threshold = self.cfg['env']['vision']['noise']['threshold']
         
         self.obs_type = self.cfg["env"]["observationType"]
 
@@ -1290,7 +1339,8 @@ class BiLeapHandGraspM2Dagger(VecTask):
             if not os.path.exists(task_object_urdf_file):             
                 with open(task_object_urdf_file, 'w') as urdf_file:
                     urdf_file.write(self._generate_urdf(dict(id=object_id)))
-            self.object_mesh_pointclouds.append(read_pointcloud_from_urdf(task_object_urdf_file))
+            
+            self.object_mesh_pointclouds.append(read_pointcloud_from_urdf(task_object_urdf_file, self.num_max_sample_points))
 
             tool_id = self.dataset_taco_datas[task_id]['right']['tool']['id']
             self.tool_labels.append(int(tool_id))
@@ -1298,7 +1348,7 @@ class BiLeapHandGraspM2Dagger(VecTask):
             if not os.path.exists(task_tool_urdf_file):
                 with open(task_tool_urdf_file, 'w') as urdf_file:
                     urdf_file.write(self._generate_urdf(dict(id=tool_id)))
-            self.tool_mesh_pointclouds.append(read_pointcloud_from_urdf(task_tool_urdf_file))
+            self.tool_mesh_pointclouds.append(read_pointcloud_from_urdf(task_tool_urdf_file, self.num_max_sample_points))
             # get object and tool asset
             while True:
                 object_asset = self._prepare_object_asset(*os.path.split(task_object_urdf_file), vhacd_enabled, obj_asset_storage, object_max_shape)
@@ -1327,6 +1377,8 @@ class BiLeapHandGraspM2Dagger(VecTask):
         self.dataset_end_timesteps = torch.tensor(self.dataset_end_timesteps, dtype=torch.long, device=self.device)  # (K,)
         # self.dataset_left_palm_ref_poses = torch.stack(self.dataset_left_palm_ref_poses, dim=0)  # (K, 7)
         # self.dataset_right_palm_ref_poses = torch.stack(self.dataset_right_palm_ref_poses, dim=0)  # (K, 7)
+        self.object_mesh_pointclouds = torch.stack(self.object_mesh_pointclouds, dim=0)  # (K, N, 3)
+        self.tool_mesh_pointclouds = torch.stack(self.tool_mesh_pointclouds, dim=0)  # (K, N, 3)
 
     def _initialize_task(self, taco_task_data):
         epi_len = self.cfg['env']['episodeLength']
@@ -1570,9 +1622,17 @@ class BiLeapHandGraspM2Dagger(VecTask):
             # visualizer.visualize_point_clouds(self.object_meshpc[0].detach().cpu().numpy())
             # visualizer.visualize_point_clouds(self.tool_meshpc[0].detach().cpu().numpy())
             # visualizer.draw(True)
+            if self.control_steps % self.n_resample == 0:  # resample
+                self.sampled_object_point_idxs = farthest_point_sample(self.object_mesh_pointclouds, self.num_sample_points, self.device)
+                self.sampled_tool_point_idxs = farthest_point_sample(self.tool_mesh_pointclouds, self.num_sample_points, self.device)
+            self.object_pointclouds = index_points(self.object_mesh_pointclouds, self.sampled_object_point_idxs, self.device)
+            self.tool_pointclouds = index_points(self.tool_mesh_pointclouds, self.sampled_tool_point_idxs, self.device)
+            if self.apply_pointcloud_noise:
+                self.object_pointclouds += torch.randn_like(self.object_pointclouds) * self.pointcloud_noise_scale * (torch.rand(self.object_pointclouds.shape[:-1]+(1,)) < self.pointcloud_noise_threshold).float()
+                self.tool_pointclouds += torch.randn_like(self.tool_pointclouds) * self.pointcloud_noise_scale * (torch.rand(self.tool_pointclouds.shape[:-1]+(1,)) < self.pointcloud_noise_threshold).float()
             for i_task in range(self.num_task):
-                self.obs_buf[i_task::self.num_task, cnt : cnt + self.num_pc_flatten] = transformation_apply(self.object_pos[i_task::self.num_task,None,:], self.object_rot[i_task::self.num_task,None,:], self.object_mesh_pointclouds[i_task]).view(-1, self.num_pc_flatten)
-                self.obs_buf[i_task::self.num_task, cnt + self.num_pc_flatten : cnt + 2 * self.num_pc_flatten] = transformation_apply(self.tool_pos[i_task::self.num_task,None,:], self.tool_rot[i_task::self.num_task,None,:], self.tool_mesh_pointclouds[i_task]).view(-1, self.num_pc_flatten)
+                self.obs_buf[i_task::self.num_task, cnt : cnt + self.num_pc_flatten] = transformation_apply(self.object_pos[i_task::self.num_task,None,:], self.object_rot[i_task::self.num_task,None,:], self.object_pointclouds[i_task]).view(-1, self.num_pc_flatten)
+                self.obs_buf[i_task::self.num_task, cnt + self.num_pc_flatten : cnt + 2 * self.num_pc_flatten] = transformation_apply(self.tool_pos[i_task::self.num_task,None,:], self.tool_rot[i_task::self.num_task,None,:], self.tool_pointclouds[i_task]).view(-1, self.num_pc_flatten)
             cnt += 2 * self.num_pc_flatten
         
         if 'objlabel' in self.obs_type:  
@@ -1581,6 +1641,7 @@ class BiLeapHandGraspM2Dagger(VecTask):
             cnt += 2
         # assert dim
         assert cnt == self.obs_buf.shape[1]
+
 
     def calculate_ik(self, target_left_pose, target_right_pose):
         '''
