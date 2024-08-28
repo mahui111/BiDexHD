@@ -18,7 +18,7 @@ task_id=$2
 # '"
 
 # evaluate
-python main.py task=BiLeapHandGraspM2Dagger train=LeapHandGraspM2Dagger algo=m2dagger num_envs=500 test=True checkpoint="'\
-/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-dagger/verb/distill1/dagger_ahuber_brush/dagger_4000.pt\
-'"
+# python main.py task=BiLeapHandGraspM2Dagger train=LeapHandGraspM2Dagger algo=m2dagger num_envs=500 test=True checkpoint="'\
+# /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-dagger/verb/distill1/dagger_ahuber_brush/dagger_4000.pt\
+# '"
 

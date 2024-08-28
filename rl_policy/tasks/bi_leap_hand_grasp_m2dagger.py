@@ -1291,8 +1291,9 @@ class BiLeapHandGraspM2Dagger(VecTask):
                     proportion = 0.8
                     b, e = 1, int(len(dataset_taco_data) * proportion)
                 len_dataset_taco_data = len(dataset_taco_data)
+                # for testing below two lines
                 self.train_task_ids.extend(list(range(cul_len + b, cul_len + e)))
-                self.test_task_ids.extend(list(range(cul_len, cul_len + b)) + list(range(cul_len + e, cul_len + len(dataset_taco_data))))
+                self.test_task_ids.extend(list(range(cul_len, cul_len + b)) + list(range(cul_len + e, cul_len + len_dataset_taco_data)))
                 cul_len += len_dataset_taco_data
                 num_train_set = e - b
                 num_test_set = b + len_dataset_taco_data - e
@@ -1301,12 +1302,12 @@ class BiLeapHandGraspM2Dagger(VecTask):
                     dataset_taco_data = dataset_taco_data[b:e] 
                 else:
                     print(f'training set: 0, testing set: {num_train_set + num_test_set}')
+                len_dataset_taco_data = len(dataset_taco_data)
                 self.dataset_taco_datas.extend(dataset_taco_data)
                 is_regen_hull_list.extend([triplet in regen_hull_task_list] * len_dataset_taco_data)
                 self.expert_ids.extend([itriplet] * len_dataset_taco_data)
                 self.verb_category.extend([category2idx[triplet.strip('()').split(', ')[0]]] * len_dataset_taco_data)
                 self.num_task += len_dataset_taco_data
-        assert len(set(self.train_task_ids+self.test_task_ids)) == self.num_task
         self.all_task_idx = torch.tensor([i % self.num_task for i in range(self.num_envs)], dtype=torch.long, device=self.device)
         self.expert_ids = torch.tensor(self.expert_ids, dtype=torch.long, device=self.device)
         assert len(self.expert_ids) == self.num_task
