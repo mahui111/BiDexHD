@@ -47,12 +47,12 @@ class M2DaggerValue(nn.Module):
         self.student_left_robostate_indices = list(range(0, 22)) + list(range(88, 100)) + list(range(112, 134)) + list(range(182, 189))
         self.student_left_pointcloud_indices = list(range(226, 226 + self.num_pc_flatten))
         self.student_left_objlabel_indices = list(range(226 + self.num_pc_flatten * 2, 226 + self.num_pc_flatten * 2 + 1))
-        self.student_left_instrlabel_indices = list(range(226 + self.num_pc_flatten * 2 + 2, 226 + self.num_pc_flatten * 2 + 3))
+        self.student_left_instrlabel_indices = []  #list(range(226 + self.num_pc_flatten * 2 + 2, 226 + self.num_pc_flatten * 2 + 3))
         self.student_left_obs_indices = self.student_left_robostate_indices + self.student_left_pointcloud_indices + self.student_left_instrlabel_indices
         self.student_right_robostate_indices = list(range(22, 44)) + list(range(100, 112)) + list(range(134, 156)) + list(range(189, 196))
         self.student_right_pointcloud_indices = list(range(226 + self.num_pc_flatten, 226 + self.num_pc_flatten * 2))
         self.student_right_objlabel_indices = list(range(226 + self.num_pc_flatten * 2 + 1, 226 + self.num_pc_flatten * 2 + 2))
-        self.student_right_instrlabel_indices = list(range(226 + self.num_pc_flatten * 2 + 2, 226 + self.num_pc_flatten * 2 + 3))
+        self.student_right_instrlabel_indices = []  #list(range(226 + self.num_pc_flatten * 2 + 2, 226 + self.num_pc_flatten * 2 + 3))
         self.student_right_obs_indices = self.student_right_robostate_indices + self.student_right_pointcloud_indices + self.student_right_instrlabel_indices
         assert len(self.expert_left_robostate_indices) == len(self.expert_right_robostate_indices) and len(self.student_left_obs_indices) == len(self.student_right_obs_indices)
         self.single_observation_space_shape = (len(self.student_left_obs_indices),)
@@ -87,7 +87,7 @@ class M2DaggerValue(nn.Module):
                                              self.single_action_space_shape, init_noise_std, train_param.policy,
                                              robostate_indices=self.student_left_robostate_indices, 
                                              pointcloud_indices=self.student_left_pointcloud_indices,
-                                             objlabel_indices=self.student_left_instrlabel_indices,)
+                                             objlabel_indices=[],)
         
         self.left_actor_critic.to(self.device)
         self.left_optimizer = optim.Adam(self.left_actor_critic.parameters(), lr=train_param["optim_stepsize"])
@@ -95,7 +95,7 @@ class M2DaggerValue(nn.Module):
                                               self.single_action_space_shape, init_noise_std, train_param.policy,
                                               robostate_indices=self.student_right_robostate_indices, 
                                               pointcloud_indices=self.student_right_pointcloud_indices,
-                                              objlabel_indices=self.student_right_instrlabel_indices,)
+                                              objlabel_indices=[],)
         self.right_actor_critic.to(self.device)
         self.right_optimizer = optim.Adam(self.right_actor_critic.parameters(), lr=train_param["optim_stepsize"])
 
@@ -111,7 +111,7 @@ class M2DaggerValue(nn.Module):
                 expert.load(expert_ckpt_file)
                 expert.eval()
                 self.expert_list.append(expert)
-            self.storage = M2DaggerStorage(self.vec_env.num_envs, self.num_transitions_per_env, (self.observation_space.shape[0] + 1, ),
+            self.storage = M2DaggerStorage(self.vec_env.num_envs, self.num_transitions_per_env, self.observation_space.shape,
                                         self.state_space.shape, self.single_action_space_shape, self.device, self.sampler)
     
     def test(self, path):
@@ -132,7 +132,7 @@ class M2DaggerValue(nn.Module):
         if self.is_testing:
             self.vec_env.random_time = False
         current_obs = self.vec_env.reset()["obs"]
-        current_obs = torch.cat([current_obs, self.vec_env.verb_category.view(-1,1) / 255.], dim=-1)
+        # current_obs = torch.cat([current_obs, self.vec_env.verb_category.view(-1,1) / 255.], dim=-1)
         current_states = self.vec_env.get_state()
 
         if self.is_testing:
@@ -166,16 +166,15 @@ class M2DaggerValue(nn.Module):
                 ep_infos = []
                 for i in range(self.num_transitions_per_env):
                     # Compute the action
-                    stu_left_actions, _, stu_left_values, _, _ = self.left_actor_critic.act(current_obs)
-                    stu_right_actions, _, stu_right_values, _, _ = self.right_actor_critic.act(current_obs)
+                    _, _, stu_left_values, stu_left_actions, _ = self.left_actor_critic.act(current_obs)
+                    _, _, stu_right_values, stu_right_actions, _ = self.right_actor_critic.act(current_obs)
                     stu_actions = torch.cat([stu_left_actions, stu_right_actions], dim=1)
                     # Step the vec_environment
                     with torch.no_grad():
                         next_obs_dict, rews, dones, infos = self.vec_env.step(stu_actions)
                         next_obs = next_obs_dict["obs"]
-                        next_obs = torch.cat([next_obs, self.vec_env.verb_category.view(-1,1) / 255.], dim=-1)
-                    current_obs.copy_(next_obs)
-                    current_states.copy_(self.vec_env.get_state())
+                        # next_obs = torch.cat([next_obs, self.vec_env.verb_category.view(-1,1) / 255.], dim=-1)
+
                     left_rews, right_rews = infos["left_reward"], infos["right_reward"]
                     # Record the transition
                     self.storage.add_transitions(
@@ -185,7 +184,8 @@ class M2DaggerValue(nn.Module):
                         stu_left_values, stu_right_values,
                         self.vec_env.expert_ids,
                     )
-
+                    current_obs.copy_(next_obs)
+                    current_states.copy_(self.vec_env.get_state())
                     # Book keeping
                     ep_infos.append(infos)
                     if self.print_log:  # calculate metrics
@@ -232,8 +232,8 @@ class M2DaggerValue(nn.Module):
                 # Policy loss
                 cur_left_actions_batch = self.left_actor_critic.act(obs_batch, grad=True)[3]
                 cur_right_actions_batch = self.right_actor_critic.act(obs_batch, grad=True)[3]
-                left_action_loss = F.huber_loss(cur_left_actions_batch, expert_left_actions_batch)
-                right_action_loss = F.huber_loss(cur_right_actions_batch, expert_right_actions_batch)
+                left_action_loss = F.huber_loss(cur_left_actions_batch, expert_left_actions_batch, delta=0.5)
+                right_action_loss = F.huber_loss(cur_right_actions_batch, expert_right_actions_batch, delta=0.5)
                 # Value loss
                 if self.value_loss_cfg['apply']:
                     left_action_batch = self.storage.left_actions.view(-1, self.storage.left_actions.size(-1))[indices]

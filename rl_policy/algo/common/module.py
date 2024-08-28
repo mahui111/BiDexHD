@@ -220,7 +220,6 @@ class ActorCritic(nn.Module):
 
         if not grad:
             actions_mean = actions_mean.detach()
-
         return (
             actions.detach(),
             actions_log_prob.detach(),
