@@ -1228,30 +1228,36 @@ class BiLeapHandGraspM2Dagger(VecTask):
         with open(os.path.join('taco_dataset/task_data/blacklist.txt')) as f:
             regen_hull_task_list = [line.strip('\n') for line in f]
         is_regen_hull_list = []
+
+        cul_len = 0
+        self.train_task_ids, self.test_task_ids = [], []
         for itriplet, triplet in enumerate(self.all_triplet):
             with open(f'taco_dataset/task_data/{triplet}.json', 'r') as f:
                 dataset_taco_data = json.load(f)
+                if len(dataset_taco_data) < 5:
+                    b, e = 0, len(dataset_taco_data)
+                elif len(dataset_taco_data) < 9:
+                    b, e = 1, len(dataset_taco_data)
+                else:
+                    proportion = 0.8
+                    b, e = 1, int(len(dataset_taco_data) * proportion)
+                len_dataset_taco_data = len(dataset_taco_data)
+                self.train_task_ids.extend(list(range(cul_len + b, cul_len + e)))
+                self.test_task_ids.extend(list(range(cul_len, cul_len + b)) + list(range(cul_len + e, cul_len + len(dataset_taco_data))))
+                cul_len += len_dataset_taco_data
+                num_train_set = e - b
+                num_test_set = b + len_dataset_taco_data - e
                 if not self.cfg['task']['is_all_task']:
-                    if len(dataset_taco_data) < 5:
-                        b, e = 0, len(dataset_taco_data)
-                    elif len(dataset_taco_data) < 9:
-                        b, e = 1, len(dataset_taco_data)
-                    else:
-                        proportion = 0.8
-                        b, e = 1, int(len(dataset_taco_data) * proportion)
-                    ne = e-b
-                    nb = len(dataset_taco_data) - ne
-                    print(f'triplet:{triplet}, training set: {ne}', f'testing set: {nb}')
+                    print(f'training set: {num_train_set}', f'testing set: {num_test_set}')
                     dataset_taco_data = dataset_taco_data[b:e] 
                 else:
-                    print(f'training set: 0, testing set: {len(dataset_taco_data)}')
-                len_dataset_taco_data = len(dataset_taco_data)
+                    print(f'training set: 0, testing set: {num_train_set + num_test_set}')
                 self.dataset_taco_datas.extend(dataset_taco_data)
                 is_regen_hull_list.extend([triplet in regen_hull_task_list] * len_dataset_taco_data)
                 self.expert_ids.extend([itriplet] * len_dataset_taco_data)
                 self.verb_category.extend([category2idx[triplet.strip('()').split(', ')[0]]] * len_dataset_taco_data)
                 self.num_task += len_dataset_taco_data
-        
+        assert len(set(self.train_task_ids+self.test_task_ids)) == self.num_task
         self.all_task_idx = torch.tensor([i % self.num_task for i in range(self.num_envs)], dtype=torch.long, device=self.device)
         self.expert_ids = torch.tensor(self.expert_ids, dtype=torch.long, device=self.device)
         assert len(self.expert_ids) == self.num_task
