@@ -1635,8 +1635,8 @@ class BiLeapHandGraspM2Dagger(VecTask):
             self.object_pointclouds = index_points(self.object_mesh_pointclouds, self.sampled_object_point_idxs, self.device)
             self.tool_pointclouds = index_points(self.tool_mesh_pointclouds, self.sampled_tool_point_idxs, self.device)
             if self.apply_pointcloud_noise:
-                self.object_pointclouds += torch.randn_like(self.object_pointclouds) * self.pointcloud_noise_scale * (torch.rand(self.object_pointclouds.shape[:-1]+(1,)) < self.pointcloud_noise_threshold).float()
-                self.tool_pointclouds += torch.randn_like(self.tool_pointclouds) * self.pointcloud_noise_scale * (torch.rand(self.tool_pointclouds.shape[:-1]+(1,)) < self.pointcloud_noise_threshold).float()
+                self.object_pointclouds += torch.randn_like(self.object_pointclouds).to(self.device) * self.pointcloud_noise_scale * (torch.rand(self.object_pointclouds.shape[:-1]+(1,)) < self.pointcloud_noise_threshold).float().to(self.device)
+                self.tool_pointclouds += torch.randn_like(self.tool_pointclouds).to(self.device) * self.pointcloud_noise_scale * (torch.rand(self.tool_pointclouds.shape[:-1]+(1,)) < self.pointcloud_noise_threshold).float().to(self.device)
             for i_task in range(self.num_task):
                 self.obs_buf[i_task::self.num_task, cnt : cnt + self.num_pc_flatten] = transformation_apply(self.object_pos[i_task::self.num_task,None,:], self.object_rot[i_task::self.num_task,None,:], self.object_pointclouds[i_task]).view(-1, self.num_pc_flatten)
                 self.obs_buf[i_task::self.num_task, cnt + self.num_pc_flatten : cnt + 2 * self.num_pc_flatten] = transformation_apply(self.tool_pos[i_task::self.num_task,None,:], self.tool_rot[i_task::self.num_task,None,:], self.tool_pointclouds[i_task]).view(-1, self.num_pc_flatten)
