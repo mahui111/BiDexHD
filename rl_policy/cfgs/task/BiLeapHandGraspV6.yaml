@@ -1,5 +1,5 @@
 # used to create the object
-name: BiLeapHandGraspM2Dagger
+name: BiLeapHandGraspV6
 mode: ${mode}
 physics_engine: ${..physics_engine}
 
@@ -7,7 +7,7 @@ physics_engine: ${..physics_engine}
 env: 
   numEnvs: ${resolve_default:16384,${...num_envs}}
   envSpacing: 1.5
-  episodeLength: 600
+  episodeLength: 800
   enableDebugVis: ${debug}
   aggregateMode: 1
 
@@ -60,21 +60,14 @@ env:
   # set to True if you use camera sensors in the environment
   enableCameraSensors: False
   cameraPosition: [0.0, -2.0, 3.0]
-  cameraTarget: [0.0, 0.0, 2.0]
-  vision:
-    pointclouds:
-      numDownsample: ${numDownsample}
-      numEachPoint: ${numEachPoint}
-      nResample: 32
-      nMaxSamplePoints: 4096
-      nSamplePoints: 512
-    noise: 
-      apply: False
-      scale: 0.004
-      threshold: 0.4
+  cameraTarget: [0.0, 0.0, 1.5]
+  imageWidth: 128
+  imageHeight: 128
+  imageSaveDir: "/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/taco_dataset/sampled_data"
 
 task:
   is_all_task: ${...test}
+  task_id: ${...task_id}
   frequency: 3
   horizon: 2
   isStage1HOReward: ${isStage1HOReward}
@@ -193,3 +186,6 @@ sim:
     max_depenetration_velocity: 1000.0
     default_buffer_size_multiplier: 5.0
     contact_collection: 0 # 0: CC_NEVER (don't collect contact info), 1: CC_LAST_SUBSTEP (collect only contacts on last substep), 2: CC_ALL_SUBSTEPS (broken - do not use!)
+
+dataset:
+  meta_data_path: taco_dataset/task_data/${...triplet}.json

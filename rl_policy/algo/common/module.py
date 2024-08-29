@@ -210,7 +210,7 @@ class ActorCritic(nn.Module):
 
     def act(self, observations, states=None, grad=False):
         observations = self.get_all_observation(observations, self.use_pc, self.use_objlabel)
-        actions_mean = self.actor(observations)
+        actions_mean = self.actor(observations).clamp(-1.1,1.1)
         covariance = torch.diag(self.log_std.exp() * self.log_std.exp())
 
         distribution = MultivariateNormal(actions_mean, scale_tril=covariance)
@@ -230,12 +230,12 @@ class ActorCritic(nn.Module):
 
     def act_inference(self, observations):
         observations = self.get_all_observation(observations, self.use_pc, self.use_objlabel)
-        actions_mean = self.actor(observations)
+        actions_mean = self.actor(observations).clamp(-1.1,1.1)
         return actions_mean.detach()
 
     def evaluate(self, observations, states, actions):
         observations = self.get_all_observation(observations, self.use_pc, self.use_objlabel)
-        actions_mean = self.actor(observations)
+        actions_mean = self.actor(observations).clamp(-1.1,1.1)
         covariance = torch.diag(self.log_std.exp() * self.log_std.exp())
         distribution = MultivariateNormal(actions_mean, scale_tril=covariance)
 
