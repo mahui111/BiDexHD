@@ -1295,6 +1295,7 @@ class BiLeapHandGraspM2Dagger(VecTask):
                 test_task_ids = list(range(cul_len, cul_len + b)) + list(range(cul_len + e, cul_len + len_dataset_taco_data))
                 self.train_task_ids.extend(train_task_ids)
                 self.test_task_ids.extend(test_task_ids)
+
                 cul_len += len_dataset_taco_data
                 num_train_set = e - b
                 num_test_set = b + len_dataset_taco_data - e
@@ -1315,12 +1316,13 @@ class BiLeapHandGraspM2Dagger(VecTask):
                     dataset_taco_data = dataset_taco_data[b:e] 
                 else:
                     print(f'training set: 0, testing set: {num_train_set + num_test_set}')
+                len_dataset_taco_data = len(dataset_taco_data)
                 self.dataset_taco_datas.extend(dataset_taco_data)
                 is_regen_hull_list.extend([triplet in regen_hull_task_list] * len_dataset_taco_data)
                 self.expert_ids.extend([itriplet] * len_dataset_taco_data)
                 self.verb_category.extend([category2idx[triplet.strip('()').split(', ')[0]]] * len_dataset_taco_data)
                 self.num_task += len_dataset_taco_data
-        assert len(set(self.train_task_ids + self.test_task_ids)) == self.num_task
+
         self.all_task_idx = torch.tensor([i % self.num_task for i in range(self.num_envs)], dtype=torch.long, device=self.device)
         assert len(self.expert_ids) == self.num_task
         self.expert_ids = torch.tensor(self.expert_ids, dtype=torch.long, device=self.device)[self.all_task_idx]
@@ -1648,8 +1650,8 @@ class BiLeapHandGraspM2Dagger(VecTask):
             self.object_pointclouds = index_points(self.object_mesh_pointclouds, self.sampled_object_point_idxs, self.device)
             self.tool_pointclouds = index_points(self.tool_mesh_pointclouds, self.sampled_tool_point_idxs, self.device)
             if self.apply_pointcloud_noise:
-                self.object_pointclouds += torch.randn_like(self.object_pointclouds) * self.pointcloud_noise_scale * (torch.rand(self.object_pointclouds.shape[:-1]+(1,)) < self.pointcloud_noise_threshold).float()
-                self.tool_pointclouds += torch.randn_like(self.tool_pointclouds) * self.pointcloud_noise_scale * (torch.rand(self.tool_pointclouds.shape[:-1]+(1,)) < self.pointcloud_noise_threshold).float()
+                self.object_pointclouds += torch.randn_like(self.object_pointclouds).to(self.device) * self.pointcloud_noise_scale * (torch.rand(self.object_pointclouds.shape[:-1]+(1,)) < self.pointcloud_noise_threshold).float().to(self.device)
+                self.tool_pointclouds += torch.randn_like(self.tool_pointclouds).to(self.device) * self.pointcloud_noise_scale * (torch.rand(self.tool_pointclouds.shape[:-1]+(1,)) < self.pointcloud_noise_threshold).float().to(self.device)
             for i_task in range(self.num_task):
                 self.obs_buf[i_task::self.num_task, cnt : cnt + self.num_pc_flatten] = transformation_apply(self.object_pos[i_task::self.num_task,None,:], self.object_rot[i_task::self.num_task,None,:], self.object_pointclouds[i_task]).view(-1, self.num_pc_flatten)
                 self.obs_buf[i_task::self.num_task, cnt + self.num_pc_flatten : cnt + 2 * self.num_pc_flatten] = transformation_apply(self.tool_pos[i_task::self.num_task,None,:], self.tool_rot[i_task::self.num_task,None,:], self.tool_pointclouds[i_task]).view(-1, self.num_pc_flatten)

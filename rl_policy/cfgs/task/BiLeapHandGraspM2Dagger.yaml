@@ -70,7 +70,7 @@ env:
       nSamplePoints: 512
     noise: 
       apply: False
-      scale: 0.005
+      scale: 0.004
       threshold: 0.4
 
 task:

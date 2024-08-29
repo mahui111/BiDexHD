@@ -65,8 +65,6 @@ params:
 
     # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(brush, brush, box)/ema0.1+ol2/model_15000.pt',
 
-  ]
-  # expertCkptFiles: [
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(brush, brush, bowl)/ema0.1+ol2/model_21000.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(dust, brush, bowl)/ema0.1+ol2/model_17000.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(dust, brush, pan)/ema0.1+ol2/model_22000.pt',
@@ -81,11 +79,11 @@ params:
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(put out, bowl, plate)/ema0.1+ol2/model_30000.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(pour in some, bowl, bowl)/ema0.1+ol2/model_14000.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(pour in some, cup, cup)/ema0.1+ol2/model_17500.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(scrape off, knife, bowl)/ema0.1+ol2/model_37000.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(smear, glue gun, box)/ema0.1+ol2/model_34000.pt',
+    #'/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(scrape off, knife, bowl)/ema0.1+ol2/model_37000.pt',
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(smear, glue gun, box)/ema0.1+ol2/model_34000.pt',
     
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(brush, brush, box)/ema0.1+ol2/model_15000.pt',
-  # ]
+  ]
   expertObservationType: "dofps+dofvel+ftps+lastact+objstate+palmpose+relps+objlabel"  
   clipAction: False
   lossFunc: "huber"
