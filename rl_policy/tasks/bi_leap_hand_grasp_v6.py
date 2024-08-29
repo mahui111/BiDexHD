@@ -1307,7 +1307,6 @@ class BiLeapHandGraspV6(VecTask):
         init_timestep = taco_task_data['key_steps']['init']
         ref_timestep = taco_task_data['key_steps']['ref']
         end_timestep = taco_task_data['key_steps']['end']
-        print(ref_timestep + (end_timestep - ref_timestep) * self.frequency)
         # object grasp pos
         dataset_object_grasp_pos = np.array(taco_task_data['left']['object']['gpos'])
         dataset_tool_grasp_pos = np.array(taco_task_data['right']['tool']['gpos'])

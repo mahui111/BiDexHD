@@ -1,5 +1,26 @@
 cd rl_policy
-triplet_list=("'(brush, brush, bowl)'")
+triplet_list=(
+    "'(brush, brush, bowl)'"
+    "'(dust, brush, bowl)'"
+    "'(dust, brush, pan)'"
+    "'(dust, roller, bowl)'"
+    "'(empty, bowl, bowl)'"
+    "'(empty, bowl, plate)'"
+    "'(empty, cup, teapot)'"
+    "'(empty, teapot, plate)'"
+)
+
+# triplet_list=(
+#     "'(empty, teapot, teapot)'"
+#     "'(put out, bowl, bowl)'"
+#     "'(put out, bowl, pan)'"
+#     "'(put out, bowl, plate)'"
+#     "'(pour in some, bowl, bowl)'"
+#     "'(pour in some, cup, cup)'"
+#     "'(scrape off, knife, bowl)'"
+#     "'(smear, glue gun, box)'"
+# )
+
 
 # Loop through each index in the triplet_list array
 for i in "${!triplet_list[@]}"; do
