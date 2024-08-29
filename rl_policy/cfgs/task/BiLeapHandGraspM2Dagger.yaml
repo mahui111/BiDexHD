@@ -7,7 +7,7 @@ physics_engine: ${..physics_engine}
 env: 
   numEnvs: ${resolve_default:16384,${...num_envs}}
   envSpacing: 1.5
-  episodeLength: 600
+  episodeLength: 800
   enableDebugVis: ${debug}
   aggregateMode: 1
 
