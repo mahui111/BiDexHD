@@ -1089,8 +1089,8 @@ class BiRetargetor:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_dir", type=str, default="/home/zbh/Desktop/zbh/robot/TACO-Instructions/dataset/overall")
-    parser.add_argument("--mano_model_path", type=str, default="/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/taco_dataset/manopth/mano/models")
+    parser.add_argument("--dataset_dir", type=str, default="/mnt/hpfs/baairl/zbh/BVDex/assets/TACOdatasets")
+    parser.add_argument("--mano_model_path", type=str, default="rl_policy/taco_dataset/manopth/mano/models")
     parser.add_argument("--triplet", type=str, default='(smear, eraser, plate)')
     parser.add_argument("--num_max", type=int, default=100)
     parser.add_argument("--viz_sapien", action="store_true")

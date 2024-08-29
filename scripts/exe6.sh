@@ -7,13 +7,13 @@ if [ ! -f "taco_dataset/task_data/$cleaned_triplet.json" ]; then
 fi
 
 # debug
-python -m pdb main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=ippo num_envs=110 triplet="$triplet" exp_name=debug 
+# python -m pdb main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=ippo num_envs=110 triplet="$triplet" exp_name=debug 
 
 # visualize
 # python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=ippo num_envs=1 triplet="$triplet" test=True mode=visualize
 
 # train
-# CUDA_VISIBLE_DEVICES=0 python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=ippo num_envs=10000 triplet="$triplet" exp_name=ema0.1+ol2 headless=True
+CUDA_VISIBLE_DEVICES=0 python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=ippo num_envs=10000 triplet="$triplet" exp_name=ema0.1+ol2 headless=True
 
 # evaluate
 # python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=ippo num_envs=1000 triplet="$triplet" test=True headless=True checkpoint="'\

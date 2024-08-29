@@ -62,7 +62,6 @@ params:
     # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(pour in some, cup, cup)/ema0.1+ol2/model_17500.pt',
     # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(scrape off, knife, bowl)/ema0.1+ol2/model_37000.pt',
     # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(smear, glue gun, box)/ema0.1+ol2/model_34000.pt',
-
     # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(brush, brush, box)/ema0.1+ol2/model_15000.pt',
 
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(brush, brush, bowl)/ema0.1+ol2/model_21000.pt',

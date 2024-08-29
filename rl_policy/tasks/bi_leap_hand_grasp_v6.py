@@ -1333,7 +1333,7 @@ class BiLeapHandGraspV6(VecTask):
         right_robot_start_pose.p = gymapi.Vec3(0.34, -0.5, table_height + 0.52)
         right_robot_start_pose.r = gymapi.Quat(0.5,  0.5,  0.5, -0.5)
         # add offset to dataset
-        offset = np.array([-object_center_coord[0], -object_center_coord[1], table_height + 0.03 - min(dataset_object_init_pos[2],dataset_tool_init_pos[2])])
+        offset = np.array([-object_center_coord[0], -object_center_coord[1], table_height + 0.05 - min(dataset_object_init_pos[2],dataset_tool_init_pos[2])])
         dataset_object_pose = to_torch(torch.from_numpy(np.concatenate([
             dataset_object_pos + offset,
             dataset_object_quat,
