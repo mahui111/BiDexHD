@@ -1273,7 +1273,7 @@ class BiLeapHandGraspM2Dagger(VecTask):
         }
         assert len(self.all_triplet) == len(set(self.all_triplet)), 'triplet names should be unique'
         self.num_task = 0
-        self.dataset_taco_datas, self.expert_ids, self.verb_category = [], [], []
+        self.dataset_taco_datas, self.expert_ids, self.verb_category, self.types = [], [], [], []
         with open(os.path.join('taco_dataset/task_data/blacklist.txt')) as f:
             regen_hull_task_list = [line.strip('\n') for line in f]
         is_regen_hull_list = []
@@ -1291,12 +1291,26 @@ class BiLeapHandGraspM2Dagger(VecTask):
                     proportion = 0.8
                     b, e = 1, int(len(dataset_taco_data) * proportion)
                 len_dataset_taco_data = len(dataset_taco_data)
-                # for testing below two lines
-                self.train_task_ids.extend(list(range(cul_len + b, cul_len + e)))
-                self.test_task_ids.extend(list(range(cul_len, cul_len + b)) + list(range(cul_len + e, cul_len + len_dataset_taco_data)))
+                train_task_ids = list(range(cul_len + b, cul_len + e))
+                test_task_ids = list(range(cul_len, cul_len + b)) + list(range(cul_len + e, cul_len + len_dataset_taco_data))
+                self.train_task_ids.extend(train_task_ids)
+                self.test_task_ids.extend(test_task_ids)
+
                 cul_len += len_dataset_taco_data
                 num_train_set = e - b
                 num_test_set = b + len_dataset_taco_data - e
+                # judge testing type: 0 for training, 1 for testing seen, 2 for testing unseen
+                id_pairs = np.array([(dataset_taco_data[k]['left']['object']['id'], dataset_taco_data[k]['right']['tool']['id']) for k in range(len_dataset_taco_data)])
+                types = [1] * b + [0] * (e-b) + [1] * (len_dataset_taco_data - e)
+                unique_trained_object_ids = np.unique(id_pairs[b:e,0])
+                unique_trained_tool_ids = np.unique(id_pairs[b:e,1])
+                for k in range(len_dataset_taco_data):
+                    if k<b or k>=e:
+                        objid, toolid = id_pairs[k]
+                        if objid not in unique_trained_object_ids or toolid not in unique_trained_tool_ids:
+                            types[k] = 2
+                
+                self.types.extend(types)
                 if not self.cfg['task']['is_all_task']:
                     print(f'training set: {num_train_set}', f'testing set: {num_test_set}')
                     dataset_taco_data = dataset_taco_data[b:e] 
@@ -1308,13 +1322,14 @@ class BiLeapHandGraspM2Dagger(VecTask):
                 self.expert_ids.extend([itriplet] * len_dataset_taco_data)
                 self.verb_category.extend([category2idx[triplet.strip('()').split(', ')[0]]] * len_dataset_taco_data)
                 self.num_task += len_dataset_taco_data
+
         self.all_task_idx = torch.tensor([i % self.num_task for i in range(self.num_envs)], dtype=torch.long, device=self.device)
-        self.expert_ids = torch.tensor(self.expert_ids, dtype=torch.long, device=self.device)
         assert len(self.expert_ids) == self.num_task
-        self.expert_ids = self.expert_ids[self.all_task_idx]
-        self.verb_category = torch.tensor(self.verb_category, dtype=torch.long, device=self.device)
+        self.expert_ids = torch.tensor(self.expert_ids, dtype=torch.long, device=self.device)[self.all_task_idx]
         assert len(self.verb_category) == self.num_task
-        self.verb_category = self.verb_category[self.all_task_idx]
+        self.verb_category = torch.tensor(self.verb_category, dtype=torch.long, device=self.device)[self.all_task_idx]
+        assert len(self.types) == self.num_task
+        self.types = torch.tensor(self.types, dtype=torch.long, device=self.device)[self.all_task_idx]
         obj_asset_storage = dict()
         object_max_shape, tool_max_shape = -1, -1
         for task_id in range(self.num_task):

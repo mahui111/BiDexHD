@@ -46,24 +46,24 @@ params:
     clip_range: 0.5
 
   expertCkptFiles: [
+    '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(brush, brush, bowl)/ema0.1+ol2/model_21000.pt',
     # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(dust, brush, bowl)/ema0.1+ol2/model_17000.pt',
+    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(dust, brush, pan)/ema0.1+ol2/model_22000.pt',
     # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(dust, roller, bowl)/ema0.1+ol2/model_22500.pt',
     # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(empty, bowl, bowl)/ema0.1+ol2/model_18000.pt',
     # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(empty, bowl, plate)/ema0.1+ol2/model_29500.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(put out, bowl, pan)/ema0.1+ol2/model_11500.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(put out, bowl, plate)/ema0.1+ol2/model_30000.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(smear, glue gun, box)/ema0.1+ol2/model_34000.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(brush, brush, bowl)/ema0.1+ol2/model_21000.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(dust, brush, pan)/ema0.1+ol2/model_22000.pt',
     # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(empty, cup, teapot)/ema0.1+ol2/model_12500.pt',
     # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(empty, teapot, plate)/ema0.1+ol2/model_20500.pt',
     # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(empty, teapot, teapot)/ema0.1+ol2/model_19000.pt',
+    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(put out, bowl, bowl)/ema0.1+ol2/model_18000.pt',
+    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(put out, bowl, pan)/ema0.1+ol2/model_11500.pt',
+    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(put out, bowl, plate)/ema0.1+ol2/model_30000.pt',
     # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(pour in some, bowl, bowl)/ema0.1+ol2/model_14000.pt',
     # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(pour in some, cup, cup)/ema0.1+ol2/model_17500.pt',
     # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(scrape off, knife, bowl)/ema0.1+ol2/model_37000.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(put out, bowl, bowl)/ema0.1+ol2/model_18000.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(brush, brush, box)/ema0.1+ol2/model_15000.pt',
+    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(smear, glue gun, box)/ema0.1+ol2/model_34000.pt',
 
+    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(brush, brush, box)/ema0.1+ol2/model_15000.pt',
 
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(brush, brush, bowl)/ema0.1+ol2/model_21000.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(dust, brush, bowl)/ema0.1+ol2/model_17000.pt',

@@ -1204,6 +1204,17 @@ class BiLeapHandGraspV5(VecTask):
             self.test_task_ids = list(range(0, b)) + list(range(e, len(dataset_taco_data))) 
             num_train_set = len(self.train_task_ids)
             num_test_set = len(self.test_task_ids)
+            len_dataset_taco_data = len(dataset_taco_data)
+            # judge testing type: 0 for training, 1 for testing seen, 2 for testing unseen
+            id_pairs = np.array([(dataset_taco_data[k]['left']['object']['id'], dataset_taco_data[k]['right']['tool']['id']) for k in range(len_dataset_taco_data)])
+            self.types = [1] * b + [0] * (e-b) + [1] * (len_dataset_taco_data - e)
+            unique_trained_object_ids = np.unique(id_pairs[b:e,0])
+            unique_trained_tool_ids = np.unique(id_pairs[b:e,1])
+            for k in range(len_dataset_taco_data):
+                if k<b or k>=e:
+                    objid, toolid = id_pairs[k]
+                    if objid not in unique_trained_object_ids or toolid not in unique_trained_tool_ids:
+                        self.types[k] = 2
             if not self.cfg['task']['is_all_task']:
                 print(f'training set: {num_train_set}', f'testing set: {num_test_set}')
                 dataset_taco_data = dataset_taco_data[b:e] 
@@ -1211,7 +1222,8 @@ class BiLeapHandGraspV5(VecTask):
                 print(f'training set: 0, testing set: {num_train_set + num_test_set}')
         self.num_task = len(dataset_taco_data)
         self.all_task_idx = torch.tensor([i % self.num_task for i in range(self.num_envs)], dtype=torch.long, device=self.device)
-        
+        assert len(self.types) == self.num_task
+        self.types = torch.tensor(self.types, dtype=torch.long, device=self.device)[self.all_task_idx]
         obj_asset_storage = {}
         object_max_shape, tool_max_shape = -1, -1
         for task_id in range(self.num_task):

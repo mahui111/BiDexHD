@@ -143,7 +143,7 @@ class M2DaggerValue(nn.Module):
 
         if self.is_testing:
             eplen = self.vec_env.max_episode_length
-            for testepi in range(10):
+            for testepi in range(3):
                 for i in range(eplen):
                     with torch.no_grad():
                         # Compute the action
@@ -167,6 +167,8 @@ class M2DaggerValue(nn.Module):
                 test_env_ids = [l for l in range(self.vec_env.num_envs) if l in self.vec_env.test_task_ids]
                 print(f"training set\t| stage1_successes: {record_metrics['stage1_successes'][train_env_ids].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][train_env_ids].mean()}")
                 print(f"testing set\t| stage1_successes: {record_metrics['stage1_successes'][test_env_ids].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][test_env_ids].mean()}")
+                print(f"testing seen\t| stage1_successes: {record_metrics['stage1_successes'][self.vec_env.types == 1].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][self.vec_env.types == 1].mean()}")
+                print(f"testing unseen\t| stage1_successes: {record_metrics['stage1_successes'][self.vec_env.types == 2].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][self.vec_env.types == 2].mean()}")
                 
                 # 2. log total
                 print('-'*90 + f'\n Total')

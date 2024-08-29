@@ -275,7 +275,9 @@ class IPPO(nn.Module):
                         test_env_ids = [l for l in range(self.vec_env.num_envs) if l in self.vec_env.test_task_ids]
                         print(f"training set\t| stage1_successes: {record_metrics['stage1_successes'][train_env_ids].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][train_env_ids].mean()}")
                         print(f"testing set\t| stage1_successes: {record_metrics['stage1_successes'][test_env_ids].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][test_env_ids].mean()}")
-                        
+                        print(f"testing seen\t| stage1_successes: {record_metrics['stage1_successes'][self.vec_env.types == 1].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][self.vec_env.types == 1].mean()}")
+                        print(f"testing unseen\t| stage1_successes: {record_metrics['stage1_successes'][self.vec_env.types == 2].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][self.vec_env.types == 2].mean()}")
+                
                         # 2. log success rate for each id-pair
                         print('-'*90 + f'\n Trained Tasks')
                         for task_id in range(self.vec_env.num_task):
