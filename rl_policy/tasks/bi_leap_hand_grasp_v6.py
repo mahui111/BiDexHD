@@ -324,8 +324,8 @@ def compute_bvdex_stage12_rewards(
     action_penalty_scale: float,
     success_tolerance: float,
     av_factor: float,
-    table_heights,
-    actions,
+    table_heights, left_robot_link1_pos, right_robot_link1_pos,
+    frequency: float,
     timestep, reach_ref_timestep, left_reach_ref_timestep, right_reach_ref_timestep,
     ref_object_pose, ref_init_object_pos_dist,  #ref_ref_object_palm_pose_diff, ref_ref_object_left_fingers_pos_diff,
     ref_tool_pose, ref_init_tool_pos_dist,      #ref_ref_tool_palm_pose_diff, ref_ref_tool_right_fingers_pos_diff,
@@ -385,8 +385,8 @@ def compute_bvdex_stage12_rewards(
     right_successes = torch.logical_and(ref_tool_pos_dist <= success_tolerance, right_fingertips_tool_dist + right_palm_tool_dist < 0.12 * (num_fingers + 1)).float()
     stage1_cul_left_successes = torch.where(left_successes > 0, left_successes + stage1_cul_left_successes, torch.zeros_like(left_successes))
     stage1_cul_right_successes = torch.where(right_successes > 0, right_successes + stage1_cul_right_successes, torch.zeros_like(right_successes))
-    stage1_left_success_flag = stage1_cul_left_successes >= 10
-    stage1_right_success_flag = stage1_cul_right_successes >= 10
+    stage1_left_success_flag = stage1_cul_left_successes >= frequency
+    stage1_right_success_flag = stage1_cul_right_successes >= frequency
     left_reach_ref_timestep = torch.where(torch.logical_and(stage1_left_success_flag, left_reach_ref_timestep == -1), timestep, left_reach_ref_timestep)
     right_reach_ref_timestep = torch.where(torch.logical_and(stage1_right_success_flag, right_reach_ref_timestep == -1), timestep, right_reach_ref_timestep)
     reach_ref_timestep = torch.where(torch.logical_and(torch.logical_and(stage1_left_success_flag, stage1_right_success_flag), reach_ref_timestep == -1), timestep, reach_ref_timestep)
@@ -520,10 +520,10 @@ def compute_bvdex_stage12_rewards(
     
     # bonus for second stage success
     # stage12_successes = torch.logical_and(stage1_successes, stage2_successes >= 0.5).float()
-    left_stage2_bonus = torch.where(is_expect_end, 10 * (stage2_left_successes >= 0.8), torch.zeros_like(stage2_successes))
-    right_stage2_bonus = torch.where(is_expect_end, 10 * (stage2_right_successes >= 0.4), torch.zeros_like(stage2_successes))
-    info["left_stage2_bonus"] = left_stage2_bonus
-    info["right_stage2_bonus"] = right_stage2_bonus
+    # left_stage2_bonus = torch.where(is_expect_end, 10 * (stage2_left_successes >= 0.8), torch.zeros_like(stage2_successes))
+    # right_stage2_bonus = torch.where(is_expect_end, 10 * (stage2_right_successes >= 0.4), torch.zeros_like(stage2_successes))
+    # info["left_stage2_bonus"] = left_stage2_bonus
+    # info["right_stage2_bonus"] = right_stage2_bonus
 
     # total reward
     left_approach_penalty = dist_reward_scale * left_fingertips_object_dist + 2 * dist_reward_scale * left_palm_object_dist
@@ -548,9 +548,10 @@ def compute_bvdex_stage12_rewards(
 
     # reset
     resets = reset_buf.clone()
-    resets = torch.where(progress_buf >= max_episode_length, torch.ones_like(resets), resets)
-    resets = torch.where(torch.logical_or(object_pose[:, 2] <= table_heights, tool_pose[:, 2] <= table_heights), torch.ones_like(resets), resets)
-    resets = torch.where(is_expect_end, torch.ones_like(resets), resets)
+    resets = torch.where(progress_buf >= max_episode_length, torch.ones_like(resets), resets)   # 1. reach max episode length
+    resets = torch.where(torch.logical_or(object_pose[:, 2] <= table_heights, tool_pose[:, 2] <= table_heights), torch.ones_like(resets), resets)  # 2. fall under table
+    resets = torch.where(torch.logical_or(torch.pairwise_distance(left_robot_link1_pos, object_pose[:, :3]) >= 1., torch.pairwise_distance(right_robot_link1_pos, tool_pose[:, :3]) >= 1.), torch.ones_like(resets), resets)  # 3. object out of scope
+    resets = torch.where(is_expect_end, torch.ones_like(resets), resets)  # 4. dataset end
 
     return (
         reward,
@@ -1325,14 +1326,17 @@ class BiLeapHandGraspV6(VecTask):
         table_asset, table_start_pose = self._prepare_table_asset(table_dim)
         # constants
         object_center_coord = (dataset_object_init_pos + dataset_tool_init_pos) / 2
+        rbx, rby, rbz = 0.34, 0.5, table_height + 0.52
         left_robot_start_pose = gymapi.Transform()
-        left_robot_start_pose.p = gymapi.Vec3(-0.34, -0.5, table_height + 0.52)
+        self.left_robot_link1_pos = torch.tensor([[-rbx, 0.24 - rby, rbz]], dtype=torch.float, device=self.device)
+        left_robot_start_pose.p = gymapi.Vec3(-rbx, -rby, rbz)
         left_robot_start_pose.r = gymapi.Quat(0.5,  0.5,  0.5, -0.5)
         right_robot_start_pose = gymapi.Transform()
-        right_robot_start_pose.p = gymapi.Vec3(0.34, -0.5, table_height + 0.52)
+        self.right_robot_link1_pos = torch.tensor([[rbx, 0.24 - rby, rbz]], dtype=torch.float, device=self.device)
+        right_robot_start_pose.p = gymapi.Vec3(rbx, -rby, rbz)
         right_robot_start_pose.r = gymapi.Quat(0.5,  0.5,  0.5, -0.5)
         # add offset to dataset
-        offset = np.array([-object_center_coord[0], -object_center_coord[1], table_height + 0.05 - min(dataset_object_init_pos[2],dataset_tool_init_pos[2])])
+        offset = np.array([-object_center_coord[0], -object_center_coord[1], table_height + 0.03 - min(dataset_object_init_pos[2],dataset_tool_init_pos[2])])
         dataset_object_pose = to_torch(torch.from_numpy(np.concatenate([
             dataset_object_pos + offset,
             dataset_object_quat,
@@ -1355,10 +1359,10 @@ class BiLeapHandGraspV6(VecTask):
         
         # initial object poses
         object_start_pose = gymapi.Transform()
-        object_start_pose.p = gymapi.Vec3(-0.34, 0, dataset_object_init_pos[2] + offset[2])
+        object_start_pose.p = gymapi.Vec3(- 0.05, 0, dataset_object_init_pos[2] + offset[2])
         object_start_pose.r = gymapi.Quat(0,0,0,1)
         tool_start_pose = gymapi.Transform()
-        tool_start_pose.p = gymapi.Vec3(0.34, 0, dataset_tool_init_pos[2] + offset[2])
+        tool_start_pose.p = gymapi.Vec3(0.05, 0, dataset_tool_init_pos[2] + offset[2])
         tool_start_pose.r = gymapi.Quat(0,0,0,1)
         '''
         # left palm poses
@@ -1445,8 +1449,8 @@ class BiLeapHandGraspV6(VecTask):
                 self.action_penalty_scale,
                 self.success_tolerance,
                 self.av_factor,
-                self.table_heights,
-                self.actions,
+                self.table_heights, self.left_robot_link1_pos, self.right_robot_link1_pos,
+                self.frequency,
                 self.timestep, self.reach_ref_timestep, self.left_reach_ref_timestep, self.right_reach_ref_timestep,
                 ref_object_pose, self.ref_init_object_pos_dist, #self.ref_ref_object_palm_pose_diff, self.ref_ref_object_left_fingers_pos_diff,
                 ref_tool_pose, self.ref_init_tool_pos_dist,     #self.ref_ref_tool_palm_pose_diff, self.ref_ref_tool_right_fingers_pos_diff,

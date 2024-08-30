@@ -262,6 +262,7 @@ class IPPO(nn.Module):
                         left_actions = self.left_agent.actor_critic.act_inference(current_obs)
                         right_actions = self.right_agent.actor_critic.act_inference(current_obs)
                         actions = torch.cat((left_actions, right_actions), dim=1)
+                        # print(f'max: {actions.max()}, min: {actions.min()}, mean: {actions.mean()}, median: {actions.median()}, std: {actions.std()}, pro:{((actions > -1) & (actions < 1)).float().mean()}')
                         # Step the vec_environment
                         next_obs_dict, rews, dones, infos = self.vec_env.step(actions)
                         if self.record_dof: traj_dof = np.concatenate((traj_dof, self.vec_env.robot_dof_pos[:1].detach().cpu().numpy()), axis=0)
@@ -271,8 +272,8 @@ class IPPO(nn.Module):
                         record_metrics = {metric: getattr(self.vec_env, metric) for metric in record_metric_names}
                         # 1. log success rate for train & test
                         print('-'*90 + f'\nTrain & Test')
-                        train_env_ids = [l for l in range(self.vec_env.num_envs) if l in self.vec_env.train_task_ids]
-                        test_env_ids = [l for l in range(self.vec_env.num_envs) if l in self.vec_env.test_task_ids]
+                        train_env_ids = [l for l in range(self.vec_env.num_envs) if l % self.vec_env.num_task in self.vec_env.train_task_ids]
+                        test_env_ids = [l for l in range(self.vec_env.num_envs) if l % self.vec_env.num_task in self.vec_env.test_task_ids]
                         print(f"training set\t| stage1_successes: {record_metrics['stage1_successes'][train_env_ids].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][train_env_ids].mean()}")
                         print(f"testing set\t| stage1_successes: {record_metrics['stage1_successes'][test_env_ids].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][test_env_ids].mean()}")
                         print(f"testing seen\t| stage1_successes: {record_metrics['stage1_successes'][self.vec_env.types == 1].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][self.vec_env.types == 1].mean()}")

@@ -7,7 +7,7 @@ physics_engine: ${..physics_engine}
 env: 
   numEnvs: ${resolve_default:16384,${...num_envs}}
   envSpacing: 1.5
-  episodeLength: 800
+  episodeLength: 1000
   enableDebugVis: ${debug}
   aggregateMode: 1
 
@@ -68,7 +68,7 @@ env:
 task:
   is_all_task: ${...test}
   task_id: ${...task_id}
-  frequency: 3
+  frequency: 3.0
   horizon: 2
   isStage1HOReward: ${isStage1HOReward}
   isStage1LinReward: ${isStage1LinReward}
