@@ -550,7 +550,7 @@ def compute_bvdex_stage12_rewards(
     resets = reset_buf.clone()
     resets = torch.where(progress_buf >= max_episode_length, torch.ones_like(resets), resets)   # 1. reach max episode length
     resets = torch.where(torch.logical_or(object_pose[:, 2] <= table_heights, tool_pose[:, 2] <= table_heights), torch.ones_like(resets), resets)  # 2. fall under table
-    resets = torch.where(torch.logical_or(torch.pairwise_distance(left_robot_link1_pos, object_pose[:, :3]) >= 1., torch.pairwise_distance(right_robot_link1_pos, tool_pose[:, :3]) >= 1.), torch.ones_like(resets), resets)  # 3. object out of scope
+    resets = torch.where(torch.logical_or(torch.pairwise_distance(left_robot_link1_pos, object_pose[:, :3]) >= 0.85, torch.pairwise_distance(right_robot_link1_pos, tool_pose[:, :3]) >= 0.85), torch.ones_like(resets), resets)  # 3. object out of scope
     resets = torch.where(is_expect_end, torch.ones_like(resets), resets)  # 4. dataset end
 
     return (
@@ -1326,7 +1326,7 @@ class BiLeapHandGraspV6(VecTask):
         table_asset, table_start_pose = self._prepare_table_asset(table_dim)
         # constants
         object_center_coord = (dataset_object_init_pos + dataset_tool_init_pos) / 2
-        rbx, rby, rbz = 0.34, 0.5, table_height + 0.52
+        rbx, rby, rbz = 0.34, 0.4, table_height + 0.52
         left_robot_start_pose = gymapi.Transform()
         self.left_robot_link1_pos = torch.tensor([[-rbx, 0.24 - rby, rbz]], dtype=torch.float, device=self.device)
         left_robot_start_pose.p = gymapi.Vec3(-rbx, -rby, rbz)
@@ -1359,10 +1359,10 @@ class BiLeapHandGraspV6(VecTask):
         
         # initial object poses
         object_start_pose = gymapi.Transform()
-        object_start_pose.p = gymapi.Vec3(- 0.05, 0, dataset_object_init_pos[2] + offset[2])
+        object_start_pose.p = gymapi.Vec3(-0.1, 0, dataset_object_init_pos[2] + offset[2])
         object_start_pose.r = gymapi.Quat(0,0,0,1)
         tool_start_pose = gymapi.Transform()
-        tool_start_pose.p = gymapi.Vec3(0.05, 0, dataset_tool_init_pos[2] + offset[2])
+        tool_start_pose.p = gymapi.Vec3(0.1, 0, dataset_tool_init_pos[2] + offset[2])
         tool_start_pose.r = gymapi.Quat(0,0,0,1)
         '''
         # left palm poses
