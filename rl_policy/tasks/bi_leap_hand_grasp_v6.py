@@ -737,7 +737,6 @@ class BiLeapHandGraspV6(VecTask):
             self.cfg["env"]["numStates"] += 3 if self.asymmetric_obs else 0
             self.cfg["env"]["numActions"] += 3
 
-
         # need to set the names according to the robot
         self.palm = "palm"#_lower
         self.fingertips = [
@@ -1201,32 +1200,40 @@ class BiLeapHandGraspV6(VecTask):
             is_regen_hull = triplet in regen_hull_task_list
         with open(meta_data_path, 'r') as f:
             dataset_taco_data = json.load(f)
-            if len(dataset_taco_data) < 5:
-                b, e = 0, len(dataset_taco_data)
-            elif len(dataset_taco_data) < 9:
-                b, e = 1, len(dataset_taco_data)
+            train_task_id_list = self.cfg['dataset'].get('train_task_id_list', [])
+            print(train_task_id_list)
+            breakpoint()
+            if not train_task_id_list:
+                if len(dataset_taco_data) < 5:
+                    b, e = 0, len(dataset_taco_data)
+                elif len(dataset_taco_data) < 9:
+                    b, e = 1, len(dataset_taco_data)
+                else:
+                    proportion = 0.8
+                    b, e = 1, int(len(dataset_taco_data) * proportion)
+                self.train_task_ids = list(range(b, e))
             else:
-                proportion = 0.8
-                b, e = 1, int(len(dataset_taco_data) * proportion)
-            self.train_task_ids = list(range(b, e))
-            self.test_task_ids = list(range(0, b)) + list(range(e, len(dataset_taco_data))) 
+                self.train_task_ids = train_task_id_list
+            print(f'train_task_ids: {self.train_task_ids}')
+            self.test_task_ids = [idx for idx in range(len(dataset_taco_data)) if idx not in self.train_task_ids]
+            assert not (set(self.train_task_ids) & set(self.test_task_ids))
             num_train_set = len(self.train_task_ids)
             num_test_set = len(self.test_task_ids)
             len_dataset_taco_data = len(dataset_taco_data)
             # judge testing type: 0 for training, 1 for testing seen, 2 for testing unseen
             id_pairs = np.array([(dataset_taco_data[k]['left']['object']['id'], dataset_taco_data[k]['right']['tool']['id']) for k in range(len_dataset_taco_data)])
-            self.types = [1] * b + [0] * (e-b) + [1] * (len_dataset_taco_data - e)
-            unique_trained_object_ids = np.unique(id_pairs[b:e,0])
-            unique_trained_tool_ids = np.unique(id_pairs[b:e,1])
+            self.types = np.int_([_ in self.test_task_ids for _ in range(len(dataset_taco_data))])
+            unique_trained_object_ids = np.unique(id_pairs[self.train_task_ids, 0])
+            unique_trained_tool_ids = np.unique(id_pairs[self.train_task_ids, 1])
             for k in range(len_dataset_taco_data):
-                if k<b or k>=e:
+                if k in self.test_task_ids:
                     objid, toolid = id_pairs[k]
                     if objid not in unique_trained_object_ids or toolid not in unique_trained_tool_ids:
                         self.types[k] = 2
             
             if not self.cfg['task']['is_all_task']:
                 print(f'training set: {num_train_set}', f'testing set: {num_test_set}')
-                dataset_taco_data = dataset_taco_data[b:e] 
+                dataset_taco_data = dataset_taco_data[self.train_task_ids] 
             else:
                 print(f'training set: 0, testing set: {num_train_set + num_test_set}')
         self.num_task = len(dataset_taco_data)
@@ -1358,11 +1365,12 @@ class BiLeapHandGraspV6(VecTask):
             dataset_tool_pose = dataset_tool_pose[:epi_len]
         
         # initial object poses
+        self.objoffset = self.cfg['env'].get('objectOffset', 0.1)
         object_start_pose = gymapi.Transform()
-        object_start_pose.p = gymapi.Vec3(-0.1, 0, dataset_object_init_pos[2] + offset[2])
+        object_start_pose.p = gymapi.Vec3(-self.objoffset, 0, dataset_object_init_pos[2] + offset[2])
         object_start_pose.r = gymapi.Quat(0,0,0,1)
         tool_start_pose = gymapi.Transform()
-        tool_start_pose.p = gymapi.Vec3(0.1, 0, dataset_tool_init_pos[2] + offset[2])
+        tool_start_pose.p = gymapi.Vec3(self.objoffset, 0, dataset_tool_init_pos[2] + offset[2])
         tool_start_pose.r = gymapi.Quat(0,0,0,1)
         '''
         # left palm poses
@@ -1711,8 +1719,13 @@ class BiLeapHandGraspV6(VecTask):
 
         if len(env_ids) > 0:
             self.reset_idx(env_ids)
-
+        '''
+        Take rm65 arm + leap hand as example:
+        qpos: [0:6] arm joint, [6:22] leap hand joint 
+        ik: [0:3] arm ee pos, [6:22] leap hand joint, [3:6]+[-3:] arm ee 6Drot
+        '''
         self.actions = actions.clone().to(self.device)
+        '''for hand'''
         if self.use_relative_control:
             targets = (
                 self.prev_targets[:, self.both_fingers_dof_indices]
@@ -1741,7 +1754,7 @@ class BiLeapHandGraspV6(VecTask):
                 self.robot_dof_lower_limits[self.both_fingers_dof_indices],
                 self.robot_dof_upper_limits[self.both_fingers_dof_indices],
             )
-
+        '''for arm'''
         if self.arm_controller == "qpos":
             if self.use_relative_control:
                 targets = (

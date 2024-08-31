@@ -1309,7 +1309,6 @@ class BiLeapHandGraspM2Dagger(VecTask):
                         objid, toolid = id_pairs[k]
                         if objid not in unique_trained_object_ids or toolid not in unique_trained_tool_ids:
                             types[k] = 2
-                
                 self.types.extend(types)
                 if not self.cfg['task']['is_all_task']:
                     print(f'training set: {num_train_set}', f'testing set: {num_test_set}')

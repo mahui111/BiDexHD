@@ -5,6 +5,7 @@ physics_engine: ${..physics_engine}
 
 # if given, will override the device setting in gym.
 env: 
+  objectOffset: ${objectOffset}
   numEnvs: ${resolve_default:16384,${...num_envs}}
   envSpacing: 1.5
   episodeLength: 1000
@@ -189,3 +190,4 @@ sim:
 
 dataset:
   meta_data_path: taco_dataset/task_data/${...triplet}.json
+  train_task_id_list: ${...train_ids}
