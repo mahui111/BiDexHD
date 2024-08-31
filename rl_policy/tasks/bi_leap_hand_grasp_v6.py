@@ -1202,7 +1202,6 @@ class BiLeapHandGraspV6(VecTask):
             dataset_taco_data = json.load(f)
             train_task_id_list = self.cfg['dataset'].get('train_task_id_list', [])
             print(train_task_id_list)
-            breakpoint()
             if not train_task_id_list:
                 if len(dataset_taco_data) < 5:
                     b, e = 0, len(dataset_taco_data)
@@ -1233,7 +1232,7 @@ class BiLeapHandGraspV6(VecTask):
             
             if not self.cfg['task']['is_all_task']:
                 print(f'training set: {num_train_set}', f'testing set: {num_test_set}')
-                dataset_taco_data = dataset_taco_data[self.train_task_ids] 
+                dataset_taco_data = [dataset_taco_data[idx] for idx in self.train_task_ids]
             else:
                 print(f'training set: 0, testing set: {num_train_set + num_test_set}')
         self.num_task = len(dataset_taco_data)
