@@ -5,3 +5,4 @@
 (skim off, spatula, bowl)
 (put in, spoon, pan)
 (pour in some, teapot, cup)
+(stir, spoon, bowl)
