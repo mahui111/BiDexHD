@@ -6,3 +6,4 @@
 (put in, spoon, pan)
 (pour in some, teapot, cup)
 (stir, spoon, bowl)
+(stir, spoon, pan)
