@@ -1,15 +1,19 @@
-import os, json
+import os, json, sys
 import random
 import torch
 import numpy as np
 from torch.nn import functional as F
 from scipy.spatial.transform import Rotation as R
+import trimesh
+from urdfpy import URDF
 
 from isaacgym import gymtorch
 from isaacgym import gymapi
 from isaacgymenvs.utils.torch_jit_utils import *
 from isaacgymenvs.tasks.base.vec_task import VecTask
 
+sys.path.append('../')
+from taco_dataset import Visualizer3D
 
 @torch.jit.script
 def standardize_quaternion(quaternions: torch.Tensor) -> torch.Tensor:
@@ -36,15 +40,6 @@ def orientation_error(desired, current):
     desired = standardize_quaternion(desired)
     q_r = quat_mul(desired, quat_conjugate(current))
     return q_r[:, 0:3] * torch.sign(q_r[:, 3]).unsqueeze(-1)
-
-@torch.jit.script
-def pos_error(desired, current):
-    '''
-    desired: (..., 3)
-    current: (..., 3)
-    '''
-    current = current.expand_as(desired)
-    return F.huber_loss(current, desired, reduction='none').mean(-1)
 
 @torch.jit.script
 def quat_diff_theta(desired, current):
@@ -256,6 +251,51 @@ def transformation_apply(pos: torch.Tensor, quat: torch.Tensor, vec: torch.Tenso
     quaternion_shape = pos.shape[:-1] + (4,)
     quat = torch.broadcast_to(quat, quaternion_shape)
     return quat_apply(quat, vec) + pos
+    
+# sample object point cloud & transform within the world coordinate
+def farthest_point_sample(xyz, npoint, device, init=None):
+    """
+    Input:
+        xyz: pointcloud data, [B, N, 3]
+        npoint: number of samples
+    Return:
+        centroids: sampled pointcloud index, [B, npoint]
+    """
+    B, N, C = xyz.size()
+    centroids = torch.zeros(B, npoint, dtype=torch.long).to(device)
+    distance = torch.ones(B, N).to(device) * 1e10
+    if init is not None:
+        farthest = torch.tensor(init).long().reshape(B).to(device)
+    else:
+        farthest = torch.randint(0, N, (B,), dtype=torch.long).to(device)
+    batch_indices = torch.arange(B, dtype=torch.long).to(device)
+    for i in range(npoint):
+        centroids[:, i] = farthest
+        centroid = xyz[batch_indices, farthest, :].view(B, 1, C)
+        dist = torch.sum((xyz - centroid) ** 2, -1)
+        mask = dist < distance
+        distance[mask] = dist[mask]
+        farthest = torch.max(distance, -1)[1]
+    return centroids.cuda()
+
+def index_points(points, idx, device):
+    """
+    Input:
+        points: input points data, [B, N, C]
+        idx: sample index data, [B, S]
+    Return:
+        new_points:, indexed points data, [B, S, C]
+    """
+    B = points.size()[0]
+    view_shape = list(idx.size())
+    view_shape[1:] = [1] * (len(view_shape) - 1)
+    repeat_shape = list(idx.size())
+    repeat_shape[0] = 1
+    batch_indices = torch.arange(B, dtype=torch.long).to(device).view(view_shape).repeat(repeat_shape)
+    new_points = points[batch_indices, idx, :]
+    return new_points
+
+
 
 @torch.jit.script
 def compute_relative_pose(
@@ -314,7 +354,7 @@ def compute_relative_position(
 def compute_bvdex_stage12_rewards(
     reset_buf,
     progress_buf,
-    stage1_left_successes, stage1_right_successes, stage1_successes, stage1_cul_left_successes, stage1_cul_right_successes,
+    stage1_left_successes, stage1_right_successes, stage1_successes,
     stage2_left_successes, stage2_right_successes, stage2_successes,
     max_episode_length: float,
     object_pose, tool_pose,
@@ -324,12 +364,11 @@ def compute_bvdex_stage12_rewards(
     action_penalty_scale: float,
     success_tolerance: float,
     av_factor: float,
-    table_heights, left_robot_link1_pos, right_robot_link1_pos,
-    frequency: float,
+    table_heights,
+    actions,
     timestep, reach_ref_timestep, left_reach_ref_timestep, right_reach_ref_timestep,
     ref_object_pose, ref_init_object_pos_dist,  #ref_ref_object_palm_pose_diff, ref_ref_object_left_fingers_pos_diff,
     ref_tool_pose, ref_init_tool_pos_dist,      #ref_ref_tool_palm_pose_diff, ref_ref_tool_right_fingers_pos_diff,
-    object_grasp_pos, tool_grasp_pos,
     is_expect_end, # is_stage1_hand_object_rew: int, is_stage1_lin_rew:int, is_stage2_pos_rew_exp: int,
 ):
     '''
@@ -338,26 +377,26 @@ def compute_bvdex_stage12_rewards(
     '''
     info = {}
 
-    # approach penalty
-    left_palm_object_dist = torch.norm(object_grasp_pos - left_palm_pose[:, :3], dim=-1)
+    left_palm_object_dist = torch.norm(object_pose[:, :3] - left_palm_pose[:, :3], dim=-1) 
     left_palm_object_dist = torch.where(left_palm_object_dist >= 0.5, 0.5 * torch.ones_like(left_palm_object_dist), left_palm_object_dist)
-    right_palm_tool_dist = torch.norm(tool_grasp_pos - right_palm_pose[:, :3], dim=-1)  
+    right_palm_tool_dist = torch.norm(tool_pose[:, :3] - right_palm_pose[:, :3], dim=-1)  
     right_palm_tool_dist = torch.where(right_palm_tool_dist >= 0.5, 0.5 * torch.ones_like(right_palm_tool_dist), right_palm_tool_dist)
 
     num_fingers = left_fingertip_pose.shape[1]
     left_fingertips_object_dist = torch.zeros_like(left_palm_object_dist)
     for i in range(num_fingers):
-        left_fingertips_object_dist += torch.norm(left_fingertip_pose[:, i, :3] - object_grasp_pos, dim=-1)
+        left_fingertips_object_dist += torch.norm(left_fingertip_pose[:, i, :3] - object_pose[:, :3], dim=-1)
     left_fingertips_object_dist = torch.where(
         left_fingertips_object_dist >= 3.0, 3.0 * torch.ones_like(left_fingertips_object_dist), left_fingertips_object_dist
     )  # Important!
 
     right_fingertips_tool_dist = torch.zeros_like(right_palm_tool_dist)
     for i in range(num_fingers):
-        right_fingertips_tool_dist += torch.norm(right_fingertip_pose[:, i, :3] - tool_grasp_pos, dim=-1)
+        right_fingertips_tool_dist += torch.norm(right_fingertip_pose[:, i, :3] - tool_pose[:, :3], dim=-1)
     right_fingertips_tool_dist = torch.where(
         right_fingertips_tool_dist >= 3.0, 3.0 * torch.ones_like(right_fingertips_tool_dist), right_fingertips_tool_dist
     )  # Important!
+    
     info["left_palm_object_dist"] = left_palm_object_dist
     info["right_palm_tool_dist"] = right_palm_tool_dist
     info["left_fingertips_object_dist"] = left_fingertips_object_dist
@@ -383,13 +422,9 @@ def compute_bvdex_stage12_rewards(
     # trajectory following
     left_successes = torch.logical_and(ref_object_pos_dist <= success_tolerance, left_fingertips_object_dist + left_palm_object_dist < 0.12 * (num_fingers + 1)).float()
     right_successes = torch.logical_and(ref_tool_pos_dist <= success_tolerance, right_fingertips_tool_dist + right_palm_tool_dist < 0.12 * (num_fingers + 1)).float()
-    stage1_cul_left_successes = torch.where(left_successes > 0, left_successes + stage1_cul_left_successes, torch.zeros_like(left_successes))
-    stage1_cul_right_successes = torch.where(right_successes > 0, right_successes + stage1_cul_right_successes, torch.zeros_like(right_successes))
-    stage1_left_success_flag = stage1_cul_left_successes >= frequency
-    stage1_right_success_flag = stage1_cul_right_successes >= frequency
-    left_reach_ref_timestep = torch.where(torch.logical_and(stage1_left_success_flag, left_reach_ref_timestep == -1), timestep, left_reach_ref_timestep)
-    right_reach_ref_timestep = torch.where(torch.logical_and(stage1_right_success_flag, right_reach_ref_timestep == -1), timestep, right_reach_ref_timestep)
-    reach_ref_timestep = torch.where(torch.logical_and(torch.logical_and(stage1_left_success_flag, stage1_right_success_flag), reach_ref_timestep == -1), timestep, reach_ref_timestep)
+    left_reach_ref_timestep = torch.where(torch.logical_and(left_successes, left_reach_ref_timestep == -1), timestep, left_reach_ref_timestep)
+    right_reach_ref_timestep = torch.where(torch.logical_and(right_successes, right_reach_ref_timestep == -1), timestep, right_reach_ref_timestep)
+    reach_ref_timestep = torch.where(torch.logical_and(torch.logical_and(left_successes, right_successes), reach_ref_timestep == -1), timestep, reach_ref_timestep)
     info["left_successes"] = left_successes
     info["right_successes"] = right_successes
     
@@ -510,8 +545,8 @@ def compute_bvdex_stage12_rewards(
     # every-step success
     info["step-success"] = torch.logical_and(ref_object_pos_dist <= success_tolerance, ref_tool_pos_dist <= success_tolerance).float()
     # stage 1 success
-    stage1_left_successes = torch.logical_or(stage1_left_successes, stage1_left_success_flag)
-    stage1_right_successes = torch.logical_or(stage1_right_successes, stage1_right_success_flag)
+    stage1_left_successes = torch.logical_or(stage1_left_successes, left_successes)
+    stage1_right_successes = torch.logical_or(stage1_right_successes, right_successes)
     stage1_successes = torch.logical_or(torch.logical_and(stage1_left_successes, stage1_right_successes), stage1_successes)
     # satge 2 success
     stage2_left_successes = torch.where(stage1_left_successes, ((timestep - reach_ref_timestep) * stage2_left_successes + (ref_object_pos_dist <= success_tolerance)) / (timestep - reach_ref_timestep + 1), stage2_left_successes)
@@ -520,10 +555,10 @@ def compute_bvdex_stage12_rewards(
     
     # bonus for second stage success
     # stage12_successes = torch.logical_and(stage1_successes, stage2_successes >= 0.5).float()
-    # left_stage2_bonus = torch.where(is_expect_end, 10 * (stage2_left_successes >= 0.8), torch.zeros_like(stage2_successes))
-    # right_stage2_bonus = torch.where(is_expect_end, 10 * (stage2_right_successes >= 0.4), torch.zeros_like(stage2_successes))
-    # info["left_stage2_bonus"] = left_stage2_bonus
-    # info["right_stage2_bonus"] = right_stage2_bonus
+    left_stage2_bonus = torch.where(is_expect_end, stage2_left_successes, torch.zeros_like(stage2_successes))
+    right_stage2_bonus = torch.where(is_expect_end, stage2_right_successes, torch.zeros_like(stage2_successes))
+    info["left_stage2_bonus"] = left_stage2_bonus
+    info["right_stage2_bonus"] = right_stage2_bonus
 
     # total reward
     left_approach_penalty = dist_reward_scale * left_fingertips_object_dist + 2 * dist_reward_scale * left_palm_object_dist
@@ -535,8 +570,8 @@ def compute_bvdex_stage12_rewards(
     info["right_approach_penalty"] = right_approach_penalty
     info["right_lift_to_refpose_reward"] = right_lift_to_refpose_reward
 
-    left_reward = - left_approach_penalty + left_lift_to_refpose_reward + left_stage1_bonus #+ left_stage2_bonus + left_object_hand_pose_rew 
-    right_reward = - right_approach_penalty + right_lift_to_refpose_reward + right_stage1_bonus #+ right_stage2_bonus + right_tool_hand_pose_rew
+    left_reward = - left_approach_penalty + left_lift_to_refpose_reward + left_stage1_bonus   # + left_stage2_bonus + left_object_hand_pose_rew 
+    right_reward = - right_approach_penalty + right_lift_to_refpose_reward + right_stage1_bonus# + right_stage2_bonus + right_tool_hand_pose_rew
     reward = left_reward + right_reward
     info["left_reward"] = left_reward
     info["right_reward"] = right_reward
@@ -548,26 +583,40 @@ def compute_bvdex_stage12_rewards(
 
     # reset
     resets = reset_buf.clone()
-    resets = torch.where(progress_buf >= max_episode_length, torch.ones_like(resets), resets)   # 1. reach max episode length
-    resets = torch.where(torch.logical_or(object_pose[:, 2] <= table_heights, tool_pose[:, 2] <= table_heights), torch.ones_like(resets), resets)  # 2. fall under table
-    resets = torch.where(torch.logical_or(torch.pairwise_distance(left_robot_link1_pos, object_pose[:, :3]) >= 0.85, torch.pairwise_distance(right_robot_link1_pos, tool_pose[:, :3]) >= 0.85), torch.ones_like(resets), resets)  # 3. object out of scope
-    resets = torch.where(is_expect_end, torch.ones_like(resets), resets)  # 4. dataset end
+    resets = torch.where(progress_buf >= max_episode_length, torch.ones_like(resets), resets)
+    resets = torch.where(torch.logical_or(object_pose[:, 2] <= table_heights, tool_pose[:, 2] <= table_heights), torch.ones_like(resets), resets)
+    # resets = torch.where(torch.logical_and(stage12_successes, is_expect_end), torch.ones_like(resets), resets)
 
     return (
         reward,
         resets,
         progress_buf,
-        stage1_left_successes, stage1_right_successes, stage1_successes, stage1_cul_left_successes, stage1_cul_right_successes,
+        stage1_left_successes, stage1_right_successes, stage1_successes,
         stage2_left_successes, stage2_right_successes, stage2_successes,
         timestep, reach_ref_timestep, left_reach_ref_timestep, right_reach_ref_timestep,
         info,
     )
 
 
-class BiLeapHandGraspV6(VecTask):
+def read_pointcloud_from_urdf(urdf_file, num_sample=4096):
+    robot = URDF.load(urdf_file)
+    all_points = []
+    for link in robot.links:
+        for visual in link.visuals:
+            if visual.geometry.mesh is not None:
+                mesh = trimesh.load_mesh(os.path.join(urdf_file, '..', visual.geometry.mesh.filename))
+                if visual.geometry.mesh.scale is not None:  # scale=0.01
+                    mesh.apply_scale(visual.geometry.mesh.scale)
+                points = mesh.sample(num_sample) 
+                all_points.append(points)
+    all_points = np.vstack(all_points)
+    return torch.from_numpy(all_points).float().cuda()
+
+
+
+class BiLeapHandGraspM3Dagger(VecTask):
     '''
-    Multi-object training with object label for bimanual manipulation from demonstrations. Stage 1 apporach reward modify to approach grasp point and resets when dataset terminates.
-    initial setting modifies.
+    Dagger for multi object objects diversities and ids
     '''
     def get_obs_idx_dict(self,obs_type=''):
         if obs_type == '':
@@ -643,6 +692,14 @@ class BiLeapHandGraspV6(VecTask):
             right_robostate_idx.extend(list(range(cnt + relpos_dim, cnt + 2 * relpos_dim)))
             cnt += 2 * relpos_dim
 
+        if 'meshpc' in obs_type:  # point cloud from object mesh
+            self.num_pc_downsample = self.cfg['env']['vision']['pointclouds']['numDownsample']
+            self.num_each_pt = self.cfg['env']['vision']['pointclouds']['numEachPoint']
+            self.num_pc_flatten = self.num_pc_downsample * self.num_each_pt
+            left_pointcloud_idx.extend(list(range(cnt, cnt + self.num_pc_flatten)))
+            right_pointcloud_idx.extend(list(range(cnt + self.num_pc_flatten, cnt + 2 * self.num_pc_flatten)))
+            cnt += 2 * self.num_pc_flatten
+
         if 'objlabel' in obs_type:  # object label, 1
             label_dim = 1
             left_objlabel_idx.extend(list(range(cnt, cnt + label_dim)))
@@ -671,7 +728,7 @@ class BiLeapHandGraspV6(VecTask):
         headless,
         virtual_screen_capture,
         force_render,
-        **kwargs,
+        **kwargs
     ):
         self.cfg = cfg
         self.mode = self.cfg["mode"]
@@ -715,9 +772,13 @@ class BiLeapHandGraspV6(VecTask):
         self.max_consecutive_successes = self.cfg["env"]["maxConsecutiveSuccesses"]
         self.av_factor = self.cfg["env"].get("averFactor", 0.1)
         
-        # self.palm_offset = self.cfg["env"]["palm_offset"]
-        # self.fingertip_offset = self.cfg["env"]["finger_offset"]
-        # self.thumb_offset = self.cfg["env"]["thumb_offset"]
+        # pointcloud
+        self.n_resample = self.cfg['env']['vision']['pointclouds']['numDownsample']
+        self.num_max_sample_points = self.cfg['env']['vision']['pointclouds']['nMaxSamplePoints']
+        self.num_sample_points = self.cfg['env']['vision']['pointclouds']['nSamplePoints']
+        self.apply_pointcloud_noise = self.cfg['env']['vision']['noise']['apply']
+        self.pointcloud_noise_scale = self.cfg['env']['vision']['noise']['scale']
+        self.pointcloud_noise_threshold = self.cfg['env']['vision']['noise']['threshold']
         
         self.obs_type = self.cfg["env"]["observationType"]
 
@@ -736,6 +797,7 @@ class BiLeapHandGraspV6(VecTask):
             self.cfg["env"]["numObservations"] += 3
             self.cfg["env"]["numStates"] += 3 if self.asymmetric_obs else 0
             self.cfg["env"]["numActions"] += 3
+
 
         # need to set the names according to the robot
         self.palm = "palm"#_lower
@@ -761,7 +823,7 @@ class BiLeapHandGraspV6(VecTask):
             headless,
             virtual_screen_capture,
             force_render,
-            **kwargs,
+            **kwargs
         )
 
         control_freq_inv = self.cfg["env"].get("controlFrequencyInv", 1)
@@ -817,8 +879,6 @@ class BiLeapHandGraspV6(VecTask):
         self.stage1_left_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
         self.stage1_right_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
         self.stage1_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
-        self.stage1_cul_left_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
-        self.stage1_cul_right_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
         self.stage2_left_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
         self.stage2_right_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
         self.stage2_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
@@ -827,10 +887,10 @@ class BiLeapHandGraspV6(VecTask):
         self.total_resets = 0
 
         # customize
-        self.timestep = torch.zeros(self.num_envs, dtype=torch.int32, device=self.device)
-        self.reach_ref_timestep = - torch.ones(self.num_envs, dtype=torch.int32, device=self.device)
-        self.left_reach_ref_timestep = - torch.ones(self.num_envs, dtype=torch.int32, device=self.device)
-        self.right_reach_ref_timestep = - torch.ones(self.num_envs, dtype=torch.int32, device=self.device)
+        self.timestep = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self.reach_ref_timestep = - torch.ones(self.num_envs, dtype=torch.long, device=self.device)
+        self.left_reach_ref_timestep = - torch.ones(self.num_envs, dtype=torch.long, device=self.device)
+        self.right_reach_ref_timestep = - torch.ones(self.num_envs, dtype=torch.long, device=self.device)
 
     def create_sim(self):
         self.dt = self.cfg["sim"]["dt"]
@@ -1056,9 +1116,7 @@ class BiLeapHandGraspV6(VecTask):
         self.table_heights = to_torch(self.table_heights, device=self.device)
         self.all_object_labels = to_torch(self.object_labels, dtype=torch.float, device=self.device)[self.all_task_idx] / 255.
         self.all_tool_labels = to_torch(self.tool_labels, dtype=torch.float, device=self.device)[self.all_task_idx] / 255.
-        self.all_object_grasp_pos = self.dataset_object_grasp_pos[self.all_task_idx]
-        self.all_tool_grasp_pos = self.dataset_tool_grasp_pos[self.all_task_idx]
-
+        
         self.ref_init_object_pos_dist = torch.norm(self.all_ref_object_poses[:, :3] - self.object_init_states[:, :3], dim=-1)       # (n,)
         self.ref_init_tool_pos_dist = torch.norm(self.all_ref_tool_poses[:, :3] - self.tool_init_states[:, :3], dim=-1)             # (n,)
 
@@ -1189,66 +1247,105 @@ class BiLeapHandGraspV6(VecTask):
         self.table_assets, self.table_start_poses, \
         self.max_agg_bodies, self.max_agg_shapes, \
         self.dataset_object_poses, self.dataset_tool_poses, \
-        self.dataset_ref_timesteps, self.dataset_end_timesteps \
-        = [], [], [], [], [], [], [], [], [], [], [], [], [], []
-        self.dataset_object_grasp_pos, self.dataset_tool_grasp_pos = [], []
-        self.object_labels, self.tool_labels = [], []
-        meta_data_path = self.cfg['dataset']['meta_data_path']
-        triplet = os.path.splitext(os.path.basename(meta_data_path))[0]
-        with open(os.path.join(os.path.dirname(meta_data_path),'blacklist.txt')) as f:
+        self.dataset_ref_timesteps, self.dataset_end_timesteps, \
+        self.object_mesh_pointclouds, self.tool_mesh_pointclouds, \
+        self.object_labels, self.tool_labels \
+        = [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []
+
+
+        self.all_triplet = [ecfile.split('/')[-3] for ecfile in self.train_cfg['expertCkptFiles']]
+        category2idx = {
+            'brush': 0,
+            'cut': 1,
+            'dust': 2,
+            'empty': 3,
+            'hit': 4,
+            'measure': 5,
+            'pour in some': 6,
+            'put in': 7,
+            'put out': 8,
+            'scrape off': 9,
+            'screw': 10,
+            'skim off': 11,
+            'smear': 12,
+            'stir-fry': 13,
+            'stir': 14,
+        }
+        assert len(self.all_triplet) == len(set(self.all_triplet)), 'triplet names should be unique'
+        self.num_task = 0
+        self.dataset_taco_datas, self.expert_ids, self.verb_category, self.types = [], [], [], []
+        with open(os.path.join('taco_dataset/task_data/blacklist.txt')) as f:
             regen_hull_task_list = [line.strip('\n') for line in f]
-            is_regen_hull = triplet in regen_hull_task_list
-        with open(meta_data_path, 'r') as f:
-            dataset_taco_data = json.load(f)
-            train_task_id_list = self.cfg['dataset'].get('train_task_id_list', [])
-            if not train_task_id_list:
-                if len(dataset_taco_data) < 5:
-                    b, e = 0, len(dataset_taco_data)
-                elif len(dataset_taco_data) < 9:
-                    b, e = 1, len(dataset_taco_data)
+        is_regen_hull_list = []
+
+        cul_len = 0
+        self.train_task_ids, self.test_task_ids = [], []
+        train_task_id_lists = self.train_cfg['train_task_id_lists']
+        assert len(train_task_id_lists) == len(self.all_triplet)
+        for itriplet, triplet in enumerate(self.all_triplet):
+            with open(f'taco_dataset/task_data/{triplet}.json', 'r') as f:
+                dataset_taco_data = json.load(f)
+                train_task_id_list = train_task_id_lists[itriplet]
+                if not train_task_id_list:
+                    if len(dataset_taco_data) < 5:
+                        b, e = 0, len(dataset_taco_data)
+                    elif len(dataset_taco_data) < 9:
+                        b, e = 1, len(dataset_taco_data)
+                    else:
+                        proportion = 0.8
+                        b, e = 1, int(len(dataset_taco_data) * proportion)
+                    train_task_id_list = list(range(cul_len + b, cul_len + e))
                 else:
-                    proportion = 0.8
-                    b, e = 1, int(len(dataset_taco_data) * proportion)
-                self.train_task_ids = list(range(b, e))
-            else:
-                self.train_task_ids = train_task_id_list
-            print(f'train_task_ids: {self.train_task_ids}')
-            self.test_task_ids = [idx for idx in range(len(dataset_taco_data)) if idx not in self.train_task_ids]
-            assert not (set(self.train_task_ids) & set(self.test_task_ids))
-            num_train_set = len(self.train_task_ids)
-            num_test_set = len(self.test_task_ids)
-            len_dataset_taco_data = len(dataset_taco_data)
-            # judge testing type: 0 for training, 1 for testing seen, 2 for testing unseen
-            id_pairs = np.array([(dataset_taco_data[k]['left']['object']['id'], dataset_taco_data[k]['right']['tool']['id']) for k in range(len_dataset_taco_data)])
-            self.types = np.int_([_ in self.test_task_ids for _ in range(len(dataset_taco_data))])
-            unique_trained_object_ids = np.unique(id_pairs[self.train_task_ids, 0])
-            unique_trained_tool_ids = np.unique(id_pairs[self.train_task_ids, 1])
-            for k in range(len_dataset_taco_data):
-                if k in self.test_task_ids:
-                    objid, toolid = id_pairs[k]
-                    if objid not in unique_trained_object_ids or toolid not in unique_trained_tool_ids:
-                        self.types[k] = 2
-            
-            if not self.cfg['task']['is_all_task']:
-                print(f'training set: {num_train_set}', f'testing set: {num_test_set}')
-                dataset_taco_data = [dataset_taco_data[idx] for idx in self.train_task_ids]
-            else:
-                print(f'training set: 0, testing set: {num_train_set + num_test_set}')
-        self.num_task = len(dataset_taco_data)
+                    train_task_id_list = [cul_len + idx for idx in train_task_id_list]
+                len_dataset_taco_data = len(dataset_taco_data)
+                test_task_ids = [idx for idx in range(cul_len, cul_len + len_dataset_taco_data) if idx not in train_task_id_list]
+                self.train_task_ids.extend(train_task_id_list)
+                self.test_task_ids.extend(test_task_ids)
+                cul_len += len_dataset_taco_data
+                cur_train_task_id_list = np.array(train_task_id_list) - cul_len
+                cur_test_task_ids = np.array(test_task_ids) - cul_len
+                num_train_set = len(train_task_id_list)
+                num_test_set = len(test_task_ids)
+                # judge testing type: 0 for training, 1 for testing seen, 2 for testing unseen
+                id_pairs = np.array([(dataset_taco_data[k]['left']['object']['id'], dataset_taco_data[k]['right']['tool']['id']) for k in range(len_dataset_taco_data)])
+                types = np.int_([_ in self.test_task_ids for _ in range(cul_len, cul_len + len(dataset_taco_data))])
+                unique_trained_object_ids = np.unique(id_pairs[cur_train_task_id_list, 0])
+                unique_trained_tool_ids = np.unique(id_pairs[cur_test_task_ids,1])
+                for k in range(len_dataset_taco_data):
+                    if k in cur_test_task_ids:
+                        objid, toolid = id_pairs[k]
+                        if objid not in unique_trained_object_ids or toolid not in unique_trained_tool_ids:
+                            types[k] = 2
+                self.types.extend(types)
+                if not self.cfg['task']['is_all_task']:
+                    print(f'training set: {num_train_set}', f'testing set: {num_test_set}')
+                    dataset_taco_data = dataset_taco_data[cur_train_task_id_list] 
+                else:
+                    print(f'training set: 0, testing set: {num_train_set + num_test_set}')
+                len_dataset_taco_data = len(dataset_taco_data)
+                self.dataset_taco_datas.extend(dataset_taco_data)
+                is_regen_hull_list.extend([triplet in regen_hull_task_list] * len_dataset_taco_data)
+                self.expert_ids.extend([itriplet] * len_dataset_taco_data)
+                self.verb_category.extend([category2idx[triplet.strip('()').split(', ')[0]]] * len_dataset_taco_data)
+                self.num_task += len_dataset_taco_data
+
         self.all_task_idx = torch.tensor([i % self.num_task for i in range(self.num_envs)], dtype=torch.long, device=self.device)
+        assert len(self.expert_ids) == self.num_task
+        self.expert_ids = torch.tensor(self.expert_ids, dtype=torch.long, device=self.device)[self.all_task_idx]
+        assert len(self.verb_category) == self.num_task
+        self.verb_category = torch.tensor(self.verb_category, dtype=torch.long, device=self.device)[self.all_task_idx]
+        assert len(self.types) == self.num_task
         self.types = torch.tensor(self.types, dtype=torch.long, device=self.device)[self.all_task_idx]
-        obj_asset_storage = {}
+        obj_asset_storage = dict()
         object_max_shape, tool_max_shape = -1, -1
         for task_id in range(self.num_task):
             object_start_pose, tool_start_pose, \
             left_robot_start_pose, right_robot_start_pose, \
             table_asset, table_start_pose, \
             dataset_object_pose, dataset_tool_pose, \
-            ref_timestep, end_timestep, \
-            object_grasp_pos, tool_grasp_pos \
-            = self._initialize_task(dataset_taco_data[task_id])
-            self.dataset_object_grasp_pos.append(object_grasp_pos)
-            self.dataset_tool_grasp_pos.append(tool_grasp_pos)
+            ref_timestep, end_timestep \
+            = self._initialize_task(self.dataset_taco_datas[task_id])
+            
             self.dataset_object_poses.append(dataset_object_pose)   
             self.dataset_tool_poses.append(dataset_tool_pose)
             self.dataset_ref_timesteps.append(ref_timestep)
@@ -1264,18 +1361,22 @@ class BiLeapHandGraspV6(VecTask):
             self.table_start_poses.append(table_start_pose)
             # create object and tool urdf
             objects_mesh_path = os.path.join(self.cfg["env"]["asset"]["assetRoot"], 'TACOobjects')
-            object_id = dataset_taco_data[task_id]['left']['object']['id']
+            object_id = self.dataset_taco_datas[task_id]['left']['object']['id']
             self.object_labels.append(int(object_id))
             task_object_urdf_file = os.path.join(objects_mesh_path, f'{object_id}.urdf')   
             if not os.path.exists(task_object_urdf_file):             
                 with open(task_object_urdf_file, 'w') as urdf_file:
                     urdf_file.write(self._generate_urdf(dict(id=object_id)))
-            tool_id = dataset_taco_data[task_id]['right']['tool']['id']
+            
+            self.object_mesh_pointclouds.append(read_pointcloud_from_urdf(task_object_urdf_file, self.num_max_sample_points))
+
+            tool_id = self.dataset_taco_datas[task_id]['right']['tool']['id']
             self.tool_labels.append(int(tool_id))
             task_tool_urdf_file = os.path.join(objects_mesh_path, f'{tool_id}.urdf')
             if not os.path.exists(task_tool_urdf_file):
                 with open(task_tool_urdf_file, 'w') as urdf_file:
                     urdf_file.write(self._generate_urdf(dict(id=tool_id)))
+            self.tool_mesh_pointclouds.append(read_pointcloud_from_urdf(task_tool_urdf_file, self.num_max_sample_points))
             # get object and tool asset
             while True:
                 object_asset = self._prepare_object_asset(*os.path.split(task_object_urdf_file), vhacd_enabled, obj_asset_storage, object_max_shape)
@@ -1287,7 +1388,7 @@ class BiLeapHandGraspV6(VecTask):
                 num_object_shapes = num_object_shape + num_tool_shape
                 max_agg_bodies = self.num_robot_bodies + num_object_bodies + 2
                 max_agg_shapes = self.num_robot_shapes + num_object_shapes + 2
-                if not is_regen_hull or max_agg_shapes <= 128:
+                if not is_regen_hull_list[task_id] or max_agg_shapes <= 128:
                     self.object_assets.append(object_asset)
                     self.tool_assets.append(tool_asset)
                     self.max_agg_bodies.append(max_agg_bodies)
@@ -1304,8 +1405,8 @@ class BiLeapHandGraspV6(VecTask):
         self.dataset_end_timesteps = torch.tensor(self.dataset_end_timesteps, dtype=torch.long, device=self.device)  # (K,)
         # self.dataset_left_palm_ref_poses = torch.stack(self.dataset_left_palm_ref_poses, dim=0)  # (K, 7)
         # self.dataset_right_palm_ref_poses = torch.stack(self.dataset_right_palm_ref_poses, dim=0)  # (K, 7)
-        self.dataset_object_grasp_pos = to_torch(self.dataset_object_grasp_pos, dtype=torch.float, device=self.device)  # (K, 3)
-        self.dataset_tool_grasp_pos = to_torch(self.dataset_tool_grasp_pos, dtype=torch.float, device=self.device)  # (K, 3)
+        self.object_mesh_pointclouds = torch.stack(self.object_mesh_pointclouds, dim=0)  # (K, N, 3)
+        self.tool_mesh_pointclouds = torch.stack(self.tool_mesh_pointclouds, dim=0)  # (K, N, 3)
 
     def _initialize_task(self, taco_task_data):
         epi_len = self.cfg['env']['episodeLength']
@@ -1313,37 +1414,11 @@ class BiLeapHandGraspV6(VecTask):
         init_timestep = taco_task_data['key_steps']['init']
         ref_timestep = taco_task_data['key_steps']['ref']
         end_timestep = taco_task_data['key_steps']['end']
-        # object grasp pos
-        dataset_object_grasp_pos = np.array(taco_task_data['left']['object']['gpos'])
-        dataset_tool_grasp_pos = np.array(taco_task_data['right']['tool']['gpos'])
         # object poses
         dataset_object_pos = np.array(taco_task_data['left']['object']['pos'])
         dataset_object_quat = np.array(taco_task_data['left']['object']['quat'])
-        dataset_object_init_pos = dataset_object_pos[init_timestep]
-        # tool poses
-        dataset_tool_pos = np.array(taco_task_data['right']['tool']['pos'])
-        dataset_tool_quat = np.array(taco_task_data['right']['tool']['quat'])
-        dataset_tool_init_pos = dataset_tool_pos[init_timestep]
-        # table asset and pose
-        # table_height = min(dataset_object_init_pos[2],dataset_tool_init_pos[2]) - 0.03  # objects above table
-        table_height = 0.7
-        table_dim = (1.5, 1.5, table_height)
-        table_asset, table_start_pose = self._prepare_table_asset(table_dim)
-        # constants
-        object_center_coord = (dataset_object_init_pos + dataset_tool_init_pos) / 2
-        rbx, rby, rbz = 0.34, 0.4, table_height + 0.52
-        left_robot_start_pose = gymapi.Transform()
-        self.left_robot_link1_pos = torch.tensor([[-rbx, 0.24 - rby, rbz]], dtype=torch.float, device=self.device)
-        left_robot_start_pose.p = gymapi.Vec3(-rbx, -rby, rbz)
-        left_robot_start_pose.r = gymapi.Quat(0.5,  0.5,  0.5, -0.5)
-        right_robot_start_pose = gymapi.Transform()
-        self.right_robot_link1_pos = torch.tensor([[rbx, 0.24 - rby, rbz]], dtype=torch.float, device=self.device)
-        right_robot_start_pose.p = gymapi.Vec3(rbx, -rby, rbz)
-        right_robot_start_pose.r = gymapi.Quat(0.5,  0.5,  0.5, -0.5)
-        # add offset to dataset
-        offset = np.array([-object_center_coord[0], -object_center_coord[1], table_height + 0.03 - min(dataset_object_init_pos[2],dataset_tool_init_pos[2])])
         dataset_object_pose = to_torch(torch.from_numpy(np.concatenate([
-            dataset_object_pos + offset,
+            dataset_object_pos,
             dataset_object_quat,
         ], axis=-1)), device=self.device, dtype=torch.float)
         # (epi_len, 7)
@@ -1351,9 +1426,16 @@ class BiLeapHandGraspV6(VecTask):
             dataset_object_pose = torch.cat([dataset_object_pose, dataset_object_pose[-1].repeat(epi_len - len(dataset_object_pose), 1)])
         else:
             dataset_object_pose = dataset_object_pose[:epi_len]
-        
+        dataset_object_init_pos = dataset_object_pos[init_timestep]
+        dataset_object_init_quat = dataset_object_quat[init_timestep]
+        object_start_pose = gymapi.Transform()
+        object_start_pose.p = gymapi.Vec3(*dataset_object_init_pos)
+        object_start_pose.r = gymapi.Quat(*dataset_object_init_quat)
+        # tool poses
+        dataset_tool_pos = np.array(taco_task_data['right']['tool']['pos'])
+        dataset_tool_quat = np.array(taco_task_data['right']['tool']['quat'])
         dataset_tool_pose = to_torch(torch.from_numpy(np.concatenate([
-            dataset_tool_pos + offset,
+            dataset_tool_pos,
             dataset_tool_quat,
         ], axis=-1)), device=self.device, dtype=torch.float)
         # (epi_len, 7)
@@ -1361,42 +1443,31 @@ class BiLeapHandGraspV6(VecTask):
             dataset_tool_pose = torch.cat([dataset_tool_pose, dataset_tool_pose[-1].repeat(epi_len - len(dataset_tool_pose), 1)])
         else:
             dataset_tool_pose = dataset_tool_pose[:epi_len]
-        
-        # initial object poses
-        self.objoffset = self.cfg['env'].get('objectOffset', 0.1)
-        object_start_pose = gymapi.Transform()
-        object_start_pose.p = gymapi.Vec3(-self.objoffset, 0, dataset_object_init_pos[2] + offset[2])
-        object_start_pose.r = gymapi.Quat(0,0,0,1)
+        dataset_tool_init_pos = dataset_tool_pos[init_timestep]
+        dataset_tool_init_quat = dataset_tool_quat[init_timestep]
         tool_start_pose = gymapi.Transform()
-        tool_start_pose.p = gymapi.Vec3(self.objoffset, 0, dataset_tool_init_pos[2] + offset[2])
-        tool_start_pose.r = gymapi.Quat(0,0,0,1)
-        '''
-        # left palm poses
-        dataset_left_palm_pos = np.array(self.sampled_taco_task_data['left']['palm']['pos'])
-        dataset_left_palm_quat = np.array(self.sampled_taco_task_data['left']['palm']['quat'])
-        # (7)
-        dataset_left_palm_pose = to_torch(torch.from_numpy(np.concatenate([
-            dataset_left_palm_pos[[ref_timestep]],
-            dataset_left_palm_quat[[ref_timestep]],
-        ], axis=-1)), device=self.device, dtype=torch.float)
-        # right palm poses
-        dataset_right_palm_pos = np.array(self.sampled_taco_task_data['right']['palm']['pos'])
-        dataset_right_palm_quat = np.array(self.sampled_taco_task_data['right']['palm']['quat'])
-        # (7)
-        dataset_right_palm_pose = to_torch(torch.from_numpy(np.concatenate([
-            dataset_right_palm_pos[[ref_timestep]],
-            dataset_right_palm_quat[[ref_timestep]],
-        ], axis=-1)), device=self.device, dtype=torch.float)
-        '''
-        
+        tool_start_pose.p = gymapi.Vec3(*dataset_tool_init_pos)
+        tool_start_pose.r = gymapi.Quat(*dataset_tool_init_quat)
+        # table asset and pose
+        table_height = min(dataset_object_init_pos[2],dataset_tool_init_pos[2]) - 0.03  # objects above table
+        table_dim = (1.5, 1.5, table_height)
+        table_asset, table_start_pose = self._prepare_table_asset(table_dim)
+        # constants
+        object_center_coord = (dataset_object_init_pos + dataset_tool_init_pos) / 2
+        left_robot_coord = object_center_coord[0] - 0.34, object_center_coord[1] - 0.5, table_height + 0.52
+        left_robot_start_pose = gymapi.Transform()
+        left_robot_start_pose.p = gymapi.Vec3(*left_robot_coord)
+        left_robot_start_pose.r = gymapi.Quat(0.5,  0.5,  0.5, -0.5)
+        right_robot_coord = object_center_coord[0] + 0.34, object_center_coord[1] - 0.5, table_height + 0.52
+        right_robot_start_pose = gymapi.Transform()
+        right_robot_start_pose.p = gymapi.Vec3(*right_robot_coord)
+        right_robot_start_pose.r = gymapi.Quat(0.5,  0.5,  0.5, -0.5)
 
         return object_start_pose, tool_start_pose, \
             left_robot_start_pose, right_robot_start_pose, \
             table_asset, table_start_pose, \
             dataset_object_pose, dataset_tool_pose, \
-            ref_timestep, end_timestep, \
-            dataset_object_grasp_pos, dataset_tool_grasp_pos,\
-            # dataset_left_palm_pose, dataset_right_palm_pose
+            ref_timestep, end_timestep  # dataset_left_palm_pose, dataset_right_palm_pose
 
     def _prepare_table_asset(self, table_dims):
         # create table asset
@@ -1409,28 +1480,11 @@ class BiLeapHandGraspV6(VecTask):
 
         return table_asset, table_start_pose
 
-    def _prepare_side_panel_asset(self):
-        side_panel_dims = gymapi.Vec3(0.06, 1.5, 0.6)
-        asset_options = gymapi.AssetOptions()
-        asset_options.fix_base_link = True
-        side_panel_asset = self.gym.create_box(
-            self.sim,
-            side_panel_dims.x,
-            side_panel_dims.y,
-            side_panel_dims.z,
-            asset_options,
-        )
-
-        side_panel_start_pose = gymapi.Transform()
-        side_panel_start_pose.p = gymapi.Vec3(-0.53, 0.0, side_panel_dims.z / 2)
-
-        return side_panel_asset, side_panel_start_pose
-
     def compute_reward(self, mode):
         if mode == 's12':
-            t = torch.where(self.reach_ref_timestep == -1, torch.zeros_like(self.timestep), torch.ceil((self.timestep - self.reach_ref_timestep) / self.frequency).int()) + self.dataset_ref_timesteps[self.all_task_idx]
-            tl = torch.where(self.left_reach_ref_timestep == -1, torch.zeros_like(self.timestep), torch.ceil((self.timestep - self.left_reach_ref_timestep) / self.frequency).int()) + self.dataset_ref_timesteps[self.all_task_idx]
-            tr = torch.where(self.right_reach_ref_timestep == -1, torch.zeros_like(self.timestep), torch.ceil((self.timestep - self.right_reach_ref_timestep) / self.frequency).int()) + self.dataset_ref_timesteps[self.all_task_idx]
+            t = torch.where(self.reach_ref_timestep == -1, torch.zeros_like(self.timestep), torch.ceil((self.timestep - self.reach_ref_timestep) / self.frequency).long()) + self.dataset_ref_timesteps[self.all_task_idx]
+            tl = torch.where(self.left_reach_ref_timestep == -1, torch.zeros_like(self.timestep), torch.ceil((self.timestep - self.left_reach_ref_timestep) / self.frequency).long()) + self.dataset_ref_timesteps[self.all_task_idx]
+            tr = torch.where(self.right_reach_ref_timestep == -1, torch.zeros_like(self.timestep), torch.ceil((self.timestep - self.right_reach_ref_timestep) / self.frequency).long()) + self.dataset_ref_timesteps[self.all_task_idx]
             ref_object_pose = self.dataset_object_poses[self.all_task_idx,tl.clip(max=self.dataset_end_timesteps[self.all_task_idx])] 
             ref_tool_pose = self.dataset_tool_poses[self.all_task_idx,tr.clip(max=self.dataset_end_timesteps[self.all_task_idx])]
             is_expect_end = (self.dataset_end_timesteps[self.all_task_idx] == t.clip(max=self.dataset_end_timesteps[self.all_task_idx]))
@@ -1438,14 +1492,14 @@ class BiLeapHandGraspV6(VecTask):
                 self.rew_buf[:],
                 self.reset_buf[:],
                 self.progress_buf[:],
-                self.stage1_left_successes[:], self.stage1_right_successes[:], self.stage1_successes[:], self.stage1_cul_left_successes[:], self.stage1_cul_right_successes[:],
+                self.stage1_left_successes[:], self.stage1_right_successes[:], self.stage1_successes[:],
                 self.stage2_left_successes[:], self.stage2_right_successes[:], self.stage2_successes[:],
                 self.timestep[:], self.reach_ref_timestep[:], self.left_reach_ref_timestep[:], self.right_reach_ref_timestep[:],
                 reward_info
             ) = compute_bvdex_stage12_rewards(
                 self.reset_buf,
                 self.progress_buf,
-                self.stage1_left_successes, self.stage1_right_successes, self.stage1_successes, self.stage1_cul_left_successes, self.stage1_cul_right_successes,
+                self.stage1_left_successes, self.stage1_right_successes, self.stage1_successes,
                 self.stage2_left_successes, self.stage2_right_successes, self.stage2_successes,
                 self.max_episode_length,
                 self.object_pose, self.tool_pose,
@@ -1455,12 +1509,11 @@ class BiLeapHandGraspV6(VecTask):
                 self.action_penalty_scale,
                 self.success_tolerance,
                 self.av_factor,
-                self.table_heights, self.left_robot_link1_pos, self.right_robot_link1_pos,
-                self.frequency,
+                self.table_heights,
+                self.actions,
                 self.timestep, self.reach_ref_timestep, self.left_reach_ref_timestep, self.right_reach_ref_timestep,
                 ref_object_pose, self.ref_init_object_pos_dist, #self.ref_ref_object_palm_pose_diff, self.ref_ref_object_left_fingers_pos_diff,
                 ref_tool_pose, self.ref_init_tool_pos_dist,     #self.ref_ref_tool_palm_pose_diff, self.ref_ref_tool_right_fingers_pos_diff,
-                self.actual_object_grasp_pos, self.actual_tool_grasp_pos,
                 is_expect_end, # self.is_stage1_hand_object_rew, self.is_stage1_lin_rew, self.is_stage2_pos_rew_exp,
             )
 
@@ -1522,7 +1575,6 @@ class BiLeapHandGraspV6(VecTask):
 
     def compute_full_observations(self):
         cnt = 0
-
         if 'dofps' in self.obs_type:  # dof pos, 44 
             self.obs_buf[:, cnt : cnt + self.num_robot_dofs] = unscale(
                 self.robot_dof_pos,
@@ -1587,14 +1639,30 @@ class BiLeapHandGraspV6(VecTask):
             cnt += 2 * obj_dim
 
         if 'relps' in self.obs_type:  # relative pos to object center, 15 * 2
-            self.actual_object_grasp_pos = transformation_apply(self.object_pos, self.object_rot, self.all_object_grasp_pos)
-            self.actual_tool_grasp_pos = transformation_apply(self.tool_pos, self.tool_rot, self.all_tool_grasp_pos)
-            self.obs_buf[:, cnt : cnt + 3] = self.actual_object_grasp_pos - self.left_palm_pos
-            self.obs_buf[:, cnt + 3 : cnt + 15] = (self.actual_object_grasp_pos.unsqueeze(1) - self.left_fingertip_pos).reshape(-1,12)
-            self.obs_buf[:, cnt + 15: cnt + 18] = self.actual_tool_grasp_pos - self.right_palm_pos
-            self.obs_buf[:, cnt + 18 : cnt + 30] = (self.actual_tool_grasp_pos.unsqueeze(1) - self.right_fingertip_pos).reshape(-1,12)
+            self.obs_buf[:, cnt : cnt + 3] = self.object_pos - self.left_palm_pos
+            self.obs_buf[:, cnt + 3 : cnt + 15] = (self.object_pos.unsqueeze(1) - self.left_fingertip_pos).reshape(-1,12)
+            self.obs_buf[:, cnt + 15: cnt + 18] = self.tool_pos - self.right_palm_pos
+            self.obs_buf[:, cnt + 18 : cnt + 30] = (self.tool_pos.unsqueeze(1) - self.right_fingertip_pos).reshape(-1,12)
             cnt += 30
 
+        if 'meshpc' in self.obs_type:  # mesh point cloud, 1024 * 2
+            # visualizer = Visualizer3D()
+            # visualizer.visualize_point_clouds(self.object_meshpc[0].detach().cpu().numpy())
+            # visualizer.visualize_point_clouds(self.tool_meshpc[0].detach().cpu().numpy())
+            # visualizer.draw(True)
+            if self.control_steps % self.n_resample == 0:  # resample
+                self.sampled_object_point_idxs = farthest_point_sample(self.object_mesh_pointclouds, self.num_sample_points, self.device)
+                self.sampled_tool_point_idxs = farthest_point_sample(self.tool_mesh_pointclouds, self.num_sample_points, self.device)
+            self.object_pointclouds = index_points(self.object_mesh_pointclouds, self.sampled_object_point_idxs, self.device)
+            self.tool_pointclouds = index_points(self.tool_mesh_pointclouds, self.sampled_tool_point_idxs, self.device)
+            if self.apply_pointcloud_noise:
+                self.object_pointclouds += torch.randn_like(self.object_pointclouds).to(self.device) * self.pointcloud_noise_scale * (torch.rand(self.object_pointclouds.shape[:-1]+(1,)) < self.pointcloud_noise_threshold).float().to(self.device)
+                self.tool_pointclouds += torch.randn_like(self.tool_pointclouds).to(self.device) * self.pointcloud_noise_scale * (torch.rand(self.tool_pointclouds.shape[:-1]+(1,)) < self.pointcloud_noise_threshold).float().to(self.device)
+            for i_task in range(self.num_task):
+                self.obs_buf[i_task::self.num_task, cnt : cnt + self.num_pc_flatten] = transformation_apply(self.object_pos[i_task::self.num_task,None,:], self.object_rot[i_task::self.num_task,None,:], self.object_pointclouds[i_task]).view(-1, self.num_pc_flatten)
+                self.obs_buf[i_task::self.num_task, cnt + self.num_pc_flatten : cnt + 2 * self.num_pc_flatten] = transformation_apply(self.tool_pos[i_task::self.num_task,None,:], self.tool_rot[i_task::self.num_task,None,:], self.tool_pointclouds[i_task]).view(-1, self.num_pc_flatten)
+            cnt += 2 * self.num_pc_flatten
+        
         if 'objlabel' in self.obs_type:  
             self.obs_buf[:, cnt] = self.all_object_labels
             self.obs_buf[:, cnt + 1] = self.all_tool_labels
@@ -1703,8 +1771,6 @@ class BiLeapHandGraspV6(VecTask):
         self.stage1_left_successes[env_ids] = 0
         self.stage1_right_successes[env_ids] = 0
         self.stage1_successes[env_ids] = 0
-        self.stage1_cul_left_successes[env_ids] = 0
-        self.stage1_cul_right_successes[env_ids] = 0
         self.stage2_left_successes[env_ids] = 0
         self.stage2_right_successes[env_ids] = 0
         self.stage2_successes[env_ids] = 0
@@ -1717,13 +1783,8 @@ class BiLeapHandGraspV6(VecTask):
 
         if len(env_ids) > 0:
             self.reset_idx(env_ids)
-        '''
-        Take rm65 arm + leap hand as example:
-        qpos: [0:6] arm joint, [6:22] leap hand joint 
-        ik: [0:3] arm ee pos, [6:22] leap hand joint, [3:6]+[-3:] arm ee 6Drot
-        '''
+
         self.actions = actions.clone().to(self.device)
-        '''for hand'''
         if self.use_relative_control:
             targets = (
                 self.prev_targets[:, self.both_fingers_dof_indices]
@@ -1752,7 +1813,7 @@ class BiLeapHandGraspV6(VecTask):
                 self.robot_dof_lower_limits[self.both_fingers_dof_indices],
                 self.robot_dof_upper_limits[self.both_fingers_dof_indices],
             )
-        '''for arm'''
+
         if self.arm_controller == "qpos":
             if self.use_relative_control:
                 targets = (

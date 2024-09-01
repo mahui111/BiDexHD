@@ -66,6 +66,14 @@ def build_runner(cfg, env):
             expert_class=ppo.IPPO,
             log_dir=log_dir,
         )    
+    elif train_param.name == "m3dagger":
+        from algo import dagger
+        runner = dagger.M3Dagger(
+            vec_env=env,
+            train_param=train_param,
+            expert_class=ppo.IPPO,
+            log_dir=log_dir,
+        )  
     else:
         raise ValueError("Unrecognized algorithm!")
     
