@@ -15,10 +15,10 @@ fi
 # python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=ippo num_envs=1 train_ids="$train_ids" objectOffset=$objoffset triplet="$triplet" test=True mode=visualize
 
 # train
-# CUDA_VISIBLE_DEVICES=0 python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=ippo num_envs=20000 train_ids="$train_ids" objectOffset=$objoffset triplet="$triplet" exp_name=ema0.1+ol2 headless=True
+CUDA_VISIBLE_DEVICES=0 python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=ippo num_envs=20000 train_ids="$train_ids" objectOffset=$objoffset triplet="$triplet" exp_name=ema0.1+ol2 headless=True
 
 # evaluate
-python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=ippo num_envs=100 triplet="$triplet" train_ids="$train_ids" objectOffset=$objoffset test=True checkpoint="'\
-/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/freq3/exp1/(stir, spoon, bowl)/ema0.1+ol2/model_4000.pt\
-'"
+# python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=ippo num_envs=100 triplet="$triplet" train_ids="$train_ids" objectOffset=$objoffset test=True checkpoint="'\
+# /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, bowl, plate)/ema0.1+ol2/model_13500.pt\
+# '"
 
