@@ -10,6 +10,7 @@ env:
   episodeLength: 1000
   enableDebugVis: ${debug}
   aggregateMode: 1
+  objectOffset: ${objectOffset}
 
   clipObservations: 5.0
   clipActions: 1.0

@@ -1313,11 +1313,11 @@ class BiLeapHandGraspM3Dagger(VecTask):
                     else:
                         proportion = 0.8
                         b, e = 1, int(len(dataset_taco_data) * proportion)
-                    train_task_id_list = np.arange(b, e) + cul_len
+                    train_task_id_list = np.arange(b, e, dtype=int) + cul_len
                 else:
-                    train_task_id_list = np.array(train_task_id_list) + cul_len
+                    train_task_id_list = np.array(train_task_id_list, dtype=int) + cul_len
                 len_dataset_taco_data = len(dataset_taco_data)
-                test_task_ids = np.array([idx for idx in cul_len + np.arange(len_dataset_taco_data) if idx not in train_task_id_list])
+                test_task_ids = np.array([idx for idx in cul_len + np.arange(len_dataset_taco_data) if idx not in train_task_id_list], dtype=int)
                 self.train_task_ids.extend(train_task_id_list)
                 self.test_task_ids.extend(test_task_ids)
                 cur_train_task_id_list = train_task_id_list - cul_len

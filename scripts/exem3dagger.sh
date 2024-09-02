@@ -1,10 +1,10 @@
-export CUDA_LAUNCH_BLOCKING=1
+# export CUDA_LAUNCH_BLOCKING=1
 cd rl_policy
 triplet=$1
-task_id=$2
+objectOffset=${2:-0.1}
 
 # debug
-python -m pdb main.py task=BiLeapHandGraspM3Dagger train=LeapHandGraspM3Dagger algo=m3dagger num_envs=550 exp_name=debug_dagger # checkpoint="'\
+# python -m pdb main.py task=BiLeapHandGraspM3Dagger train=LeapHandGraspM3Dagger algo=m3dagger num_envs=550 exp_name=debug_dagger # checkpoint="'\
 # /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-dagger/distill4/dagger_avhuber/dagger_2000.pt\
 # '"
 
@@ -13,7 +13,7 @@ python -m pdb main.py task=BiLeapHandGraspM3Dagger train=LeapHandGraspM3Dagger a
 # python main.py task=BiLeapHandGraspM3Dagger train=LeapHandGraspM3Dagger algo=m3dagger num_envs=1 test=True mode=visualize
 
 # train
-# python main.py task=BiLeapHandGraspM3Dagger train=LeapHandGraspM3Dagger algo=m3dagger num_envs=1500 exp_name=dagger_avhuber headless=True #checkpoint="'\
+CUDA_VISIBLE_DEVICES=4 python main.py task=BiLeapHandGraspM3Dagger train=LeapHandGraspM3Dagger algo=m3dagger num_envs=10000 objectOffset=$objectOffset exp_name=dagger_avhuber headless=True #checkpoint="'\
 # /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-dagger/distill1/dagger_avhuber/dagger_27000.pt\
 # '"
 

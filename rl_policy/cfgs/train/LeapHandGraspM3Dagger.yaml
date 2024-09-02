@@ -28,8 +28,8 @@ params:
   nsteps: 8
   noptepochs: 3
   nminibatches: 32 # this is per agent
-  max_grad_norm: 1
-  optim_stepsize: 3.e-4 # 3e-4 is default for single agent training with constant schedule
+  max_grad_norm: 1.0
+  optim_stepsize: 5.e-4 # 3e-4 is default for single agent training with constant schedule
   schedule: adaptive # could be adaptive or linear or fixed
   desired_kl: 0.016
   gamma: 0.96
@@ -46,50 +46,25 @@ params:
     clip_range: 0.5
 
   expertCkptFiles: [
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(brush, brush, bowl)/ema0.1+ol2/model_21000.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(dust, brush, bowl)/ema0.1+ol2/model_17000.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(dust, brush, pan)/ema0.1+ol2/model_22000.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(dust, roller, bowl)/ema0.1+ol2/model_22500.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(empty, bowl, bowl)/ema0.1+ol2/model_18000.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(empty, bowl, plate)/ema0.1+ol2/model_29500.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(empty, cup, teapot)/ema0.1+ol2/model_12500.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(empty, teapot, plate)/ema0.1+ol2/model_20500.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(empty, teapot, teapot)/ema0.1+ol2/model_19000.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(put out, bowl, bowl)/ema0.1+ol2/model_18000.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(put out, bowl, pan)/ema0.1+ol2/model_11500.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(put out, bowl, plate)/ema0.1+ol2/model_30000.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(pour in some, bowl, bowl)/ema0.1+ol2/model_14000.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(pour in some, cup, cup)/ema0.1+ol2/model_17500.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(scrape off, knife, bowl)/ema0.1+ol2/model_37000.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(smear, glue gun, box)/ema0.1+ol2/model_34000.pt',
-    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready/(brush, brush, box)/ema0.1+ol2/model_15000.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(pour in some, bowl, bowl)/ema0.1+ol2/model_24000.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(pour in some, cup, cup)/ema0.1+ol2/model_7000.pt'
 
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(brush, brush, bowl)/ema0.1+ol2/model_21000.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(dust, brush, bowl)/ema0.1+ol2/model_17000.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(dust, brush, pan)/ema0.1+ol2/model_22000.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(dust, roller, bowl)/ema0.1+ol2/model_22500.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(empty, bowl, bowl)/ema0.1+ol2/model_18000.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(empty, bowl, plate)/ema0.1+ol2/model_29500.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(empty, cup, teapot)/ema0.1+ol2/model_12500.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(empty, teapot, plate)/ema0.1+ol2/model_20500.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(empty, teapot, teapot)/ema0.1+ol2/model_19000.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(put out, bowl, bowl)/ema0.1+ol2/model_18000.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(put out, bowl, pan)/ema0.1+ol2/model_11500.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(put out, bowl, plate)/ema0.1+ol2/model_30000.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(pour in some, bowl, bowl)/ema0.1+ol2/model_14000.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(pour in some, cup, cup)/ema0.1+ol2/model_17500.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(scrape off, knife, bowl)/ema0.1+ol2/model_37000.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(smear, glue gun, box)/ema0.1+ol2/model_34000.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/114-cgpos-clip/(brush, brush, box)/ema0.1+ol2/model_15000.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(scrape off, knife, bowl)/ema0.1+ol2/model_24000.pt'
 
-    '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready2.0/(brush, brush, bowl)/ema0.1+ol2_sel[1,2,3,5,9,10,11]/model_11500.pt',
-    '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready2.0/(dust, brush, bowl)/ema0.1+ol2/model_18000.pt',
-
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, cup, teapot)/ema0.1+ol2/model_6000.pt',
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, bowl, bowl)/ema0.1+ol2/model_23000.pt',
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, teapot, teapot)/ema0.1+ol2/model_6000.pt',
   ]
   expertObservationType: "dofps+dofvel+ftps+lastact+objstate+palmpose+relps+objlabel"  
   train_task_id_lists: [
-    [1,2,3,5,9,10,11],
+    # [2,3,4,5,6],
+    # [],
+
+    # [],
+
     [],
+    [2,3,4,6,7],
+    [0,2],
   ]
   clipAction: False
   lossFunc: "huber"
