@@ -1200,27 +1200,27 @@ class BiLeapHandGraspV6(VecTask):
             is_regen_hull = triplet in regen_hull_task_list
         with open(meta_data_path, 'r') as f:
             dataset_taco_data = json.load(f)
+            len_dataset_taco_data = len(dataset_taco_data)
             train_task_id_list = self.cfg['dataset'].get('train_task_id_list', [])
             if not train_task_id_list:
-                if len(dataset_taco_data) < 5:
-                    b, e = 0, len(dataset_taco_data)
-                elif len(dataset_taco_data) < 9:
-                    b, e = 1, len(dataset_taco_data)
+                if len_dataset_taco_data < 5:
+                    b, e = 0, len_dataset_taco_data
+                elif len_dataset_taco_data < 9:
+                    b, e = 1, len_dataset_taco_data
                 else:
                     proportion = 0.8
-                    b, e = 1, int(len(dataset_taco_data) * proportion)
+                    b, e = 1, int(len_dataset_taco_data * proportion)
                 self.train_task_ids = list(range(b, e))
             else:
                 self.train_task_ids = train_task_id_list
             print(f'train_task_ids: {self.train_task_ids}')
-            self.test_task_ids = [idx for idx in range(len(dataset_taco_data)) if idx not in self.train_task_ids]
+            self.test_task_ids = [idx for idx in range(len_dataset_taco_data) if idx not in self.train_task_ids]
             assert not (set(self.train_task_ids) & set(self.test_task_ids))
             num_train_set = len(self.train_task_ids)
             num_test_set = len(self.test_task_ids)
-            len_dataset_taco_data = len(dataset_taco_data)
             # judge testing type: 0 for training, 1 for testing seen, 2 for testing unseen
             id_pairs = np.array([(dataset_taco_data[k]['left']['object']['id'], dataset_taco_data[k]['right']['tool']['id']) for k in range(len_dataset_taco_data)])
-            self.types = np.int_([_ in self.test_task_ids for _ in range(len(dataset_taco_data))])
+            self.types = np.int_([_ in self.test_task_ids for _ in range(len_dataset_taco_data)])
             unique_trained_object_ids = np.unique(id_pairs[self.train_task_ids, 0])
             unique_trained_tool_ids = np.unique(id_pairs[self.train_task_ids, 1])
             for k in range(len_dataset_taco_data):
@@ -1228,7 +1228,6 @@ class BiLeapHandGraspV6(VecTask):
                     objid, toolid = id_pairs[k]
                     if objid not in unique_trained_object_ids or toolid not in unique_trained_tool_ids:
                         self.types[k] = 2
-            
             if not self.cfg['task']['is_all_task']:
                 print(f'training set: {num_train_set}', f'testing set: {num_test_set}')
                 dataset_taco_data = [dataset_taco_data[idx] for idx in self.train_task_ids]

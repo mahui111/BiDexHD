@@ -284,7 +284,7 @@ class IPPO(nn.Module):
                         for task_id in range(self.vec_env.num_task):
                             if task_id in self.vec_env.train_task_ids:
                                 print(f"task: {task_id}\t| stage1_successes: {record_metrics['stage1_successes'][task_id::self.vec_env.num_task].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][task_id::self.vec_env.num_task].mean()}")
-                        print(f'\n Tested Tasks')
+                        print(f'Tested Tasks')
                         for task_id in range(self.vec_env.num_task):
                             if task_id in self.vec_env.test_task_ids:
                                 print(f"task: {task_id}\t| stage1_successes: {record_metrics['stage1_successes'][task_id::self.vec_env.num_task].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][task_id::self.vec_env.num_task].mean()}")
@@ -382,8 +382,8 @@ class IPPO(nn.Module):
                     rewbuffer.extend(reward_sum)
                     lenbuffer.extend(episode_length)
 
-                substep, substep, left_last_values, substep, substep = self.left_agent.actor_critic.act(current_obs, current_states)
-                substep, substep, right_last_values, substep, substep = self.right_agent.actor_critic.act(current_obs, current_states)
+                substep, substep, left_last_values, substep, substep = self.left_agent.actor_critic.act(current_obs)
+                substep, substep, right_last_values, substep, substep = self.right_agent.actor_critic.act(current_obs)
                 stop = time.time()
                 collection_time = stop - start
                 left_mean_trajectory_length, left_mean_reward = self.left_agent.storage.get_statistics()

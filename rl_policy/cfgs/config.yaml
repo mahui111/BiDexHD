@@ -74,9 +74,10 @@ task_id: 1
 # observationType: 'dofps+ftps+lastact+palmps+camerapc'  # 'camera'
 # observationType: "dofps+ftps+lastact+palmps+meshpc"     # 'pcd'
 # observationType: 'dofps+dofvel+ftps+lastact+objstate+palmpose+relps+meshpc'  # 'multidagger' ('v3')               113
-observationType: 'dofps+dofvel+ftps+lastact+objstate+palmpose+relps+meshpc+objlabel'  # 'multidagger' ('v4')        114
+# observationType: 'dofps+dofvel+ftps+lastact+objstate+palmpose+relps+meshpc+objlabel'  # 'multidagger' ('v4')        114
 # observationType: 'dofps+ftps+lastact+objpose+palmps+relps+meshpc+objlabel'  # 'multidagger' ('v5')                82
 # observationType: 'dofps+ftps+lastact+objstate+palmpose+relps+meshpc+objlabel'  # 'multidagger' ('v5')             92
+observationType: 'dofps+dofvel+ftps+lastact+objstate+palmpose+relps+meshpc+objlabel+futureps'  # 'multidagger' ('v6')        3330
 isStage1HOReward: 0
 isStage1LinReward: 0
 isStage2PosRewExp: 1

@@ -39,20 +39,22 @@ class M3DaggerValue(nn.Module):
         self.num_pc_flatten = train_param.policy['numDownsample'] * train_param.policy['numEachPoint']
         self.expert_left_robostate_indices = list(range(0, 22)) + list(range(44, 66)) + list(range(88, 100)) + list(range(112, 134)) + list(range(156, 169)) + list(range(182, 189)) + list(range(196, 211))
         self.expert_left_pointcloud_indices = []
-        self.expert_left_objlabel_indices = list(range(226 + self.num_pc_flatten * 2, 226 + self.num_pc_flatten * 2 + 1))
+        self.expert_left_objlabel_indices = list(range(226 + self.num_pc_flatten * 2, 227 + self.num_pc_flatten * 2))
         self.expert_right_robostate_indices = list(range(22, 44)) + list(range(66, 88)) + list(range(100, 112)) + list(range(134, 156)) + list(range(169, 182)) + list(range(189, 196)) + list(range(211, 226))
         self.expert_right_pointcloud_indices = []
-        self.expert_right_objlabel_indices = list(range(226 + self.num_pc_flatten * 2 + 1, 226 + self.num_pc_flatten * 2 + 2))
+        self.expert_right_objlabel_indices = list(range(227 + self.num_pc_flatten * 2, self.num_pc_flatten * 2 + 228))
         # student obs: 'dofps+ftps+lastact+palmpose+meshpc+objlabel'
         self.student_left_robostate_indices = list(range(0, 22)) + list(range(88, 100)) + list(range(112, 134)) + list(range(182, 189))
         self.student_left_pointcloud_indices = list(range(226, 226 + self.num_pc_flatten))
-        self.student_left_objlabel_indices = list(range(226 + self.num_pc_flatten * 2, 226 + self.num_pc_flatten * 2 + 1))
-        self.student_left_instrlabel_indices = []  #list(range(226 + self.num_pc_flatten * 2 + 2, 226 + self.num_pc_flatten * 2 + 3))
+        # self.student_left_objlabel_indices = list(range(226 + self.num_pc_flatten * 2, 226 + self.num_pc_flatten * 2 + 1))
+        self.student_left_instrlabel_indices = []  
+        self.student_left_futureobjps_indices = list(range(self.num_pc_flatten * 2 + 228, self.num_pc_flatten * 2 + 243))
         self.student_left_obs_indices = self.student_left_robostate_indices + self.student_left_pointcloud_indices + self.student_left_instrlabel_indices
         self.student_right_robostate_indices = list(range(22, 44)) + list(range(100, 112)) + list(range(134, 156)) + list(range(189, 196))
         self.student_right_pointcloud_indices = list(range(226 + self.num_pc_flatten, 226 + self.num_pc_flatten * 2))
-        self.student_right_objlabel_indices = list(range(226 + self.num_pc_flatten * 2 + 1, 226 + self.num_pc_flatten * 2 + 2))
-        self.student_right_instrlabel_indices = []  #list(range(226 + self.num_pc_flatten * 2 + 2, 226 + self.num_pc_flatten * 2 + 3))
+        # self.student_right_objlabel_indices = list(range(226 + self.num_pc_flatten * 2 + 1, self.num_pc_flatten * 2 + 228))
+        self.student_right_instrlabel_indices = []  
+        self.student_right_futureobjps_indices = list(range(self.num_pc_flatten * 2 + 243, self.num_pc_flatten * 2 + 258))
         self.student_right_obs_indices = self.student_right_robostate_indices + self.student_right_pointcloud_indices + self.student_right_instrlabel_indices
         assert len(self.expert_left_robostate_indices) == len(self.expert_right_robostate_indices) and len(self.student_left_obs_indices) == len(self.student_right_obs_indices)
         self.single_observation_space_shape = (len(self.student_left_obs_indices),)
@@ -87,7 +89,9 @@ class M3DaggerValue(nn.Module):
                                              self.single_action_space_shape, init_noise_std, train_param.policy,
                                              robostate_indices=self.student_left_robostate_indices, 
                                              pointcloud_indices=self.student_left_pointcloud_indices,
-                                             objlabel_indices=[],)
+                                             objlabel_indices=[],
+                                             futureobjps_indices=self.student_left_futureobjps_indices,
+                                             )
         
         self.left_actor_critic.to(self.device)
         self.left_optimizer = optim.Adam(self.left_actor_critic.parameters(), lr=train_param["optim_stepsize"])
@@ -95,7 +99,9 @@ class M3DaggerValue(nn.Module):
                                               self.single_action_space_shape, init_noise_std, train_param.policy,
                                               robostate_indices=self.student_right_robostate_indices, 
                                               pointcloud_indices=self.student_right_pointcloud_indices,
-                                              objlabel_indices=[],)
+                                              objlabel_indices=[],
+                                              futureobjps_indices=self.student_right_futureobjps_indices
+                                              )
         self.right_actor_critic.to(self.device)
         self.right_optimizer = optim.Adam(self.right_actor_critic.parameters(), lr=train_param["optim_stepsize"])
 

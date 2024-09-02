@@ -625,6 +625,7 @@ class BiLeapHandGraspM3Dagger(VecTask):
         left_robostate_idx, right_robostate_idx = [], []
         left_pointcloud_idx, right_pointcloud_idx = [], []
         left_objlabel_idx, right_objlabel_idx = [], []
+        left_futureobjps_idx, right_futureobjps_idx = [], []
 
         if 'dofps' in obs_type:  # dof pos, 44 
             num_robot_dofs = 44
@@ -706,16 +707,24 @@ class BiLeapHandGraspM3Dagger(VecTask):
             right_objlabel_idx.extend(list(range(cnt + label_dim, cnt + 2 * label_dim)))
             cnt += 2 * label_dim
 
-        assert cnt == len(left_robostate_idx) + len(right_robostate_idx) + len(left_pointcloud_idx) + len(right_pointcloud_idx) + len(left_objlabel_idx) + len(right_objlabel_idx)  
+        if 'futureps' in self.obs_type:
+            Kfuturestep_dim = 3 * self.Kfuturestep
+            left_futureobjps_idx.extend(list(range(cnt, cnt + Kfuturestep_dim)))
+            right_futureobjps_idx.extend(list(range(cnt + Kfuturestep_dim, cnt + 2 * Kfuturestep_dim)))
+            cnt += 2 * Kfuturestep_dim
+
+        assert cnt == len(left_robostate_idx) + len(right_robostate_idx) + len(left_pointcloud_idx) + len(right_pointcloud_idx) + len(left_objlabel_idx) + len(right_objlabel_idx) + len(left_futureobjps_idx) + len(right_futureobjps_idx)
         left_indices = dict(
             robostate_indices=left_robostate_idx,
             pointcloud_indices=left_pointcloud_idx,
             objlabel_indices=left_objlabel_idx,
+            futureobjps_indices=left_futureobjps_idx,
         )
         right_indices = dict(
             robostate_indices=right_robostate_idx,
             pointcloud_indices=right_pointcloud_idx,
             objlabel_indices=right_objlabel_idx,
+            futureobjps_indices=right_futureobjps_idx,
         )
         return left_indices, right_indices, cnt
 
@@ -736,6 +745,7 @@ class BiLeapHandGraspM3Dagger(VecTask):
         self.is_stage1_hand_object_rew = self.cfg["task"]["isStage1HOReward"]
         self.is_stage1_lin_rew = self.cfg["task"]["isStage1LinReward"]
         self.is_stage2_pos_rew_exp = self.cfg["task"]["isStage2PosRewExp"]
+        self.Kfuturestep = 5
 
         self.randomize = self.cfg["task"]["randomize"]
         self.randomization_params = self.cfg["task"]["randomization_params"]
@@ -1294,21 +1304,20 @@ class BiLeapHandGraspM3Dagger(VecTask):
                     else:
                         proportion = 0.8
                         b, e = 1, int(len(dataset_taco_data) * proportion)
-                    train_task_id_list = list(range(cul_len + b, cul_len + e))
+                    train_task_id_list = np.arange(b, e) + cul_len
                 else:
-                    train_task_id_list = [cul_len + idx for idx in train_task_id_list]
+                    train_task_id_list = np.array(train_task_id_list) + cul_len
                 len_dataset_taco_data = len(dataset_taco_data)
-                test_task_ids = [idx for idx in range(cul_len, cul_len + len_dataset_taco_data) if idx not in train_task_id_list]
+                test_task_ids = np.array([idx for idx in cul_len + np.arange(len_dataset_taco_data) if idx not in train_task_id_list])
                 self.train_task_ids.extend(train_task_id_list)
                 self.test_task_ids.extend(test_task_ids)
-                cul_len += len_dataset_taco_data
-                cur_train_task_id_list = np.array(train_task_id_list) - cul_len
-                cur_test_task_ids = np.array(test_task_ids) - cul_len
+                cur_train_task_id_list = train_task_id_list - cul_len
+                cur_test_task_ids = test_task_ids - cul_len
                 num_train_set = len(train_task_id_list)
                 num_test_set = len(test_task_ids)
                 # judge testing type: 0 for training, 1 for testing seen, 2 for testing unseen
                 id_pairs = np.array([(dataset_taco_data[k]['left']['object']['id'], dataset_taco_data[k]['right']['tool']['id']) for k in range(len_dataset_taco_data)])
-                types = np.int_([_ in self.test_task_ids for _ in range(cul_len, cul_len + len(dataset_taco_data))])
+                types = np.int_([_ in test_task_ids for _ in range(cul_len, cul_len + len(dataset_taco_data))])
                 unique_trained_object_ids = np.unique(id_pairs[cur_train_task_id_list, 0])
                 unique_trained_tool_ids = np.unique(id_pairs[cur_test_task_ids,1])
                 for k in range(len_dataset_taco_data):
@@ -1317,9 +1326,10 @@ class BiLeapHandGraspM3Dagger(VecTask):
                         if objid not in unique_trained_object_ids or toolid not in unique_trained_tool_ids:
                             types[k] = 2
                 self.types.extend(types)
+                cul_len += len_dataset_taco_data
                 if not self.cfg['task']['is_all_task']:
                     print(f'training set: {num_train_set}', f'testing set: {num_test_set}')
-                    dataset_taco_data = dataset_taco_data[cur_train_task_id_list] 
+                    dataset_taco_data = [dataset_taco_data[idx] for idx in cur_train_task_id_list]
                 else:
                     print(f'training set: 0, testing set: {num_train_set + num_test_set}')
                 len_dataset_taco_data = len(dataset_taco_data)
@@ -1329,12 +1339,12 @@ class BiLeapHandGraspM3Dagger(VecTask):
                 self.verb_category.extend([category2idx[triplet.strip('()').split(', ')[0]]] * len_dataset_taco_data)
                 self.num_task += len_dataset_taco_data
 
+        assert len(self.dataset_taco_datas) == self.num_task
         self.all_task_idx = torch.tensor([i % self.num_task for i in range(self.num_envs)], dtype=torch.long, device=self.device)
         assert len(self.expert_ids) == self.num_task
         self.expert_ids = torch.tensor(self.expert_ids, dtype=torch.long, device=self.device)[self.all_task_idx]
         assert len(self.verb_category) == self.num_task
         self.verb_category = torch.tensor(self.verb_category, dtype=torch.long, device=self.device)[self.all_task_idx]
-        assert len(self.types) == self.num_task
         self.types = torch.tensor(self.types, dtype=torch.long, device=self.device)[self.all_task_idx]
         obj_asset_storage = dict()
         object_max_shape, tool_max_shape = -1, -1
@@ -1398,7 +1408,6 @@ class BiLeapHandGraspM3Dagger(VecTask):
                 object_max_shape = int(num_object_shape / (num_object_shape + num_tool_shape) * spare_max_shape)
                 tool_max_shape = spare_max_shape - object_max_shape
                 print(f'task_id:{task_id} | num_object_shape:{num_object_shape} | num_tool_shape:{num_tool_shape} | object_max_shape:{object_max_shape} | tool_max_shape:{tool_max_shape}')
-
         self.dataset_object_poses = torch.stack(self.dataset_object_poses, dim=0)  # (K, T, 7)
         self.dataset_tool_poses = torch.stack(self.dataset_tool_poses, dim=0)  # (K, T, 7)
         self.dataset_ref_timesteps = torch.tensor(self.dataset_ref_timesteps, dtype=torch.long, device=self.device)  # (K,)
@@ -1569,9 +1578,9 @@ class BiLeapHandGraspM3Dagger(VecTask):
         self.right_fingertip_pos = self.right_fingertip_state[..., :3]
         self.right_fingertip_rot = self.right_fingertip_state[..., 3:7]
 
+        self.compute_full_observations()
         self.timestep[:] += 1
 
-        self.compute_full_observations()
 
     def compute_full_observations(self):
         cnt = 0
@@ -1667,6 +1676,13 @@ class BiLeapHandGraspM3Dagger(VecTask):
             self.obs_buf[:, cnt] = self.all_object_labels
             self.obs_buf[:, cnt + 1] = self.all_tool_labels
             cnt += 2
+
+        if 'futureps' in self.obs_type:
+            future_steps = torch.clip(self.timestep.unsqueeze(-1) + torch.arange(self.Kfuturestep).to(self.device), max=self.dataset_tool_poses.shape[1]).unsqueeze(-1).expand(-1,-1,3)
+            self.obs_buf[:, cnt : cnt + self.Kfuturestep * 3] = self.dataset_object_poses[self.all_task_idx].gather(1, future_steps).view(self.num_envs, -1)
+            self.obs_buf[:, cnt + self.Kfuturestep * 3 : cnt + 2 * self.Kfuturestep * 3] = self.dataset_tool_poses[self.all_task_idx].gather(1, future_steps).view(self.num_envs, -1)
+            cnt += 2 * self.Kfuturestep * 3
+
         # assert dim
         assert cnt == self.obs_buf.shape[1]
 

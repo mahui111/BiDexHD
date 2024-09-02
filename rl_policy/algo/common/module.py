@@ -80,6 +80,11 @@ class ActorCritic(nn.Module):
 
         self.use_pc = len(kwargs["pointcloud_indices"]) > 0
         self.use_objlabel = len(kwargs["objlabel_indices"]) > 0
+        if "futureobjps_indices" in kwargs and len(kwargs["futureobjps_indices"]) > 0:
+            self.futureobjps_indices = kwargs["futureobjps_indices"]
+            self.use_futureobjps = 1
+        else:
+            self.use_futureobjps = 0
 
         # if model_cfg is None:  # default
         #     actor_hidden_dim = [256, 256, 256]
@@ -95,8 +100,7 @@ class ActorCritic(nn.Module):
         self.robostate_indices = kwargs["robostate_indices"]
         self.pointcloud_indices = kwargs.get("pointcloud_indices", [])
         self.objlabel_indices = kwargs.get("objlabel_indices", [])
-        # assert len(self.robostate_indices) + len(self.pointcloud_indices) + len(self.objlabel_indices) == self.num_obs
-        
+
         if self.use_pc:
             self.use_seg = int(model_cfg["useSeg"])
             self.num_downsample = model_cfg["numDownsample"]
@@ -126,18 +130,17 @@ class ActorCritic(nn.Module):
             self.objlabel_emb = nn.Embedding(256, self.objlabel_dim)
             nn.init.xavier_uniform_(self.objlabel_emb.weight)
 
-        self.num_robot_state = (self.num_obs - self.use_objlabel)
+
+        self.input_dim = len(self.robostate_indices)
         if self.use_pc:
-            self.num_robot_state -= (self.num_pc_flatten + self.num_downsample * 2 * self.use_seg)
-        self.num_obs = self.num_robot_state
-        if self.use_pc:
-            self.num_obs += self.pc_emb_dim
-        assert len(self.robostate_indices) == self.num_robot_state
+            self.input_dim += self.pc_emb_dim
+        if self.use_futureobjps:
+            self.input_dim += len(self.futureobjps_indices)
 
         actor_layers = []
         critic_layers = []
 
-        actor_layers.append(nn.Linear(self.num_obs, actor_hidden_dim[0]))
+        actor_layers.append(nn.Linear(self.input_dim, actor_hidden_dim[0]))
         actor_layers.append(activation)
         for l in range(len(actor_hidden_dim)):
             if l == len(actor_hidden_dim) - 1:
@@ -147,7 +150,7 @@ class ActorCritic(nn.Module):
                 actor_layers.append(activation)
         self.actor = nn.Sequential(*actor_layers)
 
-        critic_layers.append(nn.Linear(self.num_obs, critic_hidden_dim[0]))
+        critic_layers.append(nn.Linear(self.input_dim, critic_hidden_dim[0]))
         critic_layers.append(activation)
         for l in range(len(critic_hidden_dim)):
             if l == len(critic_hidden_dim) - 1:
@@ -197,26 +200,29 @@ class ActorCritic(nn.Module):
         pc_feature = self.backbone(input_data).reshape(-1, self.pc_emb_dim)
         return pc_feature
 
-    def get_all_observation(self, observations, is_pc, is_objlabel):
+    def get_all_observation(self, observations):
         all_observation = observations[:, self.robostate_indices]
-        if is_pc:
+        if self.use_pc:
             pc_feature = self.get_pc_observation(observations)
             all_observation = torch.cat([all_observation, pc_feature], dim=1)
-        if is_objlabel:
+        if self.use_objlabel:
             obj_label = observations[:, self.objlabel_indices].squeeze(1) * 255
             objlabel_feature = self.objlabel_emb(obj_label.long())
             all_observation = all_observation + objlabel_feature
+        if self.use_futureobjps:
+            future_objps = observations[:, self.futureobjps_indices]
+            all_observation = torch.cat([all_observation, future_objps], dim=1)
         return all_observation
 
-    def act(self, observations, states=None, grad=False):
-        observations = self.get_all_observation(observations, self.use_pc, self.use_objlabel)
+    def act(self, observations, grad=False):
+        observations = self.get_all_observation(observations)
         actions_mean = self.actor(observations).clamp(-1.1, 1.1)
         covariance = torch.diag(self.log_std.exp() * self.log_std.exp())
 
         distribution = MultivariateNormal(actions_mean, scale_tril=covariance)
         actions = distribution.sample()
         actions_log_prob = distribution.log_prob(actions)
-        value = self.critic(states) if self.asymmetric else self.critic(observations)
+        value = self.critic(observations)
 
         if not grad:
             actions_mean = actions_mean.detach()
@@ -229,12 +235,12 @@ class ActorCritic(nn.Module):
         )
 
     def act_inference(self, observations):
-        observations = self.get_all_observation(observations, self.use_pc, self.use_objlabel)
+        observations = self.get_all_observation(observations)
         actions_mean = self.actor(observations).clamp(-1.1, 1.1)
         return actions_mean.detach()
 
-    def evaluate(self, observations, states, actions):
-        observations = self.get_all_observation(observations, self.use_pc, self.use_objlabel)
+    def evaluate(self, observations, actions):
+        observations = self.get_all_observation(observations)
         actions_mean = self.actor(observations).clamp(-1.1, 1.1)
         covariance = torch.diag(self.log_std.exp() * self.log_std.exp())
         distribution = MultivariateNormal(actions_mean, scale_tril=covariance)
@@ -242,7 +248,7 @@ class ActorCritic(nn.Module):
         actions_log_prob = distribution.log_prob(actions)
         entropy = distribution.entropy()
 
-        value = self.critic(states) if self.asymmetric else self.critic(observations)
+        value = self.critic(observations)
 
         return (
             actions_log_prob,

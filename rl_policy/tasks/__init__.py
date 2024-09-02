@@ -11,6 +11,7 @@ from .bi_leap_hand_grasp_v6 import BiLeapHandGraspV6
 # from .bi_leap_hand_grasp_dagger import BiLeapHandGraspDagger
 # from .bi_leap_hand_grasp_multidagger import BiLeapHandGraspMultiDagger
 from .bi_leap_hand_grasp_m2dagger import BiLeapHandGraspM2Dagger
+from .bi_leap_hand_grasp_m3dagger import BiLeapHandGraspM3Dagger
 # from .bi_leap_hand_grasp_vision import BiLeapHandGraspVision
 
 
@@ -26,4 +27,5 @@ isaacgym_task_map["BiLeapHandGraspV6"] = BiLeapHandGraspV6
 # isaacgym_task_map["BiLeapHandGraspDagger"] = BiLeapHandGraspDagger
 # isaacgym_task_map["BiLeapHandGraspMultiDagger"] = BiLeapHandGraspMultiDagger
 isaacgym_task_map["BiLeapHandGraspM2Dagger"] = BiLeapHandGraspM2Dagger
+isaacgym_task_map["BiLeapHandGraspM3Dagger"] = BiLeapHandGraspM3Dagger
 # isaacgym_task_map["BiLeapHandGraspVision"] = BiLeapHandGraspVision
