@@ -12,8 +12,8 @@ from isaacgym import gymapi
 from isaacgymenvs.utils.torch_jit_utils import *
 from isaacgymenvs.tasks.base.vec_task import VecTask
 
-sys.path.append('../')
-from taco_dataset import Visualizer3D
+# sys.path.append('../')
+# from taco_dataset import Visualizer3D
 
 @torch.jit.script
 def standardize_quaternion(quaternions: torch.Tensor) -> torch.Tensor:
@@ -354,7 +354,7 @@ def compute_relative_position(
 def compute_bvdex_stage12_rewards(
     reset_buf,
     progress_buf,
-    stage1_left_successes, stage1_right_successes, stage1_successes,
+    stage1_left_successes, stage1_right_successes, stage1_successes, stage1_cul_left_successes, stage1_cul_right_successes,
     stage2_left_successes, stage2_right_successes, stage2_successes,
     max_episode_length: float,
     object_pose, tool_pose,
@@ -364,11 +364,12 @@ def compute_bvdex_stage12_rewards(
     action_penalty_scale: float,
     success_tolerance: float,
     av_factor: float,
-    table_heights,
-    actions,
+    table_heights, left_robot_link1_pos, right_robot_link1_pos,
+    frequency: float,
     timestep, reach_ref_timestep, left_reach_ref_timestep, right_reach_ref_timestep,
     ref_object_pose, ref_init_object_pos_dist,  #ref_ref_object_palm_pose_diff, ref_ref_object_left_fingers_pos_diff,
     ref_tool_pose, ref_init_tool_pos_dist,      #ref_ref_tool_palm_pose_diff, ref_ref_tool_right_fingers_pos_diff,
+    object_grasp_pos, tool_grasp_pos,
     is_expect_end, # is_stage1_hand_object_rew: int, is_stage1_lin_rew:int, is_stage2_pos_rew_exp: int,
 ):
     '''
@@ -377,26 +378,25 @@ def compute_bvdex_stage12_rewards(
     '''
     info = {}
 
-    left_palm_object_dist = torch.norm(object_pose[:, :3] - left_palm_pose[:, :3], dim=-1) 
+    left_palm_object_dist = torch.norm(object_grasp_pos - left_palm_pose[:, :3], dim=-1)
     left_palm_object_dist = torch.where(left_palm_object_dist >= 0.5, 0.5 * torch.ones_like(left_palm_object_dist), left_palm_object_dist)
-    right_palm_tool_dist = torch.norm(tool_pose[:, :3] - right_palm_pose[:, :3], dim=-1)  
+    right_palm_tool_dist = torch.norm(tool_grasp_pos - right_palm_pose[:, :3], dim=-1)  
     right_palm_tool_dist = torch.where(right_palm_tool_dist >= 0.5, 0.5 * torch.ones_like(right_palm_tool_dist), right_palm_tool_dist)
 
     num_fingers = left_fingertip_pose.shape[1]
     left_fingertips_object_dist = torch.zeros_like(left_palm_object_dist)
     for i in range(num_fingers):
-        left_fingertips_object_dist += torch.norm(left_fingertip_pose[:, i, :3] - object_pose[:, :3], dim=-1)
+        left_fingertips_object_dist += torch.norm(left_fingertip_pose[:, i, :3] - object_grasp_pos, dim=-1)
     left_fingertips_object_dist = torch.where(
         left_fingertips_object_dist >= 3.0, 3.0 * torch.ones_like(left_fingertips_object_dist), left_fingertips_object_dist
     )  # Important!
 
     right_fingertips_tool_dist = torch.zeros_like(right_palm_tool_dist)
     for i in range(num_fingers):
-        right_fingertips_tool_dist += torch.norm(right_fingertip_pose[:, i, :3] - tool_pose[:, :3], dim=-1)
+        right_fingertips_tool_dist += torch.norm(right_fingertip_pose[:, i, :3] - tool_grasp_pos, dim=-1)
     right_fingertips_tool_dist = torch.where(
         right_fingertips_tool_dist >= 3.0, 3.0 * torch.ones_like(right_fingertips_tool_dist), right_fingertips_tool_dist
     )  # Important!
-    
     info["left_palm_object_dist"] = left_palm_object_dist
     info["right_palm_tool_dist"] = right_palm_tool_dist
     info["left_fingertips_object_dist"] = left_fingertips_object_dist
@@ -422,9 +422,13 @@ def compute_bvdex_stage12_rewards(
     # trajectory following
     left_successes = torch.logical_and(ref_object_pos_dist <= success_tolerance, left_fingertips_object_dist + left_palm_object_dist < 0.12 * (num_fingers + 1)).float()
     right_successes = torch.logical_and(ref_tool_pos_dist <= success_tolerance, right_fingertips_tool_dist + right_palm_tool_dist < 0.12 * (num_fingers + 1)).float()
-    left_reach_ref_timestep = torch.where(torch.logical_and(left_successes, left_reach_ref_timestep == -1), timestep, left_reach_ref_timestep)
-    right_reach_ref_timestep = torch.where(torch.logical_and(right_successes, right_reach_ref_timestep == -1), timestep, right_reach_ref_timestep)
-    reach_ref_timestep = torch.where(torch.logical_and(torch.logical_and(left_successes, right_successes), reach_ref_timestep == -1), timestep, reach_ref_timestep)
+    stage1_cul_left_successes = torch.where(left_successes > 0, left_successes + stage1_cul_left_successes, torch.zeros_like(left_successes))
+    stage1_cul_right_successes = torch.where(right_successes > 0, right_successes + stage1_cul_right_successes, torch.zeros_like(right_successes))
+    stage1_left_success_flag = stage1_cul_left_successes >= frequency
+    stage1_right_success_flag = stage1_cul_right_successes >= frequency
+    left_reach_ref_timestep = torch.where(torch.logical_and(stage1_left_success_flag, left_reach_ref_timestep == -1), timestep, left_reach_ref_timestep)
+    right_reach_ref_timestep = torch.where(torch.logical_and(stage1_right_success_flag, right_reach_ref_timestep == -1), timestep, right_reach_ref_timestep)
+    reach_ref_timestep = torch.where(torch.logical_and(torch.logical_and(stage1_left_success_flag, stage1_right_success_flag), reach_ref_timestep == -1), timestep, reach_ref_timestep)
     info["left_successes"] = left_successes
     info["right_successes"] = right_successes
     
@@ -545,8 +549,8 @@ def compute_bvdex_stage12_rewards(
     # every-step success
     info["step-success"] = torch.logical_and(ref_object_pos_dist <= success_tolerance, ref_tool_pos_dist <= success_tolerance).float()
     # stage 1 success
-    stage1_left_successes = torch.logical_or(stage1_left_successes, left_successes)
-    stage1_right_successes = torch.logical_or(stage1_right_successes, right_successes)
+    stage1_left_successes = torch.logical_or(stage1_left_successes, stage1_left_success_flag)
+    stage1_right_successes = torch.logical_or(stage1_right_successes, stage1_right_success_flag)
     stage1_successes = torch.logical_or(torch.logical_and(stage1_left_successes, stage1_right_successes), stage1_successes)
     # satge 2 success
     stage2_left_successes = torch.where(stage1_left_successes, ((timestep - reach_ref_timestep) * stage2_left_successes + (ref_object_pos_dist <= success_tolerance)) / (timestep - reach_ref_timestep + 1), stage2_left_successes)
@@ -555,10 +559,10 @@ def compute_bvdex_stage12_rewards(
     
     # bonus for second stage success
     # stage12_successes = torch.logical_and(stage1_successes, stage2_successes >= 0.5).float()
-    left_stage2_bonus = torch.where(is_expect_end, stage2_left_successes, torch.zeros_like(stage2_successes))
-    right_stage2_bonus = torch.where(is_expect_end, stage2_right_successes, torch.zeros_like(stage2_successes))
-    info["left_stage2_bonus"] = left_stage2_bonus
-    info["right_stage2_bonus"] = right_stage2_bonus
+    # left_stage2_bonus = torch.where(is_expect_end, stage2_left_successes, torch.zeros_like(stage2_successes))
+    # right_stage2_bonus = torch.where(is_expect_end, stage2_right_successes, torch.zeros_like(stage2_successes))
+    # info["left_stage2_bonus"] = left_stage2_bonus
+    # info["right_stage2_bonus"] = right_stage2_bonus
 
     # total reward
     left_approach_penalty = dist_reward_scale * left_fingertips_object_dist + 2 * dist_reward_scale * left_palm_object_dist
@@ -570,8 +574,8 @@ def compute_bvdex_stage12_rewards(
     info["right_approach_penalty"] = right_approach_penalty
     info["right_lift_to_refpose_reward"] = right_lift_to_refpose_reward
 
-    left_reward = - left_approach_penalty + left_lift_to_refpose_reward + left_stage1_bonus   # + left_stage2_bonus + left_object_hand_pose_rew 
-    right_reward = - right_approach_penalty + right_lift_to_refpose_reward + right_stage1_bonus# + right_stage2_bonus + right_tool_hand_pose_rew
+    left_reward = - left_approach_penalty + left_lift_to_refpose_reward + left_stage1_bonus #+ left_stage2_bonus + left_object_hand_pose_rew 
+    right_reward = - right_approach_penalty + right_lift_to_refpose_reward + right_stage1_bonus #+ right_stage2_bonus + right_tool_hand_pose_rew
     reward = left_reward + right_reward
     info["left_reward"] = left_reward
     info["right_reward"] = right_reward
@@ -583,15 +587,16 @@ def compute_bvdex_stage12_rewards(
 
     # reset
     resets = reset_buf.clone()
-    resets = torch.where(progress_buf >= max_episode_length, torch.ones_like(resets), resets)
-    resets = torch.where(torch.logical_or(object_pose[:, 2] <= table_heights, tool_pose[:, 2] <= table_heights), torch.ones_like(resets), resets)
-    # resets = torch.where(torch.logical_and(stage12_successes, is_expect_end), torch.ones_like(resets), resets)
+    resets = torch.where(progress_buf >= max_episode_length, torch.ones_like(resets), resets)   # 1. reach max episode length
+    resets = torch.where(torch.logical_or(object_pose[:, 2] <= table_heights, tool_pose[:, 2] <= table_heights), torch.ones_like(resets), resets)  # 2. fall under table
+    resets = torch.where(torch.logical_or(torch.pairwise_distance(left_robot_link1_pos, object_pose[:, :3]) >= 0.85, torch.pairwise_distance(right_robot_link1_pos, tool_pose[:, :3]) >= 0.85), torch.ones_like(resets), resets)  # 3. object out of scope
+    resets = torch.where(is_expect_end, torch.ones_like(resets), resets)  # 4. dataset end
 
     return (
         reward,
         resets,
         progress_buf,
-        stage1_left_successes, stage1_right_successes, stage1_successes,
+        stage1_left_successes, stage1_right_successes, stage1_successes, stage1_cul_left_successes, stage1_cul_right_successes,
         stage2_left_successes, stage2_right_successes, stage2_successes,
         timestep, reach_ref_timestep, left_reach_ref_timestep, right_reach_ref_timestep,
         info,
@@ -737,7 +742,7 @@ class BiLeapHandGraspM3Dagger(VecTask):
         headless,
         virtual_screen_capture,
         force_render,
-        **kwargs
+        **kwargs,
     ):
         self.cfg = cfg
         self.mode = self.cfg["mode"]
@@ -808,7 +813,6 @@ class BiLeapHandGraspM3Dagger(VecTask):
             self.cfg["env"]["numStates"] += 3 if self.asymmetric_obs else 0
             self.cfg["env"]["numActions"] += 3
 
-
         # need to set the names according to the robot
         self.palm = "palm"#_lower
         self.fingertips = [
@@ -833,7 +837,7 @@ class BiLeapHandGraspM3Dagger(VecTask):
             headless,
             virtual_screen_capture,
             force_render,
-            **kwargs
+            **kwargs,
         )
 
         control_freq_inv = self.cfg["env"].get("controlFrequencyInv", 1)
@@ -889,6 +893,8 @@ class BiLeapHandGraspM3Dagger(VecTask):
         self.stage1_left_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
         self.stage1_right_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
         self.stage1_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
+        self.stage1_cul_left_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
+        self.stage1_cul_right_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
         self.stage2_left_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
         self.stage2_right_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
         self.stage2_successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
@@ -1126,7 +1132,9 @@ class BiLeapHandGraspM3Dagger(VecTask):
         self.table_heights = to_torch(self.table_heights, device=self.device)
         self.all_object_labels = to_torch(self.object_labels, dtype=torch.float, device=self.device)[self.all_task_idx] / 255.
         self.all_tool_labels = to_torch(self.tool_labels, dtype=torch.float, device=self.device)[self.all_task_idx] / 255.
-        
+        self.all_object_grasp_pos = self.dataset_object_grasp_pos[self.all_task_idx]
+        self.all_tool_grasp_pos = self.dataset_tool_grasp_pos[self.all_task_idx]
+
         self.ref_init_object_pos_dist = torch.norm(self.all_ref_object_poses[:, :3] - self.object_init_states[:, :3], dim=-1)       # (n,)
         self.ref_init_tool_pos_dist = torch.norm(self.all_ref_tool_poses[:, :3] - self.tool_init_states[:, :3], dim=-1)             # (n,)
 
@@ -1259,8 +1267,9 @@ class BiLeapHandGraspM3Dagger(VecTask):
         self.dataset_object_poses, self.dataset_tool_poses, \
         self.dataset_ref_timesteps, self.dataset_end_timesteps, \
         self.object_mesh_pointclouds, self.tool_mesh_pointclouds, \
-        self.object_labels, self.tool_labels \
-        = [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []
+        self.object_labels, self.tool_labels, \
+        self.dataset_object_grasp_pos, self.dataset_tool_grasp_pos\
+        = [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []
 
 
         self.all_triplet = [ecfile.split('/')[-3] for ecfile in self.train_cfg['expertCkptFiles']]
@@ -1353,9 +1362,11 @@ class BiLeapHandGraspM3Dagger(VecTask):
             left_robot_start_pose, right_robot_start_pose, \
             table_asset, table_start_pose, \
             dataset_object_pose, dataset_tool_pose, \
-            ref_timestep, end_timestep \
+            ref_timestep, end_timestep, \
+            object_grasp_pos, tool_grasp_pos\
             = self._initialize_task(self.dataset_taco_datas[task_id])
-            
+            self.dataset_object_grasp_pos.append(object_grasp_pos)
+            self.dataset_tool_grasp_pos.append(tool_grasp_pos)
             self.dataset_object_poses.append(dataset_object_pose)   
             self.dataset_tool_poses.append(dataset_tool_pose)
             self.dataset_ref_timesteps.append(ref_timestep)
@@ -1414,6 +1425,8 @@ class BiLeapHandGraspM3Dagger(VecTask):
         self.dataset_end_timesteps = torch.tensor(self.dataset_end_timesteps, dtype=torch.long, device=self.device)  # (K,)
         # self.dataset_left_palm_ref_poses = torch.stack(self.dataset_left_palm_ref_poses, dim=0)  # (K, 7)
         # self.dataset_right_palm_ref_poses = torch.stack(self.dataset_right_palm_ref_poses, dim=0)  # (K, 7)
+        self.dataset_object_grasp_pos = to_torch(self.dataset_object_grasp_pos, dtype=torch.float, device=self.device)  # (K, 3)
+        self.dataset_tool_grasp_pos = to_torch(self.dataset_tool_grasp_pos, dtype=torch.float, device=self.device)  # (K, 3)
         self.object_mesh_pointclouds = torch.stack(self.object_mesh_pointclouds, dim=0)  # (K, N, 3)
         self.tool_mesh_pointclouds = torch.stack(self.tool_mesh_pointclouds, dim=0)  # (K, N, 3)
 
@@ -1423,11 +1436,37 @@ class BiLeapHandGraspM3Dagger(VecTask):
         init_timestep = taco_task_data['key_steps']['init']
         ref_timestep = taco_task_data['key_steps']['ref']
         end_timestep = taco_task_data['key_steps']['end']
+        # object grasp pos
+        dataset_object_grasp_pos = np.array(taco_task_data['left']['object']['gpos'])
+        dataset_tool_grasp_pos = np.array(taco_task_data['right']['tool']['gpos'])
         # object poses
         dataset_object_pos = np.array(taco_task_data['left']['object']['pos'])
         dataset_object_quat = np.array(taco_task_data['left']['object']['quat'])
+        dataset_object_init_pos = dataset_object_pos[init_timestep]
+        # tool poses
+        dataset_tool_pos = np.array(taco_task_data['right']['tool']['pos'])
+        dataset_tool_quat = np.array(taco_task_data['right']['tool']['quat'])
+        dataset_tool_init_pos = dataset_tool_pos[init_timestep]
+        # table asset and pose
+        # table_height = min(dataset_object_init_pos[2],dataset_tool_init_pos[2]) - 0.03  # objects above table
+        table_height = 0.7
+        table_dim = (1.5, 1.5, table_height)
+        table_asset, table_start_pose = self._prepare_table_asset(table_dim)
+        # constants
+        object_center_coord = (dataset_object_init_pos + dataset_tool_init_pos) / 2
+        rbx, rby, rbz = 0.34, 0.4, table_height + 0.52
+        left_robot_start_pose = gymapi.Transform()
+        self.left_robot_link1_pos = torch.tensor([[-rbx, 0.24 - rby, rbz]], dtype=torch.float, device=self.device)
+        left_robot_start_pose.p = gymapi.Vec3(-rbx, -rby, rbz)
+        left_robot_start_pose.r = gymapi.Quat(0.5,  0.5,  0.5, -0.5)
+        right_robot_start_pose = gymapi.Transform()
+        self.right_robot_link1_pos = torch.tensor([[rbx, 0.24 - rby, rbz]], dtype=torch.float, device=self.device)
+        right_robot_start_pose.p = gymapi.Vec3(rbx, -rby, rbz)
+        right_robot_start_pose.r = gymapi.Quat(0.5,  0.5,  0.5, -0.5)
+        # add offset to dataset
+        offset = np.array([-object_center_coord[0], -object_center_coord[1], table_height + 0.03 - min(dataset_object_init_pos[2],dataset_tool_init_pos[2])])
         dataset_object_pose = to_torch(torch.from_numpy(np.concatenate([
-            dataset_object_pos,
+            dataset_object_pos + offset,
             dataset_object_quat,
         ], axis=-1)), device=self.device, dtype=torch.float)
         # (epi_len, 7)
@@ -1435,16 +1474,9 @@ class BiLeapHandGraspM3Dagger(VecTask):
             dataset_object_pose = torch.cat([dataset_object_pose, dataset_object_pose[-1].repeat(epi_len - len(dataset_object_pose), 1)])
         else:
             dataset_object_pose = dataset_object_pose[:epi_len]
-        dataset_object_init_pos = dataset_object_pos[init_timestep]
-        dataset_object_init_quat = dataset_object_quat[init_timestep]
-        object_start_pose = gymapi.Transform()
-        object_start_pose.p = gymapi.Vec3(*dataset_object_init_pos)
-        object_start_pose.r = gymapi.Quat(*dataset_object_init_quat)
-        # tool poses
-        dataset_tool_pos = np.array(taco_task_data['right']['tool']['pos'])
-        dataset_tool_quat = np.array(taco_task_data['right']['tool']['quat'])
+        
         dataset_tool_pose = to_torch(torch.from_numpy(np.concatenate([
-            dataset_tool_pos,
+            dataset_tool_pos + offset,
             dataset_tool_quat,
         ], axis=-1)), device=self.device, dtype=torch.float)
         # (epi_len, 7)
@@ -1452,31 +1484,42 @@ class BiLeapHandGraspM3Dagger(VecTask):
             dataset_tool_pose = torch.cat([dataset_tool_pose, dataset_tool_pose[-1].repeat(epi_len - len(dataset_tool_pose), 1)])
         else:
             dataset_tool_pose = dataset_tool_pose[:epi_len]
-        dataset_tool_init_pos = dataset_tool_pos[init_timestep]
-        dataset_tool_init_quat = dataset_tool_quat[init_timestep]
+        
+        # initial object poses
+        self.objoffset = self.cfg['env'].get('objectOffset', 0.1)
+        object_start_pose = gymapi.Transform()
+        object_start_pose.p = gymapi.Vec3(-self.objoffset, 0, dataset_object_init_pos[2] + offset[2])
+        object_start_pose.r = gymapi.Quat(0,0,0,1)
         tool_start_pose = gymapi.Transform()
-        tool_start_pose.p = gymapi.Vec3(*dataset_tool_init_pos)
-        tool_start_pose.r = gymapi.Quat(*dataset_tool_init_quat)
-        # table asset and pose
-        table_height = min(dataset_object_init_pos[2],dataset_tool_init_pos[2]) - 0.03  # objects above table
-        table_dim = (1.5, 1.5, table_height)
-        table_asset, table_start_pose = self._prepare_table_asset(table_dim)
-        # constants
-        object_center_coord = (dataset_object_init_pos + dataset_tool_init_pos) / 2
-        left_robot_coord = object_center_coord[0] - 0.34, object_center_coord[1] - 0.5, table_height + 0.52
-        left_robot_start_pose = gymapi.Transform()
-        left_robot_start_pose.p = gymapi.Vec3(*left_robot_coord)
-        left_robot_start_pose.r = gymapi.Quat(0.5,  0.5,  0.5, -0.5)
-        right_robot_coord = object_center_coord[0] + 0.34, object_center_coord[1] - 0.5, table_height + 0.52
-        right_robot_start_pose = gymapi.Transform()
-        right_robot_start_pose.p = gymapi.Vec3(*right_robot_coord)
-        right_robot_start_pose.r = gymapi.Quat(0.5,  0.5,  0.5, -0.5)
+        tool_start_pose.p = gymapi.Vec3(self.objoffset, 0, dataset_tool_init_pos[2] + offset[2])
+        tool_start_pose.r = gymapi.Quat(0,0,0,1)
+        '''
+        # left palm poses
+        dataset_left_palm_pos = np.array(self.sampled_taco_task_data['left']['palm']['pos'])
+        dataset_left_palm_quat = np.array(self.sampled_taco_task_data['left']['palm']['quat'])
+        # (7)
+        dataset_left_palm_pose = to_torch(torch.from_numpy(np.concatenate([
+            dataset_left_palm_pos[[ref_timestep]],
+            dataset_left_palm_quat[[ref_timestep]],
+        ], axis=-1)), device=self.device, dtype=torch.float)
+        # right palm poses
+        dataset_right_palm_pos = np.array(self.sampled_taco_task_data['right']['palm']['pos'])
+        dataset_right_palm_quat = np.array(self.sampled_taco_task_data['right']['palm']['quat'])
+        # (7)
+        dataset_right_palm_pose = to_torch(torch.from_numpy(np.concatenate([
+            dataset_right_palm_pos[[ref_timestep]],
+            dataset_right_palm_quat[[ref_timestep]],
+        ], axis=-1)), device=self.device, dtype=torch.float)
+        '''
+        
 
         return object_start_pose, tool_start_pose, \
             left_robot_start_pose, right_robot_start_pose, \
             table_asset, table_start_pose, \
             dataset_object_pose, dataset_tool_pose, \
-            ref_timestep, end_timestep  # dataset_left_palm_pose, dataset_right_palm_pose
+            ref_timestep, end_timestep, \
+            dataset_object_grasp_pos, dataset_tool_grasp_pos,\
+            # dataset_left_palm_pose, dataset_right_palm_pose
 
     def _prepare_table_asset(self, table_dims):
         # create table asset
@@ -1501,14 +1544,14 @@ class BiLeapHandGraspM3Dagger(VecTask):
                 self.rew_buf[:],
                 self.reset_buf[:],
                 self.progress_buf[:],
-                self.stage1_left_successes[:], self.stage1_right_successes[:], self.stage1_successes[:],
+                self.stage1_left_successes[:], self.stage1_right_successes[:], self.stage1_successes[:], self.stage1_cul_left_successes[:], self.stage1_cul_right_successes[:],
                 self.stage2_left_successes[:], self.stage2_right_successes[:], self.stage2_successes[:],
                 self.timestep[:], self.reach_ref_timestep[:], self.left_reach_ref_timestep[:], self.right_reach_ref_timestep[:],
                 reward_info
             ) = compute_bvdex_stage12_rewards(
                 self.reset_buf,
                 self.progress_buf,
-                self.stage1_left_successes, self.stage1_right_successes, self.stage1_successes,
+                self.stage1_left_successes, self.stage1_right_successes, self.stage1_successes, self.stage1_cul_left_successes, self.stage1_cul_right_successes,
                 self.stage2_left_successes, self.stage2_right_successes, self.stage2_successes,
                 self.max_episode_length,
                 self.object_pose, self.tool_pose,
@@ -1518,11 +1561,12 @@ class BiLeapHandGraspM3Dagger(VecTask):
                 self.action_penalty_scale,
                 self.success_tolerance,
                 self.av_factor,
-                self.table_heights,
-                self.actions,
+                self.table_heights, self.left_robot_link1_pos, self.right_robot_link1_pos,
+                self.frequency,
                 self.timestep, self.reach_ref_timestep, self.left_reach_ref_timestep, self.right_reach_ref_timestep,
                 ref_object_pose, self.ref_init_object_pos_dist, #self.ref_ref_object_palm_pose_diff, self.ref_ref_object_left_fingers_pos_diff,
                 ref_tool_pose, self.ref_init_tool_pos_dist,     #self.ref_ref_tool_palm_pose_diff, self.ref_ref_tool_right_fingers_pos_diff,
+                self.actual_object_grasp_pos, self.actual_tool_grasp_pos,
                 is_expect_end, # self.is_stage1_hand_object_rew, self.is_stage1_lin_rew, self.is_stage2_pos_rew_exp,
             )
 
@@ -1584,6 +1628,7 @@ class BiLeapHandGraspM3Dagger(VecTask):
 
     def compute_full_observations(self):
         cnt = 0
+
         if 'dofps' in self.obs_type:  # dof pos, 44 
             self.obs_buf[:, cnt : cnt + self.num_robot_dofs] = unscale(
                 self.robot_dof_pos,
@@ -1648,10 +1693,12 @@ class BiLeapHandGraspM3Dagger(VecTask):
             cnt += 2 * obj_dim
 
         if 'relps' in self.obs_type:  # relative pos to object center, 15 * 2
-            self.obs_buf[:, cnt : cnt + 3] = self.object_pos - self.left_palm_pos
-            self.obs_buf[:, cnt + 3 : cnt + 15] = (self.object_pos.unsqueeze(1) - self.left_fingertip_pos).reshape(-1,12)
-            self.obs_buf[:, cnt + 15: cnt + 18] = self.tool_pos - self.right_palm_pos
-            self.obs_buf[:, cnt + 18 : cnt + 30] = (self.tool_pos.unsqueeze(1) - self.right_fingertip_pos).reshape(-1,12)
+            self.actual_object_grasp_pos = transformation_apply(self.object_pos, self.object_rot, self.all_object_grasp_pos)
+            self.actual_tool_grasp_pos = transformation_apply(self.tool_pos, self.tool_rot, self.all_tool_grasp_pos)
+            self.obs_buf[:, cnt : cnt + 3] = self.actual_object_grasp_pos - self.left_palm_pos
+            self.obs_buf[:, cnt + 3 : cnt + 15] = (self.actual_object_grasp_pos.unsqueeze(1) - self.left_fingertip_pos).reshape(-1,12)
+            self.obs_buf[:, cnt + 15: cnt + 18] = self.actual_tool_grasp_pos - self.right_palm_pos
+            self.obs_buf[:, cnt + 18 : cnt + 30] = (self.actual_tool_grasp_pos.unsqueeze(1) - self.right_fingertip_pos).reshape(-1,12)
             cnt += 30
 
         if 'meshpc' in self.obs_type:  # mesh point cloud, 1024 * 2
@@ -1787,6 +1834,8 @@ class BiLeapHandGraspM3Dagger(VecTask):
         self.stage1_left_successes[env_ids] = 0
         self.stage1_right_successes[env_ids] = 0
         self.stage1_successes[env_ids] = 0
+        self.stage1_cul_left_successes[env_ids] = 0
+        self.stage1_cul_right_successes[env_ids] = 0
         self.stage2_left_successes[env_ids] = 0
         self.stage2_right_successes[env_ids] = 0
         self.stage2_successes[env_ids] = 0
@@ -1801,6 +1850,7 @@ class BiLeapHandGraspM3Dagger(VecTask):
             self.reset_idx(env_ids)
 
         self.actions = actions.clone().to(self.device)
+        '''for hand'''
         if self.use_relative_control:
             targets = (
                 self.prev_targets[:, self.both_fingers_dof_indices]
@@ -1829,7 +1879,7 @@ class BiLeapHandGraspM3Dagger(VecTask):
                 self.robot_dof_lower_limits[self.both_fingers_dof_indices],
                 self.robot_dof_upper_limits[self.both_fingers_dof_indices],
             )
-
+        '''for arm'''
         if self.arm_controller == "qpos":
             if self.use_relative_control:
                 targets = (
