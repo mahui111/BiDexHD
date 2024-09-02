@@ -384,6 +384,37 @@ class M2DaggerStorage:
         self.right_values[self.step].copy_(right_values)
         self.expert_ids[self.step].copy_(expert_id)
         self.step += 1
+        
+    def add_transitions_with_expert_labels(
+        self,
+        observations,
+        states,
+        left_actions, right_actions,
+        left_rewards, right_rewards,
+        dones,
+        left_values, right_values,
+        expert_left_actions, expert_left_values, 
+        expert_right_actions,expert_right_values,
+        expert_id
+    ):
+        if self.step >= self.num_transitions_per_env:
+            raise AssertionError("Rollout buffer overflow")
+
+        self.observations[self.step].copy_(observations)
+        self.states[self.step].copy_(states)
+        self.left_actions[self.step].copy_(left_actions)
+        self.right_actions[self.step].copy_(right_actions)
+        self.left_rewards[self.step].copy_(left_rewards.view(-1, 1))
+        self.right_rewards[self.step].copy_(right_rewards.view(-1, 1))
+        self.dones[self.step].copy_(dones.view(-1, 1))
+        self.left_values[self.step].copy_(left_values)
+        self.right_values[self.step].copy_(right_values)
+        self.expert_ids[self.step].copy_(expert_id)
+        self.expert_left_actions[self.step].copy_(expert_left_actions)
+        self.expert_right_actions[self.step].copy_(expert_right_actions)
+        self.expert_left_values[self.step].copy_(expert_left_values)
+        self.expert_right_values[self.step].copy_(expert_right_values)
+        self.step += 1
 
     def clear(self):
         self.step = 0
