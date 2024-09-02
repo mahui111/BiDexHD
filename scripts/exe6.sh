@@ -19,6 +19,6 @@ fi
 
 # evaluate
 python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=ippo num_envs=100 triplet="$triplet" train_ids="$train_ids" objectOffset=$objoffset test=True checkpoint="'\
-/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, teapot, teapot)/ema0.1+ol2/model_6000.pt\
+/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/freq3/exp1/(brush, brush, bowl)/ema0.1+ol2_sel[1,2,3,5,9,10,11]/model_14500.pt\
 '"
 

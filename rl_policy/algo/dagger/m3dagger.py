@@ -70,7 +70,7 @@ class M3DaggerValue(nn.Module):
         self.gamma = train_param["gamma"]
         self.lam = train_param["lam"]
         self.sampler = train_param.get("sampler", "sequential")
-        self.clip_action = train_param.get("clip_action", False)
+        # self.clip_action = train_param.get("clip_action", False)
         self.device = vec_env.device
         
         # Log
@@ -107,7 +107,7 @@ class M3DaggerValue(nn.Module):
 
         # loss
         if train_param['lossFunc'] == 'huber':
-            self.criterion = nn.HuberLoss(delta=0.5)
+            self.criterion = nn.HuberLoss(delta=0.01)
         elif train_param['lossFunc'] == 'l1':
             self.criterion = nn.SmoothL1Loss()
 
@@ -155,10 +155,10 @@ class M3DaggerValue(nn.Module):
                         # Compute the action
                         stu_left_actions = self.left_actor_critic.act_inference(current_obs)
                         stu_right_actions = self.right_actor_critic.act_inference(current_obs)
-                        if self.clip_action:
-                            c = 5.5
-                            stu_left_actions = torch.clamp(stu_left_actions, -c, c)
-                            stu_right_actions = torch.clamp(stu_right_actions, -c, c)
+                        # if self.clip_action:
+                        #     c = 5.5
+                        #     stu_left_actions = torch.clamp(stu_left_actions, -c, c)
+                        #     stu_right_actions = torch.clamp(stu_right_actions, -c, c)
                         stu_actions = torch.cat([stu_left_actions, stu_right_actions],dim=1)
                         # Step the vec_environment
                         next_obs_dict, rews, dones, infos = self.vec_env.step(stu_actions)
@@ -196,10 +196,10 @@ class M3DaggerValue(nn.Module):
                     # Compute the action
                     _, _, stu_left_values, stu_left_actions, _ = self.left_actor_critic.act(current_obs)
                     _, _, stu_right_values, stu_right_actions, _ = self.right_actor_critic.act(current_obs)
-                    if self.clip_action:
-                        c = 5.5
-                        stu_left_actions = torch.clamp(stu_left_actions, -c, c)
-                        stu_right_actions = torch.clamp(stu_right_actions, -c, c)
+                    # if self.clip_action:
+                    #     c = 5.5
+                    #     stu_left_actions = torch.clamp(stu_left_actions, -c, c)
+                    #     stu_right_actions = torch.clamp(stu_right_actions, -c, c)
                     stu_actions = torch.cat([stu_left_actions, stu_right_actions], dim=1)
                     # Step the vec_environment
                     with torch.no_grad():
@@ -277,8 +277,8 @@ class M3DaggerValue(nn.Module):
                     right_action_batch = self.storage.right_actions.view(-1, self.storage.right_actions.size(-1))[indices]
                     left_returns_batch = self.storage.left_returns.view(-1, 1)[indices]
                     right_returns_batch = self.storage.right_returns.view(-1, 1)[indices]
-                    cur_left_value_batch = self.left_actor_critic.evaluate(obs_batch, None, left_action_batch)[2]
-                    cur_right_value_batch = self.right_actor_critic.evaluate(obs_batch, None, right_action_batch)[2]
+                    cur_left_value_batch = self.left_actor_critic.evaluate(obs_batch, left_action_batch)[2]
+                    cur_right_value_batch = self.right_actor_critic.evaluate(obs_batch, right_action_batch)[2]
                     if self.value_loss_cfg['use_clipped_value_loss']:
                         left_value_clipped = expert_left_values_batch + (cur_left_value_batch - expert_left_values_batch).clamp(-self.value_loss_cfg['clip_range'], self.value_loss_cfg['clip_range'])
                         left_value_losses = (cur_left_value_batch - left_returns_batch).pow(2)
@@ -327,13 +327,13 @@ class M3DaggerValue(nn.Module):
             for ie in range(len(self.expert_list)):
                 expert_i_idx = (expertid_batch == ie).nonzero().squeeze()
                 checkcnt += len(expert_i_idx)
-                batch_expert_left_actions[expert_i_idx], _, batch_expert_left_values[expert_i_idx], _, _ = self.expert_list[ie].left_agent.actor_critic.act(current_obs[expert_i_idx])
-                batch_expert_right_actions[expert_i_idx], _, batch_expert_right_values[expert_i_idx], _, _ = self.expert_list[ie].right_agent.actor_critic.act(current_obs[expert_i_idx])
+                _, _, batch_expert_left_values[expert_i_idx], batch_expert_left_actions[expert_i_idx], _ = self.expert_list[ie].left_agent.actor_critic.act(current_obs[expert_i_idx])
+                _, _, batch_expert_right_values[expert_i_idx], batch_expert_right_actions[expert_i_idx], _ = self.expert_list[ie].right_agent.actor_critic.act(current_obs[expert_i_idx])
             assert checkcnt == len(current_obs) and checkcnt == len(expertid_batch)
-            if self.clip_action:
-                c = 5.5
-                batch_expert_left_actions = torch.clamp(batch_expert_left_actions, -c, c)
-                batch_expert_right_actions = torch.clamp(batch_expert_right_actions, -c, c)
+            # if self.clip_action:
+            #     c = 5.5
+            #     batch_expert_left_actions = torch.clamp(batch_expert_left_actions, -c, c)
+            #     batch_expert_right_actions = torch.clamp(batch_expert_right_actions, -c, c)
         return batch_expert_left_actions, batch_expert_left_values, batch_expert_right_actions, batch_expert_right_values
     
     def add_expert_labels(self,):

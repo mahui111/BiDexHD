@@ -1725,7 +1725,7 @@ class BiLeapHandGraspM3Dagger(VecTask):
             cnt += 2
 
         if 'futureps' in self.obs_type:
-            future_steps = torch.clip(self.timestep.unsqueeze(-1) + torch.arange(self.Kfuturestep).to(self.device), max=self.dataset_tool_poses.shape[1]).unsqueeze(-1).expand(-1,-1,3)
+            future_steps = torch.clip(self.timestep.unsqueeze(-1) + torch.arange(self.Kfuturestep).to(self.device), max=self.dataset_tool_poses.shape[1]-1).unsqueeze(-1).expand(-1,-1,3)
             self.obs_buf[:, cnt : cnt + self.Kfuturestep * 3] = self.dataset_object_poses[self.all_task_idx].gather(1, future_steps).view(self.num_envs, -1)
             self.obs_buf[:, cnt + self.Kfuturestep * 3 : cnt + 2 * self.Kfuturestep * 3] = self.dataset_tool_poses[self.all_task_idx].gather(1, future_steps).view(self.num_envs, -1)
             cnt += 2 * self.Kfuturestep * 3

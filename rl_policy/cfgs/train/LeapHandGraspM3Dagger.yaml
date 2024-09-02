@@ -26,15 +26,15 @@ params:
   cliprange: 0.2
   ent_coef: 0.0001
   nsteps: 8
-  noptepochs: 3
-  nminibatches: 32 # this is per agent
+  noptepochs: 1
+  nminibatches: 4 # this is per agent
   max_grad_norm: 1.0
   optim_stepsize: 5.e-4 # 3e-4 is default for single agent training with constant schedule
   schedule: adaptive # could be adaptive or linear or fixed
   desired_kl: 0.016
   gamma: 0.96
   lam: 0.95
-  init_noise_std: 0.8
+  init_noise_std: 0.1
 
   log_interval: 1
   asymmetric: False
@@ -46,25 +46,33 @@ params:
     clip_range: 0.5
 
   expertCkptFiles: [
+    '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready2.0/(brush, brush, bowl)/ema0.1+ol2_sel[1,2,3,5,9,10,11]/model_11500.pt',
+    '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready2.0/(dust, brush, bowl)/ema0.1+ol2/model_18000.pt',
+
+
+
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(pour in some, bowl, bowl)/ema0.1+ol2/model_24000.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(pour in some, cup, cup)/ema0.1+ol2/model_7000.pt'
 
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(scrape off, knife, bowl)/ema0.1+ol2/model_24000.pt'
 
-    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, cup, teapot)/ema0.1+ol2/model_6000.pt',
-    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, bowl, bowl)/ema0.1+ol2/model_23000.pt',
-    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, teapot, teapot)/ema0.1+ol2/model_6000.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, cup, teapot)/ema0.1+ol2/model_6000.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, bowl, bowl)/ema0.1+ol2/model_23000.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, teapot, teapot)/ema0.1+ol2/model_6000.pt',
   ]
   expertObservationType: "dofps+dofvel+ftps+lastact+objstate+palmpose+relps+objlabel"  
   train_task_id_lists: [
+    [1,2,3,5,9,10,11],
+    [],
+
     # [2,3,4,5,6],
     # [],
 
     # [],
 
-    [],
-    [2,3,4,6,7],
-    [0,2],
+    # [],
+    # [2,3,4,6,7],
+    # [0,2],
   ]
   clipAction: False
-  lossFunc: "huber"
+  lossFunc: "l1"
