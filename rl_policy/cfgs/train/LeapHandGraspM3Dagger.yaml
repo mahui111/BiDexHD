@@ -46,13 +46,13 @@ params:
     clip_range: 0.5
 
   expertCkptFiles: [
-    '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready2.0/(brush, brush, bowl)/ema0.1+ol2_sel[1,2,3,5,9,10,11]/model_11500.pt',
-    '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready2.0/(dust, brush, bowl)/ema0.1+ol2/model_18000.pt',
+    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready2.0/(brush, brush, bowl)/ema0.1+ol2_sel[1,2,3,5,9,10,11]/model_11500.pt',
+    # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready2.0/(dust, brush, bowl)/ema0.1+ol2/model_18000.pt',
 
 
 
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(pour in some, bowl, bowl)/ema0.1+ol2/model_24000.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(pour in some, cup, cup)/ema0.1+ol2/model_7000.pt'
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(pour in some, bowl, bowl)/ema0.1+ol2/model_24000.pt',
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(pour in some, cup, cup)/ema0.1+ol2/model_7000.pt'
 
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(scrape off, knife, bowl)/ema0.1+ol2/model_24000.pt'
 
@@ -62,11 +62,12 @@ params:
   ]
   expertObservationType: "dofps+dofvel+ftps+lastact+objstate+palmpose+relps+objlabel"  
   train_task_id_lists: [
-    [1,2,3,5,9,10,11],
-    [],
-
-    # [2,3,4,5,6],
+    # [1,2,3,5,9,10,11],
     # [],
+
+
+    [2,3,4,5,6],
+    [],
 
     # [],
 

@@ -26,7 +26,7 @@ def build_runner(cfg, env):
         exp_name = f"{cfg.algo}_{time_str}_s{cfg.seed}" if not cfg.exp_name else cfg.exp_name
         # triplet = re.search(r'\([^)]+\)', train_param.expertCkptFile).group(0)
         if 'dagger' in cfg.algo:
-            log_dir = os.path.join(train_param.log_dir, f"exp/{cfg.triplet.strip('()').split(', ')[0]}/distill{len(train_param['expertCkptFiles'])}", exp_name)
+            log_dir = os.path.join(train_param.log_dir, f"exp/distill{len(train_param['expertCkptFiles'])}", exp_name)
         else:
             log_dir = os.path.join(train_param.log_dir, 'freq3/exp1_sel_objoff0.2' , cfg.triplet, exp_name)#
         os.makedirs(log_dir, exist_ok=True)
