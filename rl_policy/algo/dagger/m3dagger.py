@@ -206,6 +206,7 @@ class M3DaggerValue(nn.Module):
                     expert_left_actions, expert_left_values, expert_right_actions, expert_right_values = self.expert_batch_act(current_obs, self.vec_env.expert_ids)
                     epsilon = 0.05 + 0.5 * (1 - 0.05) * (1 + np.cos(it / 2000 * np.pi))
                     actions = torch.cat([stu_left_actions, stu_right_actions], dim=1) if np.random.uniform(0,1) > epsilon else torch.cat([expert_left_actions, expert_right_actions], dim=1)
+
                     # Step the vec_environment
                     with torch.no_grad():
                         next_obs_dict, rews, dones, infos = self.vec_env.step(actions)

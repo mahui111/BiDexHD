@@ -60,8 +60,9 @@ params:
 
 
 
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(pour in some, bowl, bowl)/ema0.1+ol2/model_24000.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(pour in some, cup, cup)/ema0.1+ol2/model_7000.pt'
+
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(pour in some, bowl, bowl)/ema0.1+ol2/model_24000.pt',
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(pour in some, cup, cup)/ema0.1+ol2/model_7000.pt'
 
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(scrape off, knife, bowl)/ema0.1+ol2/model_24000.pt'
 
@@ -87,6 +88,10 @@ params:
 
     # [2,3,4,5,6],
     # [],
+
+
+    [2,3,4,5,6],
+    [],
 
     # [],
 
