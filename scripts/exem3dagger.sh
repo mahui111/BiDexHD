@@ -13,13 +13,13 @@ objectOffset=${2:-0.1}
 # python main.py task=BiLeapHandGraspM3Dagger train=LeapHandGraspM3Dagger algo=m3dagger num_envs=1 test=True mode=visualize
 
 # train
-# CUDA_VISIBLE_DEVICES=4 python main.py task=BiLeapHandGraspM3Dagger train=LeapHandGraspM3Dagger algo=m3dagger num_envs=5000 objectOffset=$objectOffset exp_name=dagger_avhuber headless=True #checkpoint="'\
+CUDA_VISIBLE_DEVICES=7 python main.py task=BiLeapHandGraspM3Dagger train=LeapHandGraspM3Dagger algo=m3dagger triplet="$triplet" num_envs=20000 objectOffset=$objectOffset exp_name=dagger_avhuber headless=True #checkpoint="'\
 # /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-dagger/distill1/dagger_avhuber/dagger_27000.pt\
 # '"
 
 # evaluate
-python main.py task=BiLeapHandGraspM3Dagger train=LeapHandGraspM3Dagger algo=m3dagger num_envs=100 test=True checkpoint="'\
-/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-dagger/exp/distill2-0.9/dagger_avhuber/dagger_9000.pt\
-'"
+# python main.py task=BiLeapHandGraspM3Dagger train=LeapHandGraspM3Dagger algo=m3dagger num_envs=100 triplet="$triplet" test=True checkpoint="'\
+# /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-dagger/exp/distill2-0.9/dagger_avhuber/dagger_9000.pt\
+# '"
 
 

@@ -27,8 +27,9 @@ def build_runner(cfg, env):
         # triplet = re.search(r'\([^)]+\)', train_param.expertCkptFile).group(0)
         if 'dagger' in cfg.algo:
             numtotal = len(train_param.expertCkptFiles)
-            triplet = train_param.expertCkptFiles[0].split('/')[-3].strip('()').split(', ')[0]
-            log_dir = os.path.join(train_param.log_dir, f"exp/{triplet}/distill{numtotal}", exp_name)
+            triplet = train_param.expertCkptFiles[0].split('/')[-3]
+            verb = triplet.strip('()').split(', ')[0]
+            log_dir = os.path.join(train_param.log_dir, f"{triplet}/distill{numtotal}", exp_name)
         else:
             log_dir = os.path.join(train_param.log_dir, 'freq3/exp1_add' , cfg.triplet, exp_name)
         os.makedirs(log_dir, exist_ok=True)

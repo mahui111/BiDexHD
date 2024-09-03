@@ -7,3 +7,5 @@
 (pour in some, teapot, cup)
 (stir, spoon, bowl)
 (stir, spoon, pan)
+(pour in some, teapot, bowl)
+(empty, bowl, cup)
