@@ -1300,7 +1300,6 @@ class BiLeapHandGraspM3Dagger(VecTask):
         cul_len = 0
         self.train_task_ids, self.test_task_ids = [], []
         train_task_id_dict = self.train_cfg['train_task_id_dict']
-        assert len(train_task_id_dict) == len(self.all_triplet)
         for itriplet, triplet in enumerate(self.all_triplet):
             with open(f'taco_dataset/task_data/{triplet}.json', 'r') as f:
                 dataset_taco_data = json.load(f)
