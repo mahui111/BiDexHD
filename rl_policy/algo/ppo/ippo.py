@@ -60,7 +60,7 @@ class IPPOAgent(nn.Module):
             self.state_space.shape,
             self.single_action_space_shape,
             self.init_noise_std,
-            train_param.policy,
+            None, #train_param.policy,
             asymmetric=self.asymmetric,
             **kwargs
         )

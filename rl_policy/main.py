@@ -26,9 +26,11 @@ def build_runner(cfg, env):
         exp_name = f"{cfg.algo}_{time_str}_s{cfg.seed}" if not cfg.exp_name else cfg.exp_name
         # triplet = re.search(r'\([^)]+\)', train_param.expertCkptFile).group(0)
         if 'dagger' in cfg.algo:
-            log_dir = os.path.join(train_param.log_dir, f"exp/distill{len(train_param['expertCkptFiles'])}", exp_name)
+            numtotal = len(train_param.expertCkptFiles)
+            triplet = train_param.expertCkptFiles[0].split('/')[-3].strip('()').split(', ')[0]
+            log_dir = os.path.join(train_param.log_dir, f"exp/{triplet}/distill{numtotal}", exp_name)
         else:
-            log_dir = os.path.join(train_param.log_dir, 'freq3/exp1_sel_objoff0.2' , cfg.triplet, exp_name)#
+            log_dir = os.path.join(train_param.log_dir, 'freq3/exp1_sel_objoff0.2' , cfg.triplet, exp_name)
         os.makedirs(log_dir, exist_ok=True)
         with open(os.path.join(log_dir, "config.json"), "w") as f:
             json.dump(OmegaConf.to_container(cfg), f, indent=4)

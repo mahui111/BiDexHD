@@ -1715,8 +1715,16 @@ class BiLeapHandGraspM3Dagger(VecTask):
                 self.object_pointclouds += torch.randn_like(self.object_pointclouds).to(self.device) * self.pointcloud_noise_scale * (torch.rand(self.object_pointclouds.shape[:-1]+(1,)) < self.pointcloud_noise_threshold).float().to(self.device)
                 self.tool_pointclouds += torch.randn_like(self.tool_pointclouds).to(self.device) * self.pointcloud_noise_scale * (torch.rand(self.tool_pointclouds.shape[:-1]+(1,)) < self.pointcloud_noise_threshold).float().to(self.device)
             for i_task in range(self.num_task):
-                self.obs_buf[i_task::self.num_task, cnt : cnt + self.num_pc_flatten] = transformation_apply(self.object_pos[i_task::self.num_task,None,:], self.object_rot[i_task::self.num_task,None,:], self.object_pointclouds[i_task]).view(-1, self.num_pc_flatten)
-                self.obs_buf[i_task::self.num_task, cnt + self.num_pc_flatten : cnt + 2 * self.num_pc_flatten] = transformation_apply(self.tool_pos[i_task::self.num_task,None,:], self.tool_rot[i_task::self.num_task,None,:], self.tool_pointclouds[i_task]).view(-1, self.num_pc_flatten)
+                self.obs_buf[i_task::self.num_task, cnt : cnt + self.num_pc_flatten] = transformation_apply(
+                    self.object_pos[i_task::self.num_task,None,:], 
+                    self.object_rot[i_task::self.num_task,None,:], 
+                    self.object_pointclouds[i_task]
+                ).view(-1, self.num_pc_flatten)
+                self.obs_buf[i_task::self.num_task, cnt + self.num_pc_flatten : cnt + 2 * self.num_pc_flatten] = transformation_apply(
+                    self.tool_pos[i_task::self.num_task,None,:], 
+                    self.tool_rot[i_task::self.num_task,None,:], 
+                    self.tool_pointclouds[i_task]
+                ).view(-1, self.num_pc_flatten)
             cnt += 2 * self.num_pc_flatten
         
         if 'objlabel' in self.obs_type:  
@@ -1725,10 +1733,48 @@ class BiLeapHandGraspM3Dagger(VecTask):
             cnt += 2
 
         if 'futureps' in self.obs_type:
-            future_steps = torch.clip(self.timestep.unsqueeze(-1) + torch.arange(self.Kfuturestep).to(self.device), max=self.dataset_tool_poses.shape[1]-1).unsqueeze(-1).expand(-1,-1,3)
+            t = torch.where(self.reach_ref_timestep == -1, torch.zeros_like(self.timestep), torch.ceil((self.timestep - self.reach_ref_timestep) / self.frequency).long()) + self.dataset_ref_timesteps[self.all_task_idx]
+            future_steps = (t.clip(max=self.dataset_end_timesteps[self.all_task_idx] - self.Kfuturestep + 1).unsqueeze(-1) + torch.arange(self.Kfuturestep).to(self.device)).unsqueeze(-1).expand(-1,-1,3)
             self.obs_buf[:, cnt : cnt + self.Kfuturestep * 3] = self.dataset_object_poses[self.all_task_idx].gather(1, future_steps).view(self.num_envs, -1)
             self.obs_buf[:, cnt + self.Kfuturestep * 3 : cnt + 2 * self.Kfuturestep * 3] = self.dataset_tool_poses[self.all_task_idx].gather(1, future_steps).view(self.num_envs, -1)
             cnt += 2 * self.Kfuturestep * 3
+
+        # visualize point cloud
+        if self.debug_vis and (self.control_steps + 1) % 10 == 0:
+            import time
+            import open3d as o3d
+            vis = o3d.visualization.Visualizer()
+            vis.create_window(window_name='Open3D PointCloud Visualization', width=800, height=600)
+            obj_pcd_ori, obj_pcd_trans = o3d.geometry.PointCloud(), o3d.geometry.PointCloud()
+            tool_pcd_ori, tool_pcd_trans = o3d.geometry.PointCloud(), o3d.geometry.PointCloud()
+            for itask in range(self.num_task):
+                print('task:', itask)
+                # Clear previous points in the Visualizer
+                vis.clear_geometries()
+
+                # Assign points to PointCloud object
+                obj_pcd_ori.points = o3d.utility.Vector3dVector(self.object_pointclouds[itask].detach().cpu().numpy())
+                obj_pcd_ori.colors = o3d.utility.Vector3dVector(np.zeros((self.num_sample_points, 3), dtype=np.float32))
+                obj_pcd_trans.points = o3d.utility.Vector3dVector(self.obs_buf[itask, 226 : 226 + self.num_pc_flatten].view(-1,3).detach().cpu().numpy())
+                obj_pcd_trans.colors = o3d.utility.Vector3dVector(np.array([[1, 0, 0]] * self.num_sample_points, dtype=np.float32))
+                obj_pcd_trans.points.append(self.actual_object_grasp_pos[itask].detach().cpu().numpy())
+                obj_pcd_trans.colors.append(np.array([0, 1, 0], dtype=np.float32))
+                vis.add_geometry(obj_pcd_ori)
+                vis.add_geometry(obj_pcd_trans)
+
+                tool_pcd_ori.points = o3d.utility.Vector3dVector(self.tool_pointclouds[itask].detach().cpu().numpy())
+                tool_pcd_ori.colors = o3d.utility.Vector3dVector(np.zeros((self.num_sample_points, 3), dtype=np.float32))
+                tool_pcd_trans.points = o3d.utility.Vector3dVector(self.obs_buf[itask, 226 + self.num_pc_flatten : 226 + 2 * self.num_pc_flatten].view(-1,3).detach().cpu().numpy())
+                tool_pcd_trans.colors = o3d.utility.Vector3dVector(np.array([[0, 0, 1]] * self.num_sample_points, dtype=np.float32))
+                tool_pcd_trans.points.append(self.actual_tool_grasp_pos[itask].detach().cpu().numpy())
+                tool_pcd_trans.colors.append(np.array([0, 1, 0], dtype=np.float32))
+                vis.add_geometry(tool_pcd_ori)
+                vis.add_geometry(tool_pcd_trans)
+
+                # Update the window to visualize the point cloud
+                vis.poll_events()
+                vis.update_renderer()
+                vis.run()   
 
         # assert dim
         assert cnt == self.obs_buf.shape[1]

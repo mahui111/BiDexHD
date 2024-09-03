@@ -18,8 +18,8 @@ CUDA_VISIBLE_DEVICES=4 python main.py task=BiLeapHandGraspM3Dagger train=LeapHan
 # '"
 
 # evaluate
-# python main.py task=BiLeapHandGraspM3Dagger train=LeapHandGraspM3Dagger algo=m3dagger num_envs=500 test=True headless=True checkpoint="'\
-# /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-dagger/verb/distill3/dagger_ahuber2_putout/dagger_3000.pt\
+# python main.py task=BiLeapHandGraspM3Dagger train=LeapHandGraspM3Dagger algo=m3dagger num_envs=100 test=True checkpoint="'\
+# /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-dagger/exp/distill2-0.9/dagger_avhuber/dagger_9000.pt\
 # '"
 
 

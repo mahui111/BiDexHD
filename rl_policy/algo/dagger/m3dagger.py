@@ -70,6 +70,7 @@ class M3DaggerValue(nn.Module):
         self.gamma = train_param["gamma"]
         self.lam = train_param["lam"]
         self.sampler = train_param.get("sampler", "sequential")
+        self.max_grad_norm = train_param.get("max_grad_norm", 0.5)
         # self.clip_action = train_param.get("clip_action", False)
         self.device = vec_env.device
         
@@ -203,7 +204,9 @@ class M3DaggerValue(nn.Module):
                     
                     # Compute the expert action
                     expert_left_actions, expert_left_values, expert_right_actions, expert_right_values = self.expert_batch_act(current_obs, self.vec_env.expert_ids)
-                    actions = torch.cat([stu_left_actions, stu_right_actions], dim=1) if torch.rand(1) > 0.5 else torch.cat([expert_left_actions, expert_right_actions], dim=1)
+                    epsilon = 0.05 + 0.5 * (1 - 0.05) * (1 + np.cos(it / 2000 * np.pi))
+                    actions = torch.cat([stu_left_actions, stu_right_actions], dim=1) if np.random.uniform(0,1) > epsilon else torch.cat([expert_left_actions, expert_right_actions], dim=1)
+
                     # Step the vec_environment
                     with torch.no_grad():
                         next_obs_dict, rews, dones, infos = self.vec_env.step(actions)
@@ -302,13 +305,13 @@ class M3DaggerValue(nn.Module):
                 # Gradient step
                 left_loss = left_action_loss + left_value_loss * self.value_loss_cfg['value_loss_coef']
                 self.left_optimizer.zero_grad()
-                nn.utils.clip_grad_norm_(self.left_actor_critic.parameters(), 0.5)
+                nn.utils.clip_grad_norm_(self.left_actor_critic.parameters(), self.max_grad_norm)
                 left_loss.backward()
                 self.left_optimizer.step()
                 right_loss = right_action_loss + right_value_loss * self.value_loss_cfg['value_loss_coef']
                 self.right_optimizer.zero_grad()
                 right_loss.backward()
-                nn.utils.clip_grad_norm_(self.right_actor_critic.parameters(), 0.5)
+                nn.utils.clip_grad_norm_(self.right_actor_critic.parameters(), self.max_grad_norm)
                 self.right_optimizer.step()
 
                 mean_policy_loss += 0.5 * (left_action_loss.item() + right_action_loss.item())
