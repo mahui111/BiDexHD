@@ -30,7 +30,7 @@ def build_runner(cfg, env):
             triplet = train_param.expertCkptFiles[0].split('/')[-3].strip('()').split(', ')[0]
             log_dir = os.path.join(train_param.log_dir, f"exp/{triplet}/distill{numtotal}", exp_name)
         else:
-            log_dir = os.path.join(train_param.log_dir, 'freq3/exp1_sel_objoff0.2' , cfg.triplet, exp_name)
+            log_dir = os.path.join(train_param.log_dir, 'freq3/exp1_add' , cfg.triplet, exp_name)
         os.makedirs(log_dir, exist_ok=True)
         with open(os.path.join(log_dir, "config.json"), "w") as f:
             json.dump(OmegaConf.to_container(cfg), f, indent=4)
