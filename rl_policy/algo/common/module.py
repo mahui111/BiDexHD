@@ -74,10 +74,6 @@ class ActorCritic(nn.Module):
     ):
         super(ActorCritic, self).__init__()
 
-        self.asymmetric = asymmetric
-        self.backbone_type = model_cfg["backbone_type"]
-        self.freeze_backbone = model_cfg["freeze_backbone"]
-
         self.use_pc = len(kwargs["pointcloud_indices"]) > 0
         self.use_objlabel = len(kwargs["objlabel_indices"]) > 0
         if "futureobjps_indices" in kwargs and len(kwargs["futureobjps_indices"]) > 0:
@@ -86,15 +82,14 @@ class ActorCritic(nn.Module):
         else:
             self.use_futureobjps = 0
 
-        # if model_cfg is None:  # default
-        #     actor_hidden_dim = [256, 256, 256]
-        #     critic_hidden_dim = [256, 256, 256]
-        #     activation = get_activation("selu")
-        # else:
-
-        actor_hidden_dim = model_cfg["pi_hid_sizes"]
-        critic_hidden_dim = model_cfg["vf_hid_sizes"]
-        activation = get_activation(model_cfg["activation"])
+        if model_cfg is None:  # default
+            actor_hidden_dim = [1024, 1024, 512, 512]
+            critic_hidden_dim = [1024, 1024, 512, 512]
+            activation = get_activation("elu")
+        else:
+            actor_hidden_dim = model_cfg["pi_hid_sizes"]
+            critic_hidden_dim = model_cfg["vf_hid_sizes"]
+            activation = get_activation(model_cfg["activation"])
 
         self.num_obs = obs_shape[0]
         self.robostate_indices = kwargs["robostate_indices"]
@@ -102,11 +97,13 @@ class ActorCritic(nn.Module):
         self.objlabel_indices = kwargs.get("objlabel_indices", [])
 
         if self.use_pc:
+            assert model_cfg is not None
             self.use_seg = int(model_cfg["useSeg"])
             self.num_downsample = model_cfg["numDownsample"]
             self.pc_emb_dim = model_cfg["pcEmbDim"]
             self.each_point_dim = model_cfg["numEachPoint"]
             self.num_pc_flatten = self.num_downsample * self.each_point_dim
+            self.backbone_type = model_cfg["backbone_type"]
             if self.backbone_type == "PointNetBackbone":
                 self.backbone = PointNetBackbone(
                     pc_dim=self.each_point_dim + 2 * self.use_seg,

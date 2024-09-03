@@ -70,6 +70,7 @@ class M3DaggerValue(nn.Module):
         self.gamma = train_param["gamma"]
         self.lam = train_param["lam"]
         self.sampler = train_param.get("sampler", "sequential")
+        self.max_grad_norm = train_param.get("max_grad_norm", 0.5)
         # self.clip_action = train_param.get("clip_action", False)
         self.device = vec_env.device
         
@@ -200,20 +201,26 @@ class M3DaggerValue(nn.Module):
                     #     c = 5.5
                     #     stu_left_actions = torch.clamp(stu_left_actions, -c, c)
                     #     stu_right_actions = torch.clamp(stu_right_actions, -c, c)
-                    stu_actions = torch.cat([stu_left_actions, stu_right_actions], dim=1)
+                    
+                    # Compute the expert action
+                    expert_left_actions, expert_left_values, expert_right_actions, expert_right_values = self.expert_batch_act(current_obs, self.vec_env.expert_ids)
+                    epsilon = 0.05 + 0.5 * (1 - 0.05) * (1 + np.cos(it / 2000 * np.pi))
+                    actions = torch.cat([stu_left_actions, stu_right_actions], dim=1) if np.random.uniform(0,1) > epsilon else torch.cat([expert_left_actions, expert_right_actions], dim=1)
                     # Step the vec_environment
                     with torch.no_grad():
-                        next_obs_dict, rews, dones, infos = self.vec_env.step(stu_actions)
+                        next_obs_dict, rews, dones, infos = self.vec_env.step(actions)
                         next_obs = next_obs_dict["obs"]
                         # next_obs = torch.cat([next_obs, self.vec_env.verb_category.view(-1,1) / 255.], dim=-1)
 
                     left_rews, right_rews = infos["left_reward"], infos["right_reward"]
                     # Record the transition
-                    self.storage.add_transitions(
+                    self.storage.add_transitions_with_expert_labels(
                         current_obs, current_states, 
                         stu_left_actions, stu_right_actions,
                         left_rews, right_rews, dones,
                         stu_left_values, stu_right_values,
+                        expert_left_actions, expert_left_values, 
+                        expert_right_actions, expert_right_values,
                         self.vec_env.expert_ids,
                     )
                     current_obs.copy_(next_obs)
@@ -256,7 +263,7 @@ class M3DaggerValue(nn.Module):
         batch = self.storage.mini_batch_generator(self.num_mini_batches)
         mean_value_loss = 0
         # get expert labels
-        self.add_expert_labels()
+        # self.add_expert_labels()
         for _ in range(self.num_learning_epochs):
             for indices in batch:
                 obs_batch = self.storage.observations.view(-1, *self.storage.observations.size()[2:])[indices]
@@ -297,13 +304,13 @@ class M3DaggerValue(nn.Module):
                 # Gradient step
                 left_loss = left_action_loss + left_value_loss * self.value_loss_cfg['value_loss_coef']
                 self.left_optimizer.zero_grad()
-                nn.utils.clip_grad_norm_(self.left_actor_critic.parameters(), 0.5)
+                nn.utils.clip_grad_norm_(self.left_actor_critic.parameters(), self.max_grad_norm)
                 left_loss.backward()
                 self.left_optimizer.step()
                 right_loss = right_action_loss + right_value_loss * self.value_loss_cfg['value_loss_coef']
                 self.right_optimizer.zero_grad()
                 right_loss.backward()
-                nn.utils.clip_grad_norm_(self.right_actor_critic.parameters(), 0.5)
+                nn.utils.clip_grad_norm_(self.right_actor_critic.parameters(), self.max_grad_norm)
                 self.right_optimizer.step()
 
                 mean_policy_loss += 0.5 * (left_action_loss.item() + right_action_loss.item())
@@ -317,7 +324,7 @@ class M3DaggerValue(nn.Module):
     def expert_batch_act(self, current_obs, expertid_batch):
         with torch.no_grad():
             '''
-            current_obs: (N, 226 + 2 * num_pc_flatten + 2)
+            current_obs: (N, -1)
             expertid_batch: (N, )
             return: (N, 22), (N, 1), (N, 22), (N, 1)
             '''
