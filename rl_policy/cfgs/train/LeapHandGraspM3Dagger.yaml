@@ -70,7 +70,7 @@ params:
   expertObservationType: "dofps+dofvel+ftps+lastact+objstate+palmpose+relps+objlabel"  
   train_task_id_dict: {
     "(brush, brush, bowl)": [1,2,3,5,9,10,11],
-    "(dust, roller, bowl)": [],
+    "(dust, roller, bowl)": [3,4,5,6,7,8,9,10,11,12,13,14],
     "(pour in some, bowl, bowl)": [2,3,4,5,6],
     "(pour in some, cup, cup)": [],
     "(empty, cup, teapot)": [],
