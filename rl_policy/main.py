@@ -20,18 +20,18 @@ def build_runner(cfg, env):
     train_param = cfg.train.params
     is_testing = cfg.test
     ckpt_path = cfg.checkpoint
-
+    print(f'triplet: {cfg.triplet}, objectOffset: {env.objoffset}')
     if not is_testing:
         time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         exp_name = f"{cfg.algo}_{time_str}_s{cfg.seed}" if not cfg.exp_name else cfg.exp_name
         # triplet = re.search(r'\([^)]+\)', train_param.expertCkptFile).group(0)
+        triplet = cfg.triplet  # train_param.expertCkptFiles[0].split('/')[-3]
+        # verb = triplet.strip('()').split(', ')[0]
         if 'dagger' in cfg.algo:
             numtotal = len(train_param.expertCkptFiles)
-            triplet = train_param.expertCkptFiles[0].split('/')[-3]
-            verb = triplet.strip('()').split(', ')[0]
-            log_dir = os.path.join(train_param.log_dir, f"{triplet}/distill{numtotal}", exp_name)
+            log_dir = os.path.join(train_param.log_dir, 'exp2/sele', f"{triplet}/distill{numtotal}", exp_name)
         else:
-            log_dir = os.path.join(train_param.log_dir, 'freq3/exp1_add' , cfg.triplet, exp_name)
+            log_dir = os.path.join(train_param.log_dir, 'freq3/exp2', triplet, exp_name)
         os.makedirs(log_dir, exist_ok=True)
         with open(os.path.join(log_dir, "config.json"), "w") as f:
             json.dump(OmegaConf.to_container(cfg), f, indent=4)

@@ -46,6 +46,7 @@ params:
     clip_range: 0.5
 
   expertCkptFiles: [
+    # [-1,1] action
     # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready2.0/(brush, brush, bowl)/ema0.1+ol2_sel[1,2,3,5,9,10,11]/model_11500.pt',
     # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/ready2.0/(dust, brush, bowl)/ema0.1+ol2/model_18000.pt',
     # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/freq3/exp1/(pour in some, bowl, bowl)/ema0.1+ol2/model_24000.pt',
@@ -55,19 +56,35 @@ params:
     # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, bowl, bowl)/ema0.1+ol2/model_23000.pt',
     # '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, teapot, teapot)/ema0.1+ol2/model_6000.pt',
 
-
-
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1_sel/(brush, brush, bowl)/ema0.1+ol2/model_20000.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(dust, roller, bowl)/ema0.1+ol2/model_38000.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(dust, brush, pan)/ema0.1+ol2/model_11000.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(pour in some, bowl, bowl)/ema0.1+ol2/model_24000.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(pour in some, cup, cup)/ema0.1+ol2/model_7000.pt'
-    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, cup, teapot)/ema0.1+ol2/model_6000.pt',
-    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, bowl, bowl)/ema0.1+ol2/model_23000.pt',
-    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, teapot, teapot)/ema0.1+ol2/model_6000.pt',
-    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, bowl, plate)/ema0.1+ol2/model_28000.pt'
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(pour in some, cup, teapot)/ema0.1+ol2/model_19500.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, cup, teapot)/ema0.1+ol2/model_6000.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, bowl, bowl)/ema0.1+ol2/model_23000.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, teapot, teapot)/ema0.1+ol2/model_6000.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(empty, bowl, plate)/ema0.1+ol2/model_28000.pt'
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(scrape off, knife, bowl)/ema0.1+ol2/model_24000.pt'
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp1/(skim off, bowl, bowl)/ema0.1+ol2/model_20000.pt',
+  
+  
+  
+    # action
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, cup, plate)/ema0.1+ol2_oo0.2/model_5500.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, teapot, plate)/ema0.1+ol2_oo0.2/model_5000.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, teapot, teapot)/ema0.1+ol2_oo0.2/model_11k.pt',
+
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, cup, cup)/ema0.1+ol2_oo0.2/model_3500.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, cup, teapot)/ema0.1+ol2_oo0.2/model_3500.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, teapot, bowl)/ema0.1+ol2_oo0.2/model_5000.pt',
+  
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(put out, bowl, bowl)/ema0.1+ol2_oo0.2/model_4500.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(put out, bowl, plate)/ema0.1+ol2_oo0.2/model_9.5k.pt',
+
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(skim off, bowl, bowl)/ema0.1+ol2_oo0.2/model_4500.pt',
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(skim off, bowl, plate)/ema0.1+ol2_oo0.2/model_4500.pt',
   ]
   expertObservationType: "dofps+dofvel+ftps+lastact+objstate+palmpose+relps+objlabel"  
   train_task_id_dict: {
@@ -76,12 +93,19 @@ params:
     "(dust, brush, pan)": [1,2,4,5],
     "(pour in some, bowl, bowl)": [2,3,4,5,6],
     "(pour in some, cup, cup)": [],
-    "(empty, cup, teapot)": [],
+    "(pour in some, cup, teapot)": [],
+    "(pour in some, teapot, bowl)": [],
     "(empty, bowl, bowl)": [2,3,4,6,7],
-    "(empty, teapot, teapot)": [0,2],
     "(empty, bowl, plate)": [],
+    "(empty, cup, teapot)": [],
+    "(empty, cup, plate)": [],
+    "(empty, teapot, teapot)": [0,2],
+    "(empty, teapot, plate)": [],
+    "(put out, bowl, bowl)": [],
+    "(put out, bowl, plate)": [],
     "(scrape off, knife, bowl)": [],
     "(skim off, bowl, bowl)": [],
+    "(skim off, bowl, plate)": [],
   }
   clipAction: False
   lossFunc: "l1"
