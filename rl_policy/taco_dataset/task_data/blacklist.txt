@@ -9,3 +9,4 @@
 (stir, spoon, pan)
 (pour in some, teapot, bowl)
 (empty, bowl, cup)
+(scrape off, knife, pan)

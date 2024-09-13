@@ -11,16 +11,16 @@ cd rl_policy
 #     "'(empty, cup, plate)'"
 # )
 
-triplet_list=(
-    "'(empty, cup, teapot)'"
-    "'(empty, teapot, cup)'"
-    "'(empty, teapot, plate)'"
-    "'(empty, teapot, teapot)'"
-    "'(pour in some, bowl, bowl)'"
-    "'(pour in some, cup, cup)'"
-    "'(pour in some, cup, teapot)'"
-    "'(pour in some, teapot, bowl)'"
-)
+# triplet_list=(
+#     "'(empty, cup, teapot)'"
+#     "'(empty, teapot, cup)'"
+#     "'(empty, teapot, plate)'"
+#     "'(empty, teapot, teapot)'"
+#     "'(pour in some, bowl, bowl)'"
+#     "'(pour in some, cup, cup)'"
+#     "'(pour in some, cup, teapot)'"
+#     "'(pour in some, teapot, bowl)'"
+# )
 
 # triplet_list=(
 #     "'(pour in some, teapot, cup)'"
