@@ -152,15 +152,10 @@ class M3DaggerValue(nn.Module):
             eplen = self.vec_env.max_episode_length
             sr1, sr2, ne = torch.zeros(self.vec_env.num_envs, dtype=torch.float, device=self.device), torch.zeros(self.vec_env.num_envs, dtype=torch.float, device=self.device), 1e-8+torch.zeros(self.vec_env.num_envs, dtype=torch.float, device=self.device)
             for i in range(1, 1 + eplen * 3):
-                if i % eplen == 0: print(f"step {i}")
                 with torch.no_grad():
                     # Compute the action
                     stu_left_actions = self.left_actor_critic.act_inference(current_obs)
                     stu_right_actions = self.right_actor_critic.act_inference(current_obs)
-                    # if self.clip_action:
-                    #     c = 5.5
-                    #     stu_left_actions = torch.clamp(stu_left_actions, -c, c)
-                    #     stu_right_actions = torch.clamp(stu_right_actions, -c, c)
                     stu_actions = torch.cat([stu_left_actions, stu_right_actions],dim=1)
                     # Step the vec_environment
                     next_obs_dict, rews, dones, infos = self.vec_env.step(stu_actions)
@@ -171,22 +166,24 @@ class M3DaggerValue(nn.Module):
                 sr1 = torch.where(self.vec_env.is_expect_end, sr1 + self.vec_env.stage1_successes, sr1)
                 sr2 = torch.where(self.vec_env.is_expect_end, sr2 + self.vec_env.stage2_successes, sr2)
 
-            sr1 = sr1 / ne
-            sr2 = sr2 / ne
-            # 1. log success rate for train & test
-            print('-'*90 + f'\nTrain & Test')
-            train_env_ids = [l for l in range(self.vec_env.num_envs) if l % self.vec_env.num_task in self.vec_env.train_task_ids]
-            test_env_ids = [l for l in range(self.vec_env.num_envs) if l % self.vec_env.num_task in self.vec_env.test_task_ids]
-            print(f"training set\t| stage1_successes: {sr1[train_env_ids].mean()}\t| stage2_successes: {sr2[train_env_ids].mean()}")
-            print(f"testing set\t| stage1_successes: {sr1[test_env_ids].mean()}\t| stage2_successes: {sr2[test_env_ids].mean()}")
-            print(f"testing seen\t| stage1_successes: {sr1[self.vec_env.types == 1].mean()}\t| stage2_successes: {sr2[self.vec_env.types == 1].mean()}")
-            print(f"testing unseen\t| stage1_successes: {sr1[self.vec_env.types == 2].mean()}\t| stage2_successes: {sr2[self.vec_env.types == 2].mean()}")
-                
-            # log total
-            print('-'*90 + f'\n Total')
-            print(f"Average\t| stage1_successes: {sr1.mean()}\t| stage2_successes: {sr2.mean()}")
-            print(f"Average Nonzero\t| stage1_successes: {sr1[sr1>0].mean()}\t| stage2_successes: {sr2[sr2>0].mean()}")
-            print('-'*90)
+                if i % eplen == 0: 
+                    print(f"step {i}")
+                    avgsr1 = sr1 / ne
+                    avgsr2 = sr2 / ne
+                    # 1. log success rate for train & test
+                    print('-'*90 + f'\nTrain & Test')
+                    train_env_ids = [l for l in range(self.vec_env.num_envs) if l % self.vec_env.num_task in self.vec_env.train_task_ids]
+                    test_env_ids = [l for l in range(self.vec_env.num_envs) if l % self.vec_env.num_task in self.vec_env.test_task_ids]
+                    print(f"training set\t| stage1_successes: {avgsr1[train_env_ids].mean()}\t| stage2_successes: {avgsr2[train_env_ids].mean()}")
+                    print(f"testing set\t| stage1_successes: {avgsr1[test_env_ids].mean()}\t| stage2_successes: {avgsr2[test_env_ids].mean()}")
+                    print(f"testing seen\t| stage1_successes: {avgsr1[self.vec_env.types == 1].mean()}\t| stage2_successes: {avgsr2[self.vec_env.types == 1].mean()}")
+                    print(f"testing unseen\t| stage1_successes: {avgsr1[self.vec_env.types == 2].mean()}\t| stage2_successes: {avgsr2[self.vec_env.types == 2].mean()}")
+                        
+                    # log total
+                    print('-'*90 + f'\n Total')
+                    print(f"Average\t| stage1_successes: {avgsr1.mean()}\t| stage2_successes: {avgsr2.mean()}")
+                    print(f"Average Nonzero\t| stage1_successes: {avgsr1[avgsr1>0].mean()}\t| stage2_successes: {avgsr2[avgsr2>0].mean()}")
+                    print('-'*90)
             exit()
         else:
             retbuffer = deque(maxlen=100)
@@ -209,7 +206,7 @@ class M3DaggerValue(nn.Module):
                     
                     # Compute the expert action
                     expert_left_actions, expert_left_values, expert_right_actions, expert_right_values = self.expert_batch_act(current_obs, self.vec_env.expert_ids)
-                    epsilon = 0.05 + 0.5 * (1 - 0.05) * (1 + np.cos(it / 2000 * np.pi))
+                    epsilon = 0.05 #+ 0.5 * (1 - 0.05) * (1 + np.cos(it / 2000 * np.pi))
                     actions = torch.cat([stu_left_actions, stu_right_actions], dim=1) if np.random.uniform(0,1) > epsilon else torch.cat([expert_left_actions, expert_right_actions], dim=1)
 
                     # Step the vec_environment
