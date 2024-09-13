@@ -268,6 +268,7 @@ class IPPO(nn.Module):
                         if self.record_dof: traj_dof = np.concatenate((traj_dof, self.vec_env.robot_dof_pos[:1].detach().cpu().numpy()), axis=0)
                         next_obs = next_obs_dict["obs"]
                         current_obs.copy_(next_obs)
+                    
                     if i == self.vec_env.max_episode_length - 2:  # logs
                         record_metrics = {metric: getattr(self.vec_env, metric) for metric in record_metric_names}
                         # 1. log success rate for train & test

@@ -549,12 +549,12 @@ def compute_bvdex_stage12_rewards(
     # every-step success
     info["step-success"] = torch.logical_and(ref_object_pos_dist <= success_tolerance, ref_tool_pos_dist <= success_tolerance).float()
     # stage 1 success
-    stage1_left_successes = torch.logical_or(stage1_left_successes, stage1_left_success_flag)
-    stage1_right_successes = torch.logical_or(stage1_right_successes, stage1_right_success_flag)
-    stage1_successes = torch.logical_or(torch.logical_and(stage1_left_successes, stage1_right_successes), stage1_successes)
+    stage1_left_successes = torch.logical_or(left_reach_ref_timestep > -1, stage1_left_successes)
+    stage1_right_successes = torch.logical_or(right_reach_ref_timestep > -1, stage1_right_successes)
+    stage1_successes = torch.logical_or(reach_ref_timestep > -1, stage1_successes)
     # satge 2 success
-    stage2_left_successes = torch.where(stage1_left_successes, ((timestep - reach_ref_timestep) * stage2_left_successes + (ref_object_pos_dist <= success_tolerance)) / (timestep - reach_ref_timestep + 1), stage2_left_successes)
-    stage2_right_successes = torch.where(stage1_right_successes, ((timestep - reach_ref_timestep) * stage2_right_successes + (ref_tool_pos_dist <= success_tolerance)) / (timestep - reach_ref_timestep + 1), stage2_right_successes)
+    stage2_left_successes = torch.where(stage1_left_successes, ((timestep - left_reach_ref_timestep) * stage2_left_successes + (ref_object_pos_dist <= success_tolerance)) / (timestep - left_reach_ref_timestep + 1), stage2_left_successes)
+    stage2_right_successes = torch.where(stage1_right_successes, ((timestep - right_reach_ref_timestep) * stage2_right_successes + (ref_tool_pos_dist <= success_tolerance)) / (timestep - right_reach_ref_timestep + 1), stage2_right_successes)
     stage2_successes = torch.where(stage1_successes, ((timestep - reach_ref_timestep) * stage2_successes + torch.logical_and(ref_object_pos_dist <= success_tolerance, ref_tool_pos_dist <= success_tolerance)) / (timestep - reach_ref_timestep + 1), stage2_successes)
     
     # bonus for second stage success
@@ -1538,7 +1538,7 @@ class BiLeapHandGraspM3Dagger(VecTask):
             tr = torch.where(self.right_reach_ref_timestep == -1, torch.zeros_like(self.timestep), torch.ceil((self.timestep - self.right_reach_ref_timestep) / self.frequency).long()) + self.dataset_ref_timesteps[self.all_task_idx]
             ref_object_pose = self.dataset_object_poses[self.all_task_idx,tl.clip(max=self.dataset_end_timesteps[self.all_task_idx])] 
             ref_tool_pose = self.dataset_tool_poses[self.all_task_idx,tr.clip(max=self.dataset_end_timesteps[self.all_task_idx])]
-            is_expect_end = (self.dataset_end_timesteps[self.all_task_idx] == t.clip(max=self.dataset_end_timesteps[self.all_task_idx]))
+            self.is_expect_end = (self.dataset_end_timesteps[self.all_task_idx] == t.clip(max=self.dataset_end_timesteps[self.all_task_idx]))
             (
                 self.rew_buf[:],
                 self.reset_buf[:],
@@ -1566,7 +1566,7 @@ class BiLeapHandGraspM3Dagger(VecTask):
                 ref_object_pose, self.ref_init_object_pos_dist, #self.ref_ref_object_palm_pose_diff, self.ref_ref_object_left_fingers_pos_diff,
                 ref_tool_pose, self.ref_init_tool_pos_dist,     #self.ref_ref_tool_palm_pose_diff, self.ref_ref_tool_right_fingers_pos_diff,
                 self.actual_object_grasp_pos, self.actual_tool_grasp_pos,
-                is_expect_end, # self.is_stage1_hand_object_rew, self.is_stage1_lin_rew, self.is_stage2_pos_rew_exp,
+                self.is_expect_end, # self.is_stage1_hand_object_rew, self.is_stage1_lin_rew, self.is_stage2_pos_rew_exp,
             )
 
         self.extras.update(reward_info)

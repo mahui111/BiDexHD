@@ -26,7 +26,7 @@ params:
   cliprange: 0.2
   ent_coef: 0.0001
   nsteps: 8
-  noptepochs: 1
+  noptepochs: 3
   nminibatches: 64 # this is per agent
   max_grad_norm: 1.0
   optim_stepsize: 2.e-4 # 3e-4 is default for single agent training with constant schedule
@@ -72,19 +72,16 @@ params:
   
   
     # action
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, cup, plate)/ema0.1+ol2_oo0.2/model_5500.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, teapot, plate)/ema0.1+ol2_oo0.2/model_5000.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, teapot, teapot)/ema0.1+ol2_oo0.2/model_11k.pt',
-
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, cup, plate)/ema0.1+ol2_oo0.2/model_5500.pt',
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, teapot, plate)/ema0.1+ol2_oo0.2/model_5000.pt',
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, teapot, teapot)/ema0.1+ol2_oo0.2/model_11k.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, cup, cup)/ema0.1+ol2_oo0.2/model_3500.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, cup, teapot)/ema0.1+ol2_oo0.2/model_3500.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, teapot, bowl)/ema0.1+ol2_oo0.2/model_5000.pt',
-  
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(put out, bowl, bowl)/ema0.1+ol2_oo0.2/model_4500.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(put out, bowl, plate)/ema0.1+ol2_oo0.2/model_9.5k.pt',
-
-    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(skim off, bowl, bowl)/ema0.1+ol2_oo0.2/model_4500.pt',
-    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(skim off, bowl, plate)/ema0.1+ol2_oo0.2/model_4500.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(skim off, bowl, bowl)/ema0.1+ol2_oo0.2/model_4500.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(skim off, bowl, plate)/ema0.1+ol2_oo0.2/model_4500.pt',
   ]
   expertObservationType: "dofps+dofvel+ftps+lastact+objstate+palmpose+relps+objlabel"  
   train_task_id_dict: {
