@@ -250,53 +250,60 @@ class IPPO(nn.Module):
         current_states = self.vec_env.get_state()
         
         if self.is_testing:
-            log_metric_names = ['stage1_left_successes', 'stage1_right_successes', 'stage1_successes', 'stage2_left_successes', 'stage2_right_successes', 'stage2_successes']
-            record_metric_names = ['stage1_successes', 'stage2_successes']
-            for testepi in range(10):
-                if self.record_dof: traj_dof = self.vec_env.robot_dof_pos[:1].detach().cpu().numpy()
-                for i in range(self.vec_env.max_episode_length):
-                    with torch.no_grad():
-                        if self.apply_reset:
-                            current_obs = self.vec_env.reset()["obs"]
-                        # Compute the action
-                        left_actions = self.left_agent.actor_critic.act_inference(current_obs)
-                        right_actions = self.right_agent.actor_critic.act_inference(current_obs)
-                        actions = torch.cat((left_actions, right_actions), dim=1)
-                        # print(f'max: {actions.max()}, min: {actions.min()}, mean: {actions.mean()}, median: {actions.median()}, std: {actions.std()}, pro:{((actions > -1) & (actions < 1)).float().mean()}')
-                        # Step the vec_environment
-                        next_obs_dict, rews, dones, infos = self.vec_env.step(actions)
-                        if self.record_dof: traj_dof = np.concatenate((traj_dof, self.vec_env.robot_dof_pos[:1].detach().cpu().numpy()), axis=0)
-                        next_obs = next_obs_dict["obs"]
-                        current_obs.copy_(next_obs)
-                    
-                    if i == self.vec_env.max_episode_length - 2:  # logs
-                        record_metrics = {metric: getattr(self.vec_env, metric) for metric in record_metric_names}
-                        # 1. log success rate for train & test
-                        print('-'*90 + f'\nTrain & Test')
-                        train_env_ids = [l for l in range(self.vec_env.num_envs) if l % self.vec_env.num_task in self.vec_env.train_task_ids]
-                        test_env_ids = [l for l in range(self.vec_env.num_envs) if l % self.vec_env.num_task in self.vec_env.test_task_ids]
-                        print(f"training set\t| stage1_successes: {record_metrics['stage1_successes'][train_env_ids].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][train_env_ids].mean()}")
-                        print(f"testing set\t| stage1_successes: {record_metrics['stage1_successes'][test_env_ids].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][test_env_ids].mean()}")
-                        print(f"testing seen\t| stage1_successes: {record_metrics['stage1_successes'][self.vec_env.types == 1].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][self.vec_env.types == 1].mean()}")
-                        print(f"testing unseen\t| stage1_successes: {record_metrics['stage1_successes'][self.vec_env.types == 2].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][self.vec_env.types == 2].mean()}")
-                
-                        # 2. log success rate for each id-pair
-                        print('-'*90 + f'\n Trained Tasks')
-                        for task_id in range(self.vec_env.num_task):
-                            if task_id in self.vec_env.train_task_ids:
-                                print(f"task: {task_id}\t| stage1_successes: {record_metrics['stage1_successes'][task_id::self.vec_env.num_task].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][task_id::self.vec_env.num_task].mean()}")
-                        print(f'Tested Tasks')
-                        for task_id in range(self.vec_env.num_task):
-                            if task_id in self.vec_env.test_task_ids:
-                                print(f"task: {task_id}\t| stage1_successes: {record_metrics['stage1_successes'][task_id::self.vec_env.num_task].mean()}\t| stage2_successes: {record_metrics['stage2_successes'][task_id::self.vec_env.num_task].mean()}")
+            if self.record_dof: traj_dof = self.vec_env.robot_dof_pos[:1].detach().cpu().numpy()
 
-                        # 3. log total
-                        print('-'*90 + f'\n Total')
-                        print(f"episode {testepi}\t| stage1_successes: {record_metrics['stage1_successes'].mean()}\t| stage2_successes: {record_metrics['stage2_successes'].mean()}")
-                if self.record_dof: 
-                    np.save(f"dofdemo/{os.path.basename(self.vec_env.sampled_taco_task_data['save_name']).split('-')[0]}.npy", traj_dof)
+            eplen = self.vec_env.max_episode_length
+            sr1, sr2, ne = torch.zeros(self.vec_env.num_envs, dtype=torch.float, device=self.device), torch.zeros(self.vec_env.num_envs, dtype=torch.float, device=self.device), 1e-8+torch.zeros(self.vec_env.num_envs, dtype=torch.float, device=self.device)
+            for i in range(1, 1 + eplen * 3):
+                with torch.no_grad():
+                    if self.apply_reset:
+                        current_obs = self.vec_env.reset()["obs"]
+                    # Compute the action
+                    left_actions = self.left_agent.actor_critic.act_inference(current_obs)
+                    right_actions = self.right_agent.actor_critic.act_inference(current_obs)
+                    actions = torch.cat((left_actions, right_actions), dim=1)
+                    # print(f'max: {actions.max()}, min: {actions.min()}, mean: {actions.mean()}, median: {actions.median()}, std: {actions.std()}, pro:{((actions > -1) & (actions < 1)).float().mean()}')
+                    # Step the vec_environment
+                    next_obs_dict, rews, dones, infos = self.vec_env.step(actions)
+                    if self.record_dof: traj_dof = np.concatenate((traj_dof, self.vec_env.robot_dof_pos[:1].detach().cpu().numpy()), axis=0)
+                    next_obs = next_obs_dict["obs"]
+                    current_obs.copy_(next_obs)
+                
+                ne = torch.where(self.vec_env.is_expect_end, ne + 1, ne)
+                sr1 = torch.where(self.vec_env.is_expect_end, sr1 + self.vec_env.stage1_successes, sr1)
+                sr2 = torch.where(self.vec_env.is_expect_end, sr2 + self.vec_env.stage2_successes, sr2)
+                if i % eplen == 0: 
+                    print(f"step {i}")
+                    avgsr1 = sr1 / ne
+                    avgsr2 = sr2 / ne
+                    # 1. log success rate for train & test
+                    print('-'*90 + f'\nTrain & Test')
+                    train_env_ids = [l for l in range(self.vec_env.num_envs) if l % self.vec_env.num_task in self.vec_env.train_task_ids]
+                    test_env_ids = [l for l in range(self.vec_env.num_envs) if l % self.vec_env.num_task in self.vec_env.test_task_ids]
+                    print(f"training set\t| stage1_successes: {avgsr1[train_env_ids].mean()}\t| stage2_successes: {avgsr2[train_env_ids].mean()}")
+                    # print(f"testing set\t| stage1_successes: {avgsr1[test_env_ids].mean()}\t| stage2_successes: {avgsr2[test_env_ids].mean()}")
+                    print(f"testing seen\t| stage1_successes: {avgsr1[self.vec_env.types == 1].mean()}\t| stage2_successes: {avgsr2[self.vec_env.types == 1].mean()}")
+                    print(f"testing unseen\t| stage1_successes: {avgsr1[self.vec_env.types == 2].mean()}\t| stage2_successes: {avgsr2[self.vec_env.types == 2].mean()}")
+                        
+                    # 2. log success rate for each id-pair
+                    print('-'*90 + f'\n Trained Tasks')
+                    for task_id in range(self.vec_env.num_task):
+                        if task_id in self.vec_env.train_task_ids:
+                            print(f"task: {task_id}\t| stage1_successes: {avgsr1[task_id::self.vec_env.num_task].mean()}\t| stage2_successes: {avgsr2[task_id::self.vec_env.num_task].mean()}")
+                    print(f'Tested Tasks')
+                    for task_id in range(self.vec_env.num_task):
+                        if task_id in self.vec_env.test_task_ids:
+                            print(f"task: {task_id}\t| stage1_successes: {avgsr1[task_id::self.vec_env.num_task].mean()}\t| stage2_successes: {avgsr2[task_id::self.vec_env.num_task].mean()}")
+
+                    # log total
+                    print('-'*90 + f'\n Total')
+                    print(f"Average\t| stage1_successes: {avgsr1.mean()}\t| stage2_successes: {avgsr2.mean()}")
+                    print(f"Average Nonzero\t| stage1_successes: {avgsr1[avgsr1>0].mean()}\t| stage2_successes: {avgsr2[avgsr2>0].mean()}")
+                    print('-'*90)
+
+            if self.record_dof: 
+                np.save(f"dofdemo/{os.path.basename(self.vec_env.sampled_taco_task_data['save_name']).split('-')[0]}.npy", traj_dof)
                     
-                print('-'*80)
             exit()
 
         else:

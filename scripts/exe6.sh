@@ -2,7 +2,7 @@
 cd rl_policy
 triplet=$1
 train_ids=${2:-[]} # Default to empty array if not provided
-objoffset=${3:-0.1} # Default to 0.1 if not provided
+objoffset=${3:-0.2} # Default to 0.1 if not provided
 cleaned_triplet=${triplet//[\'\"]/}
 if [ ! -f "taco_dataset/task_data/$cleaned_triplet.json" ]; then
     python taco_dataset/TACOdataset.py --mode make_mano_dataset --triplet "$triplet"  --num_max 200
@@ -19,6 +19,6 @@ fi
 
 # evaluate
 python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=ippo num_envs=100 triplet="$triplet" train_ids="$train_ids" objectOffset=$objoffset test=True checkpoint="'\
-/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/freq3/exp1/(skim off, bowl, bowl)/ema0.1+ol2_sel[1,2,3,5,6,8]_oo0.2/model_17500.pt\
+/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, bowl, bowl)/ema0.1+ol2_oo0.2/model_15500.pt\
 '"
 
