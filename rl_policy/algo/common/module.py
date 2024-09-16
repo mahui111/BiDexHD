@@ -203,8 +203,8 @@ class ActorCritic(nn.Module):
             pc_feature = self.get_pc_observation(observations)
             all_observation = torch.cat([all_observation, pc_feature], dim=1)
         if self.use_objlabel:
-            obj_label = observations[:, self.objlabel_indices].squeeze(1) * 255
-            objlabel_feature = self.objlabel_emb(obj_label.long())
+            obj_label = observations[:, self.objlabel_indices] * 255
+            objlabel_feature = self.objlabel_emb(obj_label.long()).mean(dim=1)
             all_observation = all_observation + objlabel_feature
         if self.use_futureobjps:
             future_objps = observations[:, self.futureobjps_indices]

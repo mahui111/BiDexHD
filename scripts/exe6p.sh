@@ -43,8 +43,6 @@ triplet_list=(
     "'(smear, eraser, box)'"
 )
 
-
-# Loop through each index in the triplet_list array
 for i in "${!triplet_list[@]}"; do
     triplet=${triplet_list[$i]}
     CUDA_VISIBLE_DEVICES=$i python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=ippo num_envs=20000 triplet="$triplet" objectOffset=0.2 exp_name=ema0.1+ol2_oo0.2 headless=True &
