@@ -9,19 +9,24 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
-from ..common import RolloutStorage
+from ..common import RolloutStorage, ActorCritic
 
 
 class PPO:
     def __init__(
         self,
         vec_env,
-        actor_critic_class,
         train_param,
+        obs_type="",
         log_dir="run",
         apply_reset=False,
-        is_vision=False,
     ):
+        left_obs_indices, right_obs_indices, num_obs = vec_env.get_obs_idx_dict(obs_type,)
+        both_obs_indices = dict()
+        for key in left_obs_indices:
+            assert key in right_obs_indices
+            both_obs_indices[key] = left_obs_indices[key] + right_obs_indices[key]
+
         # PPO parameters
         self.clip_param = train_param["cliprange"]
         self.num_learning_epochs = train_param["noptepochs"]
@@ -36,9 +41,7 @@ class PPO:
         self.use_clipped_value_loss = train_param.get("use_clipped_value_loss", False)
         self.init_noise_std = train_param.get("init_noise_std", 0.3)
 
-        self.model_cfg = train_param.policy
         self.sampler = train_param.get("sampler", "sequential")
-        self.is_vision = is_vision
 
         if not isinstance(vec_env.observation_space, Space):
             raise TypeError("vec_env.observation_space must be a gym Space")
@@ -59,14 +62,14 @@ class PPO:
 
         # PPO components
         self.vec_env = vec_env
-        self.actor_critic = actor_critic_class(
+        self.actor_critic = ActorCritic(
             self.observation_space.shape,
             self.state_space.shape,
             self.action_space.shape,
             self.init_noise_std,
-            self.model_cfg,
+            None, #train_param.policy,
             asymmetric=self.asymmetric,
-            use_pc=self.is_vision,
+            **both_obs_indices
         )
         self.actor_critic.to(self.device)
         self.storage = RolloutStorage(
@@ -87,9 +90,8 @@ class PPO:
         self.tot_timesteps = 0
         self.tot_time = 0
         self.is_testing = train_param["test"]
-        self.save_traj = False  # need to be modified
         self.current_learning_iteration = 0
-        if not self.is_testing:
+        if not self.is_testing and log_dir is not None and not obs_type:
             self.writer = SummaryWriter(log_dir=self.log_dir, flush_secs=10)
 
         self.apply_reset = apply_reset
@@ -108,6 +110,7 @@ class PPO:
                 path = paths[-1]
             else:
                 print(f"Checkpoint directory {path} is empty")
+                self.current_learning_iteration = 0
                 self.train()
                 return
             
@@ -137,7 +140,8 @@ class PPO:
         current_states = self.vec_env.get_state()
 
         if self.is_testing:
-            for i in range(self.vec_env.max_episode_length):
+            eplen = self.vec_env.max_episode_length
+            for i in range(1, 1 + eplen * 3):
                 with torch.no_grad():
                     if self.apply_reset:
                         current_obs = self.vec_env.reset()["obs"]
@@ -148,12 +152,38 @@ class PPO:
                         next_obs_dict, rews, dones, infos = self.vec_env.step(actions)
                         next_obs = next_obs_dict["obs"]
                     current_obs.copy_(next_obs)
-                if i == self.vec_env.max_episode_length - 2:
-                    success_rate = self.vec_env.successes.sum() / self.vec_env.num_envs
-            print("success_rate:", success_rate.item())
+                ne = torch.where(self.vec_env.is_expect_end, ne + 1, ne)
+                sr1 = torch.where(self.vec_env.is_expect_end, sr1 + self.vec_env.stage1_successes, sr1)
+                sr2 = torch.where(self.vec_env.is_expect_end, sr2 + self.vec_env.stage2_successes, sr2)
+                if i % eplen == 0: 
+                    print(f"step {i}")
+                    avgsr1 = sr1 / ne
+                    avgsr2 = sr2 / ne
+                    # 1. log success rate for train & test
+                    print('-'*90 + f'\nTrain & Test')
+                    train_env_ids = [l for l in range(self.vec_env.num_envs) if l % self.vec_env.num_task in self.vec_env.train_task_ids]
+                    test_env_ids = [l for l in range(self.vec_env.num_envs) if l % self.vec_env.num_task in self.vec_env.test_task_ids]
+                    print(f"training set\t| stage1_successes: {avgsr1[train_env_ids].mean()}\t| stage2_successes: {avgsr2[train_env_ids].mean()}")
+                    # print(f"testing set\t| stage1_successes: {avgsr1[test_env_ids].mean()}\t| stage2_successes: {avgsr2[test_env_ids].mean()}")
+                    print(f"testing seen\t| stage1_successes: {avgsr1[self.vec_env.types == 1].mean()}\t| stage2_successes: {avgsr2[self.vec_env.types == 1].mean()}")
+                    print(f"testing unseen\t| stage1_successes: {avgsr1[self.vec_env.types == 2].mean()}\t| stage2_successes: {avgsr2[self.vec_env.types == 2].mean()}")
+                        
+                    # 2. log success rate for each id-pair
+                    print('-'*90 + f'\n Trained Tasks')
+                    for task_id in range(self.vec_env.num_task):
+                        if task_id in self.vec_env.train_task_ids:
+                            print(f"task: {task_id}\t| stage1_successes: {avgsr1[task_id::self.vec_env.num_task].mean()}\t| stage2_successes: {avgsr2[task_id::self.vec_env.num_task].mean()}")
+                    print(f'Tested Tasks')
+                    for task_id in range(self.vec_env.num_task):
+                        if task_id in self.vec_env.test_task_ids:
+                            print(f"task: {task_id}\t| stage1_successes: {avgsr1[task_id::self.vec_env.num_task].mean()}\t| stage2_successes: {avgsr2[task_id::self.vec_env.num_task].mean()}")
+
+                    # log total
+                    print('-'*90 + f'\n Total')
+                    print(f"Average\t| stage1_successes: {avgsr1.mean()}\t| stage2_successes: {avgsr2.mean()}")
+                    print(f"Average Nonzero\t| stage1_successes: {avgsr1[avgsr1>0].mean()}\t| stage2_successes: {avgsr2[avgsr2>0].mean()}")
+                    print('-'*90)
             exit()
-
-
 
         else:
             rewbuffer = deque(maxlen=100)
@@ -168,7 +198,7 @@ class PPO:
             reward_sum = []
             episode_length = []
 
-            for it in range(self.current_learning_iteration, num_learning_iterations):
+            for it in range(1+self.current_learning_iteration, 1+num_learning_iterations):
                 start = time.time()
                 ep_infos = []
 
@@ -178,9 +208,7 @@ class PPO:
                         current_obs = self.vec_env.reset()["obs"]
                         current_states = self.vec_env.get_state()
                     # Compute the action
-                    actions, actions_log_prob, values, mu, sigma = (
-                        self.actor_critic.act(current_obs, current_states)
-                    )
+                    actions, actions_log_prob, values, mu, sigma = self.actor_critic.act(current_obs)
                     # Step the vec_environment
                     with torch.no_grad():
                         next_obs_dict, rews, dones, infos = self.vec_env.step(actions)
@@ -220,9 +248,7 @@ class PPO:
                     rewbuffer.extend(reward_sum)
                     lenbuffer.extend(episode_length)
 
-                _, _, last_values, _, _ = self.actor_critic.act(
-                    current_obs, current_states
-                )
+                _, _, last_values, _, _ = self.actor_critic.act(current_obs)
                 stop = time.time()
                 collection_time = stop - start
 
@@ -236,16 +262,11 @@ class PPO:
                 stop = time.time()
                 learn_time = stop - start
                 if self.print_log:
-                    
                     self.log(locals())
                 if it % self.save_interval == 0:
                     self.save(os.path.join(self.log_dir, "model_{}.pt".format(it)))
                 ep_infos.clear()
-            self.save(
-                os.path.join(
-                    self.log_dir, "model_{}.pt".format(num_learning_iterations)
-                )
-            )
+            self.save(os.path.join(self.log_dir, "model_{}.pt".format(num_learning_iterations)))
 
     def log(self, locs, width=80, pad=35):
         self.tot_timesteps += self.num_transitions_per_env * self.vec_env.num_envs
@@ -351,9 +372,6 @@ class PPO:
 
         batch = self.storage.mini_batch_generator(self.num_mini_batches)
         for epoch in range(self.num_learning_epochs):
-            # for obs_batch, actions_batch, target_values_batch, advantages_batch, returns_batch, old_actions_log_prob_batch \
-            #        in self.storage.mini_batch_generator(self.num_mini_batches):
-
             for indices in batch:
                 obs_batch = self.storage.observations.view(
                     -1, *self.storage.observations.size()[2:]
@@ -386,7 +404,7 @@ class PPO:
                     value_batch,
                     mu_batch,
                     sigma_batch,
-                ) = self.actor_critic.evaluate(obs_batch, states_batch, actions_batch)
+                ) = self.actor_critic.evaluate(obs_batch, actions_batch)
 
                 # KL
                 if self.desired_kl != None and self.schedule == "adaptive":
@@ -455,5 +473,3 @@ class PPO:
         mean_surrogate_loss /= num_updates
 
         return mean_value_loss, mean_surrogate_loss
-
-        

@@ -13,145 +13,6 @@ from torch.utils.tensorboard import SummaryWriter
 from ..common import RolloutStorage, ActorCritic
 
 
-class IPPOAgent(nn.Module):
-    def __init__(
-        self,
-        vec_env,
-        train_param,
-        obs_type="",
-        **kwargs
-    ):
-        super(IPPOAgent, self).__init__()
-        # PPO parameters
-        self.clip_param = train_param["cliprange"]
-        self.num_learning_epochs = train_param["noptepochs"]
-        self.num_mini_batches = train_param["nminibatches"]
-        
-        self.num_transitions_per_env = train_param["nsteps"]
-        self.value_loss_coef = train_param.get("value_loss_coef", 2.0)
-        self.entropy_coef = train_param["ent_coef"]
-        self.gamma = train_param["gamma"]
-        self.lam = train_param["lam"]
-        self.max_grad_norm = train_param.get("max_grad_norm", 2.0)
-        self.use_clipped_value_loss = train_param.get("use_clipped_value_loss", False)
-        self.init_noise_std = train_param.get("init_noise_std", 0.3)
-
-        self.sampler = train_param.get("sampler", "sequential")
-
-        self.observation_space = vec_env.observation_space
-        self.action_space = vec_env.action_space
-        self.state_space = vec_env.state_space
-
-        self.device = vec_env.device
-        self.asymmetric = vec_env.num_states > 0
-
-        self.desired_kl = train_param.get("desired_kl", None)
-        self.schedule = train_param.get("schedule", "fixed")
-        self.step_size = train_param["optim_stepsize"]
-
-        # PPO components
-        self.vec_env = vec_env
-        single_observation_space_dim = self.observation_space.shape[0]//2 if not obs_type else vec_env.get_obs_idx_dict(obs_type)[-1]//2 # (self.observation_space.shape[0]+train_param['policy']['numDownsample'] * train_param['policy']['numEachPoint'])//2
-        self.single_observation_space_shape = (single_observation_space_dim,)
-        self.single_action_space_shape = (self.action_space.shape[0]//2,)
-
-        self.actor_critic = ActorCritic(
-            self.single_observation_space_shape,
-            self.state_space.shape,
-            self.single_action_space_shape,
-            self.init_noise_std,
-            None, #train_param.policy,
-            asymmetric=self.asymmetric,
-            **kwargs
-        )
-        self.actor_critic.to(self.device)
-        self.storage = RolloutStorage(
-            self.vec_env.num_envs,
-            self.num_transitions_per_env,
-            self.observation_space.shape,
-            self.state_space.shape,
-            self.single_action_space_shape,
-            self.device,
-            self.sampler,
-        )
-        self.optimizer = optim.Adam(self.actor_critic.parameters(), lr=self.step_size)        
-
-    def update(self):
-        mean_value_loss = 0
-        mean_surrogate_loss = 0
-
-        batch = self.storage.mini_batch_generator(self.num_mini_batches)
-        for epoch in range(self.num_learning_epochs):
-            for indices in batch:
-                obs_batch = self.storage.observations.view(-1, *self.storage.observations.size()[2:])[indices]
-                states_batch = self.storage.states.view(-1, *self.storage.states.size()[2:])[indices] if self.asymmetric else None
-                actions_batch = self.storage.actions.view(-1, self.storage.actions.size(-1))[indices]
-                target_values_batch = self.storage.values.view(-1, 1)[indices]
-                returns_batch = self.storage.returns.view(-1, 1)[indices]
-                old_actions_log_prob_batch = self.storage.actions_log_prob.view(-1, 1)[indices]
-                advantages_batch = self.storage.advantages.view(-1, 1)[indices]
-                old_mu_batch = self.storage.mu.view(-1, self.storage.actions.size(-1))[indices]
-                old_sigma_batch = self.storage.sigma.view(-1, self.storage.actions.size(-1))[indices]
-
-                (
-                    actions_log_prob_batch,
-                    entropy_batch,
-                    value_batch,
-                    mu_batch,
-                    sigma_batch,
-                ) = self.actor_critic.evaluate(obs_batch, actions_batch)
-
-                # KL
-                if self.desired_kl != None and self.schedule == "adaptive":
-                    kl = torch.sum(
-                        sigma_batch - old_sigma_batch 
-                        + (torch.square(old_sigma_batch.exp())+ torch.square(old_mu_batch - mu_batch)) / (2.0 * torch.square(sigma_batch.exp()))
-                        - 0.5,
-                        axis=-1,
-                    )
-                    kl_mean = torch.mean(kl)
-
-                    if kl_mean > self.desired_kl * 2.0:
-                        self.step_size = max(1e-5, self.step_size / 1.5)
-                    elif kl_mean < self.desired_kl / 2.0 and kl_mean > 0.0:
-                        self.step_size = min(1e-2, self.step_size * 1.5)
-
-                    for param_group in self.optimizer.param_groups:
-                        param_group["lr"] = self.step_size
-
-                # Surrogate loss
-                ratio = torch.exp(actions_log_prob_batch - torch.squeeze(old_actions_log_prob_batch))
-                surrogate = -torch.squeeze(advantages_batch) * ratio
-                surrogate_clipped = -torch.squeeze(advantages_batch) * torch.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param)
-                surrogate_loss = torch.max(surrogate, surrogate_clipped).mean()
-
-                # Value function loss
-                if self.use_clipped_value_loss:
-                    value_clipped = target_values_batch + (value_batch - target_values_batch).clamp(-self.clip_param, self.clip_param)
-                    value_losses = (value_batch - returns_batch).pow(2)
-                    value_losses_clipped = (value_clipped - returns_batch).pow(2)
-                    value_loss = torch.max(value_losses, value_losses_clipped).mean()
-                else:
-                    value_loss = (returns_batch - value_batch).pow(2).mean()
-
-                loss = surrogate_loss + self.value_loss_coef * value_loss - self.entropy_coef * entropy_batch.mean()
-
-                # Gradient step
-                self.optimizer.zero_grad()
-                loss.backward()
-                nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
-                self.optimizer.step()
-
-                mean_value_loss += value_loss.item()
-                mean_surrogate_loss += surrogate_loss.item()
-
-        num_updates = self.num_learning_epochs * self.num_mini_batches
-        mean_value_loss /= num_updates
-        mean_surrogate_loss /= num_updates
-
-        return mean_value_loss, mean_surrogate_loss
-
-
 class IPPO(nn.Module):
     '''indepenent PPO'''
     def __init__(
@@ -390,8 +251,8 @@ class IPPO(nn.Module):
                     rewbuffer.extend(reward_sum)
                     lenbuffer.extend(episode_length)
 
-                substep, substep, left_last_values, substep, substep = self.left_agent.actor_critic.act(current_obs)
-                substep, substep, right_last_values, substep, substep = self.right_agent.actor_critic.act(current_obs)
+                _, _, left_last_values, _, _ = self.left_agent.actor_critic.act(current_obs)
+                _, _, right_last_values, _, _ = self.right_agent.actor_critic.act(current_obs)
                 stop = time.time()
                 collection_time = stop - start
                 left_mean_trajectory_length, left_mean_reward = self.left_agent.storage.get_statistics()
@@ -483,3 +344,141 @@ class IPPO(nn.Module):
         )
         print(log_string)
     
+
+class IPPOAgent(nn.Module):
+    def __init__(
+        self,
+        vec_env,
+        train_param,
+        obs_type="",
+        **kwargs
+    ):
+        super(IPPOAgent, self).__init__()
+        # PPO parameters
+        self.clip_param = train_param["cliprange"]
+        self.num_learning_epochs = train_param["noptepochs"]
+        self.num_mini_batches = train_param["nminibatches"]
+        
+        self.num_transitions_per_env = train_param["nsteps"]
+        self.value_loss_coef = train_param.get("value_loss_coef", 2.0)
+        self.entropy_coef = train_param["ent_coef"]
+        self.gamma = train_param["gamma"]
+        self.lam = train_param["lam"]
+        self.max_grad_norm = train_param.get("max_grad_norm", 2.0)
+        self.use_clipped_value_loss = train_param.get("use_clipped_value_loss", False)
+        self.init_noise_std = train_param.get("init_noise_std", 0.3)
+
+        self.sampler = train_param.get("sampler", "sequential")
+
+        self.observation_space = vec_env.observation_space
+        self.action_space = vec_env.action_space
+        self.state_space = vec_env.state_space
+
+        self.device = vec_env.device
+        self.asymmetric = vec_env.num_states > 0
+
+        self.desired_kl = train_param.get("desired_kl", None)
+        self.schedule = train_param.get("schedule", "fixed")
+        self.step_size = train_param["optim_stepsize"]
+
+        # PPO components
+        self.vec_env = vec_env
+        single_observation_space_dim = self.observation_space.shape[0]//2 if not obs_type else vec_env.get_obs_idx_dict(obs_type)[-1]//2 # (self.observation_space.shape[0]+train_param['policy']['numDownsample'] * train_param['policy']['numEachPoint'])//2
+        self.single_observation_space_shape = (single_observation_space_dim,)
+        self.single_action_space_shape = (self.action_space.shape[0]//2,)
+
+        self.actor_critic = ActorCritic(
+            self.single_observation_space_shape,
+            self.state_space.shape,
+            self.single_action_space_shape,
+            self.init_noise_std,
+            None, #train_param.policy,
+            asymmetric=self.asymmetric,
+            **kwargs
+        )
+        self.actor_critic.to(self.device)
+        self.storage = RolloutStorage(
+            self.vec_env.num_envs,
+            self.num_transitions_per_env,
+            self.observation_space.shape,
+            self.state_space.shape,
+            self.single_action_space_shape,
+            self.device,
+            self.sampler,
+        )
+        self.optimizer = optim.Adam(self.actor_critic.parameters(), lr=self.step_size)        
+
+    def update(self):
+        mean_value_loss = 0
+        mean_surrogate_loss = 0
+
+        batch = self.storage.mini_batch_generator(self.num_mini_batches)
+        for epoch in range(self.num_learning_epochs):
+            for indices in batch:
+                obs_batch = self.storage.observations.view(-1, *self.storage.observations.size()[2:])[indices]
+                states_batch = self.storage.states.view(-1, *self.storage.states.size()[2:])[indices] if self.asymmetric else None
+                actions_batch = self.storage.actions.view(-1, self.storage.actions.size(-1))[indices]
+                target_values_batch = self.storage.values.view(-1, 1)[indices]
+                returns_batch = self.storage.returns.view(-1, 1)[indices]
+                old_actions_log_prob_batch = self.storage.actions_log_prob.view(-1, 1)[indices]
+                advantages_batch = self.storage.advantages.view(-1, 1)[indices]
+                old_mu_batch = self.storage.mu.view(-1, self.storage.actions.size(-1))[indices]
+                old_sigma_batch = self.storage.sigma.view(-1, self.storage.actions.size(-1))[indices]
+
+                (
+                    actions_log_prob_batch,
+                    entropy_batch,
+                    value_batch,
+                    mu_batch,
+                    sigma_batch,
+                ) = self.actor_critic.evaluate(obs_batch, actions_batch)
+
+                # KL
+                if self.desired_kl != None and self.schedule == "adaptive":
+                    kl = torch.sum(
+                        sigma_batch - old_sigma_batch 
+                        + (torch.square(old_sigma_batch.exp())+ torch.square(old_mu_batch - mu_batch)) / (2.0 * torch.square(sigma_batch.exp()))
+                        - 0.5,
+                        axis=-1,
+                    )
+                    kl_mean = torch.mean(kl)
+
+                    if kl_mean > self.desired_kl * 2.0:
+                        self.step_size = max(1e-5, self.step_size / 1.5)
+                    elif kl_mean < self.desired_kl / 2.0 and kl_mean > 0.0:
+                        self.step_size = min(1e-2, self.step_size * 1.5)
+
+                    for param_group in self.optimizer.param_groups:
+                        param_group["lr"] = self.step_size
+
+                # Surrogate loss
+                ratio = torch.exp(actions_log_prob_batch - torch.squeeze(old_actions_log_prob_batch))
+                surrogate = -torch.squeeze(advantages_batch) * ratio
+                surrogate_clipped = -torch.squeeze(advantages_batch) * torch.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param)
+                surrogate_loss = torch.max(surrogate, surrogate_clipped).mean()
+
+                # Value function loss
+                if self.use_clipped_value_loss:
+                    value_clipped = target_values_batch + (value_batch - target_values_batch).clamp(-self.clip_param, self.clip_param)
+                    value_losses = (value_batch - returns_batch).pow(2)
+                    value_losses_clipped = (value_clipped - returns_batch).pow(2)
+                    value_loss = torch.max(value_losses, value_losses_clipped).mean()
+                else:
+                    value_loss = (returns_batch - value_batch).pow(2).mean()
+
+                loss = surrogate_loss + self.value_loss_coef * value_loss - self.entropy_coef * entropy_batch.mean()
+
+                # Gradient step
+                self.optimizer.zero_grad()
+                loss.backward()
+                nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
+                self.optimizer.step()
+
+                mean_value_loss += value_loss.item()
+                mean_surrogate_loss += surrogate_loss.item()
+
+        num_updates = self.num_learning_epochs * self.num_mini_batches
+        mean_value_loss /= num_updates
+        mean_surrogate_loss /= num_updates
+
+        return mean_value_loss, mean_surrogate_loss
