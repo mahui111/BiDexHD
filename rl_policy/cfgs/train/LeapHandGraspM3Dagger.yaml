@@ -90,6 +90,7 @@ params:
     "(dust, brush, pan)": [1,2,4,5],
     "(pour in some, bowl, bowl)": [2,3,4,5,6],
     "(pour in some, cup, cup)": [],
+    "(pour in some, cup, plate)": [0],
     "(pour in some, cup, teapot)": [],
     "(pour in some, teapot, bowl)": [],
     "(empty, bowl, bowl)": [2,3,4,6,7],
