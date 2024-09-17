@@ -140,6 +140,7 @@ class PPO:
         current_states = self.vec_env.get_state()
 
         if self.is_testing:
+            sr1, sr2, ne = torch.zeros(self.vec_env.num_envs, dtype=torch.float, device=self.device), torch.zeros(self.vec_env.num_envs, dtype=torch.float, device=self.device), 1e-8+torch.zeros(self.vec_env.num_envs, dtype=torch.float, device=self.device)
             eplen = self.vec_env.max_episode_length
             for i in range(1, 1 + eplen * 3):
                 with torch.no_grad():
