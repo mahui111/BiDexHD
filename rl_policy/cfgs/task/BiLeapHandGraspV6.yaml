@@ -67,6 +67,7 @@ env:
   imageSaveDir: "/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/taco_dataset/sampled_data"
 
 task:
+  rewfunc: ${...rewfunc}
   is_all_task: ${...test}
   task_id: ${...task_id}
   frequency: 3.0

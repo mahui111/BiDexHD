@@ -939,16 +939,12 @@ def compute_ab_functional_grasping_rewards(
     info["right_approach_penalty"] = right_approach_penalty
     info["right_lift_to_refpose_reward"] = right_lift_to_refpose_reward
 
-    left_reward = - left_approach_penalty + left_lift_to_refpose_reward + left_stage1_bonus #+ left_stage2_bonus + left_object_hand_pose_rew 
-    right_reward = - right_approach_penalty + right_lift_to_refpose_reward + right_stage1_bonus #+ right_stage2_bonus + right_tool_hand_pose_rew
+    left_reward = - left_approach_penalty + left_lift_to_refpose_reward + left_stage1_bonus 
+    right_reward = - right_approach_penalty + right_lift_to_refpose_reward + right_stage1_bonus 
     reward = left_reward + right_reward
     info["left_reward"] = left_reward
     info["right_reward"] = right_reward
     info["reward"] = reward
-
-    # if random.random() < 0.03:
-    #     print(left_object_hand_pos_dist,left_object_hand_rot_dist,right_tool_hand_pos_dist,right_tool_hand_rot_dist)
-    #     breakpoint()
 
     # reset
     resets = reset_buf.clone()
@@ -1150,10 +1146,6 @@ def compute_ab_bonus_rewards(
     info["right_reward"] = right_reward
     info["reward"] = reward
 
-    # if random.random() < 0.03:
-    #     print(left_object_hand_pos_dist,left_object_hand_rot_dist,right_tool_hand_pos_dist,right_tool_hand_rot_dist)
-    #     breakpoint()
-
     # reset
     resets = reset_buf.clone()
     resets = torch.where(progress_buf >= max_episode_length, torch.ones_like(resets), resets)   # 1. reach max episode length
@@ -1282,8 +1274,9 @@ class BiLeapHandGraspV6(VecTask):
         **kwargs,
     ):
         self.cfg = cfg
-        self.rewfunc = self.cfg["rewfunc"] 
-        if 'main' in self.rewfunc:
+        self.rewfunc = self.cfg["task"]["rewfunc"] 
+        print(self.rewfunc)
+        if 'multippo' in self.rewfunc:
             self.rewfunc = compute_bvdex_stage12_rewards
         elif 'ab_stage1' in self.rewfunc:
             self.rewfunc = compute_ab_stage1_rewards
