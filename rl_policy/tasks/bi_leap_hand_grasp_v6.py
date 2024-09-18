@@ -445,18 +445,18 @@ def compute_bvdex_stage12_rewards(
 
     # hand-object joint pose difference reward only in stage 1, notice no grasp condition 
     # record below for reward design
-    left_object_pos_wrt_palm, left_object_ori_wrt_palm = compute_relative_pose(
-        left_palm_pose[:, :3], left_palm_pose[:, 3:7], object_pose[:, :3], object_pose[:, 3:7], 
-    )
-    right_tool_pos_wrt_palm, right_tool_ori_wrt_palm = compute_relative_pose(
-        right_palm_pose[:, :3], right_palm_pose[:, 3:7], tool_pose[:, :3], tool_pose[:, 3:7]
-    )
-    info["left_object_palm_pos_dist"] = torch.norm(left_object_pos_wrt_palm, dim=-1)
-    info["right_tool_palm_pos_dist"] = torch.norm(right_tool_pos_wrt_palm, dim=-1)
-    left_object_pos_wrt_fingers = left_fingertip_pose[...,:3] - object_pose[:, None, :3]
-    right_tool_pos_wrt_fingers = right_fingertip_pose[...,:3] - tool_pose[:, None, :3]
-    info["left_object_fingertip_pos_dist"] = torch.norm(left_object_pos_wrt_fingers, dim=-1).mean(-1)
-    info["right_tool_fingertip_pos_dist"] = torch.norm(right_tool_pos_wrt_fingers, dim=-1).mean(-1)
+    # left_object_pos_wrt_palm, left_object_ori_wrt_palm = compute_relative_pose(
+    #     left_palm_pose[:, :3], left_palm_pose[:, 3:7], object_pose[:, :3], object_pose[:, 3:7], 
+    # )
+    # right_tool_pos_wrt_palm, right_tool_ori_wrt_palm = compute_relative_pose(
+    #     right_palm_pose[:, :3], right_palm_pose[:, 3:7], tool_pose[:, :3], tool_pose[:, 3:7]
+    # )
+    # info["left_object_palm_pos_dist"] = torch.norm(left_object_pos_wrt_palm, dim=-1)
+    # info["right_tool_palm_pos_dist"] = torch.norm(right_tool_pos_wrt_palm, dim=-1)
+    # left_object_pos_wrt_fingers = left_fingertip_pose[...,:3] - object_pose[:, None, :3]
+    # right_tool_pos_wrt_fingers = right_fingertip_pose[...,:3] - tool_pose[:, None, :3]
+    # info["left_object_fingertip_pos_dist"] = torch.norm(left_object_pos_wrt_fingers, dim=-1).mean(-1)
+    # info["right_tool_fingertip_pos_dist"] = torch.norm(right_tool_pos_wrt_fingers, dim=-1).mean(-1)
     '''
     if is_stage1_hand_object_rew:
         # hand-object relative reward design, below are all unreasonable!!!
@@ -508,7 +508,7 @@ def compute_bvdex_stage12_rewards(
     '''
 
     # every-step success
-    info["step-success"] = torch.logical_and(ref_object_pos_dist <= success_tolerance, ref_tool_pos_dist <= success_tolerance).float()
+    # info["step-success"] = torch.logical_and(ref_object_pos_dist <= success_tolerance, ref_tool_pos_dist <= success_tolerance).float()
     # stage 1 success
     stage1_left_successes = torch.logical_or(stage1_left_successes, stage1_left_success_flag)
     stage1_right_successes = torch.logical_or(stage1_right_successes, stage1_right_success_flag)
