@@ -72,14 +72,18 @@ params:
   
   
     # action
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, cup, plate)/ema0.1+ol2_oo0.2/model_5500.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, teapot, plate)/ema0.1+ol2_oo0.2/model_5000.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, teapot, teapot)/ema0.1+ol2_oo0.2/model_11k.pt',
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, bowl, bowl)/ema0.1+ol2_oo0.2/model_15500.pt',
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, bowl, plate)/ema0.1+ol2_oo0.2/model_21500.pt',
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, cup, plate)/ema0.1+ol2_oo0.2/model_11000.pt',
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, teapot, plate)/ema0.1+ol2_oo0.2/model_15000.pt',
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, teapot, teapot)/ema0.1+ol2_oo0.2/model_23000.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, cup, cup)/ema0.1+ol2_oo0.2/model_3500.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, cup, plate)/ema0.1+ol2_oo0.2/model_11500.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, cup, teapot)/ema0.1+ol2_oo0.2/model_3500.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, teapot, bowl)/ema0.1+ol2_oo0.2/model_5000.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(put out, bowl, bowl)/ema0.1+ol2_oo0.2/model_4500.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(put out, bowl, plate)/ema0.1+ol2_oo0.2/model_9.5k.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, teapot, bowl)/ema0.1+ol2_oo0.2/model_19000.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, teapot, cup)/ema0.1+ol2_oo0.2/model_10500.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(put out, bowl, bowl)/ema0.1+ol2_oo0.2/model_15500.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(put out, bowl, plate)/ema0.1+ol2_oo0.2/6w/model_9.5k.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(skim off, bowl, bowl)/ema0.1+ol2_oo0.2/model_4500.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(skim off, bowl, plate)/ema0.1+ol2_oo0.2/model_4500.pt',
   ]
