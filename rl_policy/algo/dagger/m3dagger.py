@@ -15,6 +15,10 @@ from torch.utils.tensorboard import SummaryWriter
 
 from ..common import M2DaggerStorage, ActorCritic
 
+@torch.jit.script
+def nonzero_mean(x):
+    return x[x > 0].mean()
+
 class M3DaggerValue(nn.Module):
     def __init__(
         self,
@@ -178,12 +182,12 @@ class M3DaggerValue(nn.Module):
                     # print(f"testing set\t| stage1_successes: {avgsr1[test_env_ids].mean()}\t| stage2_successes: {avgsr2[test_env_ids].mean()}")
                     print(f"testing seen\t| stage1_successes: {avgsr1[self.vec_env.types == 1].mean()}\t| stage2_successes: {avgsr2[self.vec_env.types == 1].mean()}")
                     print(f"testing unseen\t| stage1_successes: {avgsr1[self.vec_env.types == 2].mean()}\t| stage2_successes: {avgsr2[self.vec_env.types == 2].mean()}")
-                        
+                    breakpoint()    
                     # log total
-                    print('-'*90 + f'\n Total')
-                    print(f"Average\t| stage1_successes: {avgsr1.mean()}\t| stage2_successes: {avgsr2.mean()}")
-                    print(f"Average Nonzero\t| stage1_successes: {avgsr1[avgsr1>0].mean()}\t| stage2_successes: {avgsr2[avgsr2>0].mean()}")
-                    print('-'*90)
+                    # print('-'*90 + f'\n Total')
+                    # print(f"Average\t| stage1_successes: {avgsr1.mean()}\t| stage2_successes: {avgsr2.mean()}")
+                    # print(f"Average Nonzero\t| stage1_successes: {avgsr1[avgsr1>0].mean()}\t| stage2_successes: {avgsr2[avgsr2>0].mean()}")
+                    # print('-'*90)
             exit()
         else:
             retbuffer = deque(maxlen=100)
@@ -352,8 +356,7 @@ class M3DaggerValue(nn.Module):
         )
         self.storage.expert_left_actions[:], self.storage.expert_left_values[:] = buffer_expert_left_actions.view_as(self.storage.expert_left_actions), buffer_expert_left_values.view_as(self.storage.expert_left_values)
         self.storage.expert_right_actions[:], self.storage.expert_right_values[:] = buffer_expert_right_actions.view_as(self.storage.expert_right_actions), buffer_expert_right_values.view_as(self.storage.expert_right_values)
-        
-    
+
     @staticmethod
     def symlog(x):
         return x.sign() * x.abs().log1p()
