@@ -72,21 +72,19 @@ params:
   
   
     # action
-    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, bowl, bowl)/ema0.1+ol2_oo0.2/model_15500.pt',
-    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, bowl, plate)/ema0.1+ol2_oo0.2/model_21500.pt',
-    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, cup, plate)/ema0.1+ol2_oo0.2/model_11000.pt',
-    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, teapot, plate)/ema0.1+ol2_oo0.2/model_15000.pt',
-    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, teapot, teapot)/ema0.1+ol2_oo0.2/model_23000.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, bowl, bowl)/ema0.1+ol2_oo0.2/model_15500.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, bowl, plate)/ema0.1+ol2_oo0.2/model_21500.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, cup, plate)/ema0.1+ol2_oo0.2/model_11000.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, teapot, plate)/ema0.1+ol2_oo0.2/model_15000.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, teapot, teapot)/ema0.1+ol2_oo0.2/model_23000.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, cup, cup)/ema0.1+ol2_oo0.2/model_3500.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, cup, plate)/ema0.1+ol2_oo0.2/model_11500.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, cup, plate)/ema0.1+ol2_oo0.2/4w/model_11500.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, cup, teapot)/ema0.1+ol2_oo0.2/model_3500.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, teapot, bowl)/ema0.1+ol2_oo0.2/model_19000.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, teapot, cup)/ema0.1+ol2_oo0.2/model_10500.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(put out, bowl, bowl)/ema0.1+ol2_oo0.2/model_15500.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(put out, bowl, plate)/ema0.1+ol2_oo0.2/6w/model_9.5k.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(skim off, bowl, bowl)/ema0.1+ol2_oo0.2/model_4500.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(skim off, bowl, plate)/ema0.1+ol2_oo0.2/model_4500.pt',
-  ]
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(put out, bowl, bowl)/ema0.1+ol2_oo0.2/model_15500.pt',
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(put out, bowl, plate)/ema0.1+ol2_oo0.2/6w/model_9.5k.pt',
+    ]
   expertObservationType: "dofps+dofvel+ftps+lastact+objstate+palmpose+relps+objlabel"  
   train_task_id_dict: {
     "(brush, brush, bowl)": [1,2,3,5,9,10,11],
@@ -97,6 +95,7 @@ params:
     "(pour in some, cup, plate)": [0],
     "(pour in some, cup, teapot)": [],
     "(pour in some, teapot, bowl)": [],
+    "(pour in some, teapot, cup)": [],
     "(empty, bowl, bowl)": [2,3,4,6,7],
     "(empty, bowl, plate)": [],
     "(empty, cup, teapot)": [],
