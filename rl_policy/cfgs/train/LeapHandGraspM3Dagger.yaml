@@ -84,12 +84,37 @@ params:
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, teapot, cup)/ema0.1+ol2_oo0.2/model_10500.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(put out, bowl, bowl)/ema0.1+ol2_oo0.2/model_15500.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(put out, bowl, plate)/ema0.1+ol2_oo0.2/6w/model_9.5k.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(dust, brush, bowl)/ema0.1+ol2_oo0.2/model_9000.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(dust, brush, pan)/ema0.1+ol2_oo0.2/4w/model_14000.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(smear, glue gun, plate)/ema0.1+ol2_oo0.2/model_11000.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(skim off, bowl, plate)/ema0.1+ol2_oo0.2/model_13500.pt'
+    
+    
+    
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-baselineppo/freq3/exp2/(brush, brush, bowl)/ema0.1+ol2_oo0.2/2w/model_21500.pt'
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-baselineppo/freq3/exp2/(dust, brush, bowl)/ema0.1+ol2_oo0.2/2w/model_36000.pt'
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-baselineppo/freq3/exp2/(dust, brush, pan)/ema0.1+ol2_oo0.2/2w/model_17500.pt'
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-baselineppo/freq3/exp2/(empty, bowl, bowl)/ema0.1+ol2_oo0.2/2w/model_29000.pt'
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-baselineppo/freq3/exp2/(empty, bowl, plate)/ema0.1+ol2_oo0.2/2w/model_32000.pt'
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-baselineppo/freq3/exp2/(empty, cup, plate)/ema0.1+ol2_oo0.2/2w/model_15500.pt'
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-baselineppo/freq3/exp2/(empty, teapot, plate)/ema0.1+ol2_oo0.2/2w/model_37000.pt'
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-baselineppo/freq3/exp2/(empty, teapot, teapot)/ema0.1+ol2_oo0.2/2w/model_16500.pt'
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-baselineppo/freq3/exp2/(pour in some, cup, cup)/ema0.1+ol2_oo0.2/2w/model_11000.pt'
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-baselineppo/freq3/exp2/(pour in some, cup, plate)/ema0.1+ol2_oo0.2/2w/model_31500.pt'
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-baselineppo/freq3/exp2/(pour in some, cup, teapot)/ema0.1+ol2_oo0.2/2w/model_11500.pt'
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-baselineppo/freq3/exp2/(pour in some, teapot, bowl)/ema0.1+ol2_oo0.2/2w/model_13000.pt'
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-baselineppo/freq3/exp2/(pour in some, teapot, cup)/ema0.1+ol2_oo0.2/2w/model_13000.pt'
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-baselineppo/freq3/exp2/(put out, bowl, bowl)/ema0.1+ol2_oo0.2/2w/model_11000.pt'
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-baselineppo/freq3/exp2/(put out, bowl, plate)/ema0.1+ol2_oo0.2/2w/model_11000.pt'
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-baselineppo/freq3/exp2/(scrape off, knife, bowl)/ema0.1+ol2_oo0.2/2w/model_22500.pt'
+    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-baselineppo/freq3/exp2/(skim off, bowl, plate)/ema0.1+ol2_oo0.2/2w/model_18500.pt'
     ]
   expertObservationType: "dofps+dofvel+ftps+lastact+objstate+palmpose+relps+objlabel"  
   train_task_id_dict: {
     "(brush, brush, bowl)": [1,2,3,5,9,10,11],
     "(dust, roller, bowl)": [3,4,5,6,7,8,9,10,11,12,13,14],
-    "(dust, brush, pan)": [1,2,4,5],
+    "(dust, brush, bowl)":[],
+    "(dust, brush, pan)": [],
     "(pour in some, bowl, bowl)": [2,3,4,5,6],
     "(pour in some, cup, cup)": [],
     "(pour in some, cup, plate)": [0],
@@ -107,6 +132,7 @@ params:
     "(scrape off, knife, bowl)": [],
     "(skim off, bowl, bowl)": [],
     "(skim off, bowl, plate)": [],
+    "(smear, glue gun, plate)": [],
   }
   clipAction: False
   lossFunc: "huber" #"l1"

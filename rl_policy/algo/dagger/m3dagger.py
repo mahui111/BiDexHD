@@ -182,7 +182,6 @@ class M3DaggerValue(nn.Module):
                     # print(f"testing set\t| stage1_successes: {avgsr1[test_env_ids].mean()}\t| stage2_successes: {avgsr2[test_env_ids].mean()}")
                     print(f"testing seen\t| stage1_successes: {avgsr1[self.vec_env.types == 1].mean()}\t| stage2_successes: {avgsr2[self.vec_env.types == 1].mean()}")
                     print(f"testing unseen\t| stage1_successes: {avgsr1[self.vec_env.types == 2].mean()}\t| stage2_successes: {avgsr2[self.vec_env.types == 2].mean()}")
-                    breakpoint()    
                     # log total
                     # print('-'*90 + f'\n Total')
                     # print(f"Average\t| stage1_successes: {avgsr1.mean()}\t| stage2_successes: {avgsr2.mean()}")
