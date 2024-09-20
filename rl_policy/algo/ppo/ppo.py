@@ -17,8 +17,8 @@ class PPO:
         self,
         vec_env,
         train_param,
-        obs_type="",
         log_dir="run",
+        obs_type="",
         apply_reset=False,
     ):
         left_obs_indices, right_obs_indices, num_obs = vec_env.get_obs_idx_dict(obs_type,)

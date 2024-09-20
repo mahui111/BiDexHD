@@ -54,31 +54,24 @@ def build_runner(cfg, env):
             log_dir=log_dir,
             apply_reset=False,
             record_dof=cfg['record']
-        )
-    elif train_param.name == "dagger":
-        from algo import dagger
-        runner = dagger.Dagger(
-            vec_env=env,
-            train_param=train_param,
-            expert_class=ppo.IPPO,
-            log_dir=log_dir,
-        )
-    elif train_param.name == "m2dagger":
-        from algo import dagger
-        runner = dagger.M2Dagger(
-            vec_env=env,
-            train_param=train_param,
-            expert_class=ppo.IPPO,
-            log_dir=log_dir,
-        )    
+        ) 
     elif train_param.name == "m3dagger":
+        print(f'use {train_param.expertModel} as expert')
         from algo import dagger
-        runner = dagger.M3Dagger(
-            vec_env=env,
-            train_param=train_param,
-            expert_class=ppo.IPPO,
-            log_dir=log_dir,
-        )  
+        if 'IPPO' in train_param.expertModel:
+            runner = dagger.M3Dagger(
+                vec_env=env,
+                train_param=train_param,
+                expert_class=ppo.IPPO,
+                log_dir=log_dir,
+            )  
+        elif 'PPO' in train_param.expertModel:
+            runner = dagger.M3Dagger(
+                vec_env=env,
+                train_param=train_param,
+                expert_class=ppo.PPO,
+                log_dir=log_dir,
+            )
     else:
         raise ValueError("Unrecognized algorithm!")
     

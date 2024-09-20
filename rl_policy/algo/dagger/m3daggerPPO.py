@@ -13,7 +13,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 
-from ..common import IPPODaggerStorage, ActorCritic
+from ..common import PPODaggerStorage, ActorCritic
 
 @torch.jit.script
 def nonzero_mean(x):
@@ -61,8 +61,8 @@ class M3DaggerValue(nn.Module):
         self.student_right_futureobjps_indices = list(range(self.num_pc_flatten * 2 + 243, self.num_pc_flatten * 2 + 258))
         self.student_right_obs_indices = self.student_right_robostate_indices + self.student_right_pointcloud_indices + self.student_right_instrlabel_indices
         assert len(self.expert_left_robostate_indices) == len(self.expert_right_robostate_indices) and len(self.student_left_obs_indices) == len(self.student_right_obs_indices)
-        self.single_observation_space_shape = (len(self.student_left_obs_indices),)
-        self.single_action_space_shape = (self.action_space.shape[0] // 2,)
+        self.stu_observation_space_shape = (len(self.student_left_obs_indices) + len(self.student_right_obs_indices),)
+        self.stu_action_space_shape = self.action_space.shape
         
         # DAGGER parameters
         self.value_loss_cfg = train_param['value_loss']
@@ -90,25 +90,16 @@ class M3DaggerValue(nn.Module):
         
         # student 
         init_noise_std = train_param["init_noise_std"]
-        self.left_actor_critic = ActorCritic(self.single_observation_space_shape, self.state_space.shape, 
-                                             self.single_action_space_shape, init_noise_std, train_param.policy,
-                                             robostate_indices=self.student_left_robostate_indices, 
-                                             pointcloud_indices=self.student_left_pointcloud_indices,
+        self.actor_critic = ActorCritic(self.stu_observation_space_shape, self.state_space.shape, 
+                                             self.stu_action_space_shape, init_noise_std, train_param.policy,
+                                             robostate_indices=self.student_left_robostate_indices + self.student_right_robostate_indices, 
+                                             pointcloud_indices=self.student_left_pointcloud_indices + self.student_right_pointcloud_indices,
                                              objlabel_indices=[],
-                                             futureobjps_indices=self.student_left_futureobjps_indices,
+                                             futureobjps_indices=self.student_left_futureobjps_indices + self.student_right_futureobjps_indices,
                                              )
         
-        self.left_actor_critic.to(self.device)
-        self.left_optimizer = optim.Adam(self.left_actor_critic.parameters(), lr=train_param["optim_stepsize"])
-        self.right_actor_critic = ActorCritic(self.single_observation_space_shape, self.state_space.shape, 
-                                              self.single_action_space_shape, init_noise_std, train_param.policy,
-                                              robostate_indices=self.student_right_robostate_indices, 
-                                              pointcloud_indices=self.student_right_pointcloud_indices,
-                                              objlabel_indices=[],
-                                              futureobjps_indices=self.student_right_futureobjps_indices
-                                              )
-        self.right_actor_critic.to(self.device)
-        self.right_optimizer = optim.Adam(self.right_actor_critic.parameters(), lr=train_param["optim_stepsize"])
+        self.actor_critic.to(self.device)
+        self.optimizer = optim.Adam(self.actor_critic.parameters(), lr=train_param["optim_stepsize"])
 
         # loss
         if train_param['lossFunc'] == 'huber':
@@ -120,16 +111,12 @@ class M3DaggerValue(nn.Module):
             # multi_expert
             self.expert_list = []
             for expert_ckpt_file in train_param['expertCkptFiles']:
-                expert = expert_class(
-                    vec_env, train_param, None, obs_type=train_param['expertObservationType'],
-                    left_all_obs_indices=dict(robostate_indices=self.expert_left_robostate_indices, pointcloud_indices=self.expert_left_pointcloud_indices, objlabel_indices=self.expert_left_objlabel_indices),
-                    right_all_obs_indices=dict(robostate_indices=self.expert_right_robostate_indices, pointcloud_indices=self.expert_right_pointcloud_indices, objlabel_indices=self.expert_right_objlabel_indices),    
-                )
+                expert = expert_class(vec_env, train_param=train_param, log_dir=None, obs_type=train_param['expertObservationType'],)
                 expert.load(expert_ckpt_file)
                 expert.eval()
                 self.expert_list.append(expert)
-            self.storage = IPPODaggerStorage(self.vec_env.num_envs, self.num_transitions_per_env, self.observation_space.shape,
-                                        self.state_space.shape, self.single_action_space_shape, self.device, self.sampler)
+            self.storage = PPODaggerStorage(self.vec_env.num_envs, self.num_transitions_per_env, self.observation_space.shape,
+                                        self.state_space.shape, self.stu_action_space_shape, self.device, self.sampler)
     
     def test(self, path):
         self.load(path)
@@ -137,11 +124,10 @@ class M3DaggerValue(nn.Module):
 
     def load(self, path):
         ckpt = torch.load(path)
-        self.left_actor_critic.load_state_dict(ckpt['left'])
-        self.right_actor_critic.load_state_dict(ckpt['right'])
+        self.actor_critic.load_state_dict(ckpt)
 
     def save(self, path):
-        torch.save(dict(left=self.left_actor_critic.state_dict(),right=self.right_actor_critic.state_dict()), path)
+        torch.save(self.actor_critic.state_dict(), path)
 
     def run(self,):
         self.train()
@@ -158,9 +144,7 @@ class M3DaggerValue(nn.Module):
             for i in range(1, 1 + eplen * 3):
                 with torch.no_grad():
                     # Compute the action
-                    stu_left_actions = self.left_actor_critic.act_inference(current_obs)
-                    stu_right_actions = self.right_actor_critic.act_inference(current_obs)
-                    stu_actions = torch.cat([stu_left_actions, stu_right_actions],dim=1)
+                    stu_actions = self.actor_critic.act_inference(current_obs)
                     # Step the vec_environment
                     next_obs_dict, rews, dones, infos = self.vec_env.step(stu_actions)
                     next_obs = next_obs_dict["obs"]
@@ -200,17 +184,12 @@ class M3DaggerValue(nn.Module):
                 ep_infos = []
                 for i in range(self.num_transitions_per_env):
                     # Compute the action
-                    _, _, stu_left_values, stu_left_actions, _ = self.left_actor_critic.act(current_obs)
-                    _, _, stu_right_values, stu_right_actions, _ = self.right_actor_critic.act(current_obs)
-                    # if self.clip_action:
-                    #     c = 5.5
-                    #     stu_left_actions = torch.clamp(stu_left_actions, -c, c)
-                    #     stu_right_actions = torch.clamp(stu_right_actions, -c, c)
+                    _, _, stu_values, stu_actions, _ = self.actor_critic.act(current_obs)
                     
                     # Compute the expert action
-                    expert_left_actions, expert_left_values, expert_right_actions, expert_right_values = self.expert_batch_act(current_obs, self.vec_env.expert_ids)
+                    expert_actions, expert_values = self.expert_batch_act(current_obs, self.vec_env.expert_ids)
                     epsilon = 0.05 #+ 0.5 * (1 - 0.05) * (1 + np.cos(it / 2000 * np.pi))
-                    actions = torch.cat([stu_left_actions, stu_right_actions], dim=1) if np.random.uniform(0,1) > epsilon else torch.cat([expert_left_actions, expert_right_actions], dim=1)
+                    actions = stu_actions if np.random.uniform(0,1) > epsilon else expert_actions
 
                     # Step the vec_environment
                     with torch.no_grad():
@@ -218,15 +197,15 @@ class M3DaggerValue(nn.Module):
                         next_obs = next_obs_dict["obs"]
                         # next_obs = torch.cat([next_obs, self.vec_env.verb_category.view(-1,1) / 255.], dim=-1)
 
-                    left_rews, right_rews = infos["left_reward"], infos["right_reward"]
+                    rews = infos["reward"]
                     # Record the transition
-                    self.storage.add_transitions_with_expert_labels(
-                        current_obs, current_states, 
-                        stu_left_actions, stu_right_actions,
-                        left_rews, right_rews, dones,
-                        stu_left_values, stu_right_values,
-                        expert_left_actions, expert_left_values, 
-                        expert_right_actions, expert_right_values,
+                    self.storage.add_transitions(
+                        current_obs, 
+                        current_states, 
+                        stu_actions, 
+                        rews, 
+                        dones,
+                        stu_values,
                         self.vec_env.expert_ids,
                     )
                     current_obs.copy_(next_obs)
@@ -244,14 +223,13 @@ class M3DaggerValue(nn.Module):
                 if self.print_log:
                     retbuffer.extend(episode_return)
                     lenbuffer.extend(episode_length)
-                _, _, last_left_values, _, _ = self.left_actor_critic.act(next_obs)
-                _, _, last_right_values, _, _ = self.right_actor_critic.act(next_obs)
+                _, _, last_values, _, _ = self.actor_critic.act(next_obs)
                 stop = time.time()
                 collection_time = stop - start
-                mean_trajectory_length, left_mean_reward, right_mean_reward = self.storage.get_statistics()
+                mean_trajectory_length, mean_reward = self.storage.get_statistics()
                 # Learning step
                 start = stop
-                self.storage.compute_returns(last_left_values, last_right_values, self.gamma, self.lam)
+                self.storage.compute_returns(last_values, self.gamma, self.lam)
                 mean_policy_loss, mean_value_loss, loss_info_dict = self.update()
                 self.storage.clear()
                 stop = time.time()
@@ -274,58 +252,38 @@ class M3DaggerValue(nn.Module):
             for indices in batch:
                 obs_batch = self.storage.observations.view(-1, *self.storage.observations.size()[2:])[indices]
                 # expertid_batch = self.storage.expert_ids.view(-1)[indices]
-                expert_left_actions_batch, expert_left_values_batch, expert_right_actions_batch, expert_right_values_batch = \
-                    self.storage.expert_actions.view(-1, self.storage.expert_actions.size(-1))[indices], \
-                    self.storage.expert_left_values.view(-1, 1)[indices], \
-                    self.storage.expert_actions.view(-1, self.storage.expert_actions.size(-1))[indices], \
-                    self.storage.expert_right_values.view(-1, 1)[indices]
+                expert_actions_batch, expert_values_batch = self.storage.expert_actions.view(-1, self.storage.expert_actions.size(-1))[indices], self.storage.expert_values.view(-1, 1)[indices]
                 # Policy loss
-                cur_left_actions_batch = self.left_actor_critic.act(obs_batch, grad=True)[3]
-                cur_right_actions_batch = self.right_actor_critic.act(obs_batch, grad=True)[3]
-                left_action_loss = self.criterion(cur_left_actions_batch, expert_left_actions_batch)
-                right_action_loss = self.criterion(cur_right_actions_batch, expert_right_actions_batch)
+                cur_actions_batch = self.actor_critic.act(obs_batch, grad=True)[3]
+                action_loss = self.criterion(cur_actions_batch, expert_actions_batch)
                 # Value loss
                 if self.value_loss_cfg['apply']:
-                    left_action_batch = self.storage.actions.view(-1, self.storage.actions.size(-1))[indices]
-                    right_action_batch = self.storage.right_actions.view(-1, self.storage.right_actions.size(-1))[indices]
-                    left_returns_batch = self.storage.returns.view(-1, 1)[indices]
-                    right_returns_batch = self.storage.right_returns.view(-1, 1)[indices]
-                    cur_left_value_batch = self.left_actor_critic.evaluate(obs_batch, left_action_batch)[2]
-                    cur_right_value_batch = self.right_actor_critic.evaluate(obs_batch, right_action_batch)[2]
+                    action_batch = self.storage.actions.view(-1, self.storage.actions.size(-1))[indices]
+                    returns_batch = self.storage.returns.view(-1, 1)[indices]
+                    cur_value_batch = self.actor_critic.evaluate(obs_batch, action_batch)[2]
                     if self.value_loss_cfg['use_clipped_value_loss']:
-                        left_value_clipped = expert_left_values_batch + (cur_left_value_batch - expert_left_values_batch).clamp(-self.value_loss_cfg['clip_range'], self.value_loss_cfg['clip_range'])
-                        left_value_losses = (cur_left_value_batch - left_returns_batch).pow(2)
-                        left_value_losses_clipped = (left_value_clipped - left_returns_batch).pow(2)
-                        left_value_loss = torch.max(self.symlog(left_value_losses), self.symlog(left_value_losses_clipped)).mean()
-                        right_value_clipped = expert_right_values_batch + (cur_right_value_batch - expert_right_values_batch).clamp(-self.value_loss_cfg['clip_range'], self.value_loss_cfg['clip_range'])
-                        right_value_losses = (cur_right_value_batch - right_returns_batch).pow(2)
-                        right_value_losses_clipped = (right_value_clipped - right_returns_batch).pow(2)
-                        right_value_loss = torch.max(self.symlog(right_value_losses), self.symlog(right_value_losses_clipped)).mean()
+                        value_clipped = expert_values_batch + (cur_value_batch - expert_values_batch).clamp(-self.value_loss_cfg['clip_range'], self.value_loss_cfg['clip_range'])
+                        value_losses = (cur_value_batch - returns_batch).pow(2)
+                        value_losses_clipped = (value_clipped - returns_batch).pow(2)
+                        value_loss = torch.max(self.symlog(value_losses), self.symlog(value_losses_clipped)).mean()
                     else:
-                        left_value_loss = (left_returns_batch - cur_left_value_batch).pow(2).mean()
-                        right_value_loss = (right_returns_batch - cur_right_value_batch).pow(2).mean()
+                        value_loss = (returns_batch - cur_value_batch).pow(2).mean()
                 else:
-                    left_value_loss = torch.zeros_like(left_action_loss)
-                    right_value_loss = torch.zeros_like(right_action_loss)
+                    value_loss = torch.zeros_like(action_loss)
                 # Gradient step
-                left_loss = left_action_loss + left_value_loss * self.value_loss_cfg['value_loss_coef']
-                self.left_optimizer.zero_grad()
-                nn.utils.clip_grad_norm_(self.left_actor_critic.parameters(), self.max_grad_norm)
-                left_loss.backward()
-                self.left_optimizer.step()
-                right_loss = right_action_loss + right_value_loss * self.value_loss_cfg['value_loss_coef']
-                self.right_optimizer.zero_grad()
-                right_loss.backward()
-                nn.utils.clip_grad_norm_(self.right_actor_critic.parameters(), self.max_grad_norm)
-                self.right_optimizer.step()
+                loss = action_loss + value_loss * self.value_loss_cfg['value_loss_coef']
+                self.optimizer.zero_grad()
+                nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
+                loss.backward()
+                self.optimizer.step()
 
-                mean_policy_loss += 0.5 * (left_action_loss.item() + right_action_loss.item())
-                mean_value_loss += 0.5 * (left_value_loss.item() + right_value_loss.item())
+                mean_policy_loss += action_loss.item()
+                mean_value_loss += value_loss.item()
                 
         num_updates = self.num_learning_epochs * self.num_mini_batches
         mean_policy_loss /= num_updates
         mean_value_loss /= num_updates
-        return mean_policy_loss, mean_value_loss, dict(left_action_loss=left_action_loss.item(), right_action_loss=right_action_loss.item(), left_value_loss=left_value_loss.item(), right_value_loss=right_value_loss.item())
+        return mean_policy_loss, mean_value_loss, dict(action_loss=action_loss.item(), value_loss=value_loss.item())
 
     def expert_batch_act(self, current_obs, expertid_batch):
         with torch.no_grad():
@@ -334,27 +292,20 @@ class M3DaggerValue(nn.Module):
             expertid_batch: (N, )
             return: (N, 22), (N, 1), (N, 22), (N, 1)
             '''
-            batch_expert_left_actions, batch_expert_left_values = torch.zeros(current_obs.shape[:1] + self.single_action_space_shape, device=self.device), torch.zeros(current_obs.shape[:1] + (1,), device=self.device)
-            batch_expert_right_actions, batch_expert_right_values = torch.zeros(current_obs.shape[:1] + self.single_action_space_shape, device=self.device), torch.zeros(current_obs.shape[:1] + (1,), device=self.device)
+            batch_expert_actions, batch_expert_values = torch.zeros(current_obs.shape[:1] + self.stu_action_space_shape, device=self.device), torch.zeros(current_obs.shape[:1] + (1,), device=self.device)
             checkcnt = 0
             for ie in range(len(self.expert_list)):
                 expert_i_idx = (expertid_batch == ie).nonzero().squeeze()
                 checkcnt += len(expert_i_idx)
-                _, _, batch_expert_left_values[expert_i_idx], batch_expert_left_actions[expert_i_idx], _ = self.expert_list[ie].left_agent.actor_critic.act(current_obs[expert_i_idx])
-                _, _, batch_expert_right_values[expert_i_idx], batch_expert_right_actions[expert_i_idx], _ = self.expert_list[ie].right_agent.actor_critic.act(current_obs[expert_i_idx])
+                _, _, batch_expert_values[expert_i_idx], batch_expert_actions[expert_i_idx], _ = self.expert_list[ie].actor_critic.act(current_obs[expert_i_idx])
             assert checkcnt == len(current_obs) and checkcnt == len(expertid_batch)
-            # if self.clip_action:
-            #     c = 5.5
-            #     batch_expert_left_actions = torch.clamp(batch_expert_left_actions, -c, c)
-            #     batch_expert_right_actions = torch.clamp(batch_expert_right_actions, -c, c)
-        return batch_expert_left_actions, batch_expert_left_values, batch_expert_right_actions, batch_expert_right_values
+        return batch_expert_actions, batch_expert_values
     
     def add_expert_labels(self,):
-        buffer_expert_left_actions, buffer_expert_left_values, buffer_expert_right_actions, buffer_expert_right_values = self.expert_batch_act(
+        buffer_expert_actions, buffer_expert_values = self.expert_batch_act(
             self.storage.observations.view(-1, *self.storage.observations.size()[2:]), self.storage.expert_ids.view(-1)
         )
-        self.storage.expert_actions[:], self.storage.expert_left_values[:] = buffer_expert_left_actions.view_as(self.storage.expert_actions), buffer_expert_left_values.view_as(self.storage.expert_left_values)
-        self.storage.expert_actions[:], self.storage.expert_right_values[:] = buffer_expert_right_actions.view_as(self.storage.expert_actions), buffer_expert_right_values.view_as(self.storage.expert_right_values)
+        self.storage.expert_actions[:], self.storage.expert_values[:] = buffer_expert_actions.view_as(self.storage.expert_actions), buffer_expert_values.view_as(self.storage.expert_values)
 
     @staticmethod
     def symlog(x):
@@ -386,8 +337,7 @@ class M3DaggerValue(nn.Module):
             self.writer.add_scalar('Train/mean_reward/time', statistics.mean(locs['retbuffer']), self.tot_time)
             self.writer.add_scalar('Train/mean_episode_length/time', statistics.mean(locs['lenbuffer']), self.tot_time)
 
-        self.writer.add_scalar('Train2/left_mean_reward/step', locs['left_mean_reward'], locs['it'])
-        self.writer.add_scalar('Train2/right_mean_reward/step', locs['right_mean_reward'], locs['it'])
+        self.writer.add_scalar('Train2/mean_reward/step', locs['mean_reward'], locs['it'])
         self.writer.add_scalar('Train2/mean_episode_length/episode', locs['mean_trajectory_length'], locs['it'])
 
         fps = int(self.num_transitions_per_env * self.vec_env.num_envs / (locs['collection_time'] + locs['learn_time']))
@@ -403,8 +353,7 @@ class M3DaggerValue(nn.Module):
                           f"""{'Policy loss:':>{pad}} {locs['mean_policy_loss']:.4f}\n"""
                           f"""{'Mean reward:':>{pad}} {statistics.mean(locs['retbuffer']):.2f}\n"""
                           f"""{'Mean episode length:':>{pad}} {statistics.mean(locs['lenbuffer']):.2f}\n"""
-                          f"""{'Mean left reward/step:':>{pad}} {locs['left_mean_reward']:.2f}\n"""
-                          f"""{'Mean right reward/step:':>{pad}} {locs['right_mean_reward']:.2f}\n"""
+                          f"""{'Mean reward/step:':>{pad}} {locs['mean_reward']:.2f}\n"""
                           f"""{'Mean episode length/episode:':>{pad}} {locs['mean_trajectory_length']:.2f}\n""")
         else:
             log_string = (f"""{'#' * width}\n"""
@@ -413,8 +362,7 @@ class M3DaggerValue(nn.Module):
                             'collection_time']:.3f}s, learning {locs['learn_time']:.3f}s)\n"""
                           f"""{'Value function loss:':>{pad}} {locs['mean_value_loss']:.4f}\n"""
                           f"""{'Policy loss:':>{pad}} {locs['mean_policy_loss']:.4f}\n"""
-                          f"""{'Mean left reward/step:':>{pad}} {locs['left_mean_reward']:.2f}\n"""
-                          f"""{'Mean right reward/step:':>{pad}} {locs['right_mean_reward']:.2f}\n"""
+                          f"""{'Mean reward/step:':>{pad}} {locs['mean_reward']:.2f}\n"""
                           f"""{'Mean episode length/episode:':>{pad}} {locs['mean_trajectory_length']:.2f}\n""")
 
         log_string += ep_string

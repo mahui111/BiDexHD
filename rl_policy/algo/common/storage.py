@@ -285,7 +285,7 @@ class DaggerStorage:
         batch = BatchSampler(subset, mini_batch_size, drop_last=True)
         return batch
 
-class M2DaggerStorage:
+class IPPODaggerStorage:
     def __init__(
         self,
         num_envs,
@@ -442,6 +442,148 @@ class M2DaggerStorage:
         ))
         trajectory_lengths = done_indices[1:] - done_indices[:-1]
         return trajectory_lengths.float().mean(), self.left_rewards.mean(), self.right_rewards.mean()
+
+    def mini_batch_generator(self, num_mini_batches):
+        batch_size = self.num_envs * self.num_transitions_per_env
+        mini_batch_size = batch_size // num_mini_batches
+
+        if self.sampler == "sequential":
+            # For physics-based RL, each environment is already randomized. There is no value to doing random sampling
+            # but a lot of CPU overhead during the PPO process. So, we can just switch to a sequential sampler instead
+            subset = SequentialSampler(range(batch_size))
+        elif self.sampler == "random":
+            subset = SubsetRandomSampler(range(batch_size))
+
+        batch = BatchSampler(subset, mini_batch_size, drop_last=True)
+        return batch
+
+class PPODaggerStorage:
+    def __init__(
+        self,
+        num_envs,
+        num_transitions_per_env,
+        obs_shape,
+        states_shape,
+        actions_shape,
+        device="cpu",
+        sampler="sequential",
+    ):
+
+        self.device = device
+        self.sampler = sampler
+
+        # Core
+        self.observations = torch.zeros(
+            num_transitions_per_env, num_envs, *obs_shape, device=self.device
+        )
+        self.states = torch.zeros(
+            num_transitions_per_env, num_envs, *states_shape, device=self.device
+        )
+        self.rewards = torch.zeros(
+            num_transitions_per_env, num_envs, 1, device=self.device
+        )
+        self.actions = torch.zeros(
+            num_transitions_per_env, num_envs, *actions_shape, device=self.device
+        )
+        self.dones = torch.zeros(
+            num_transitions_per_env, num_envs, 1, device=self.device
+        ).byte()
+
+        self.expert_ids = torch.zeros(
+            num_transitions_per_env, num_envs, device=self.device
+        ).long()
+
+        # For PPO
+        self.values = torch.zeros(
+            num_transitions_per_env, num_envs, 1, device=self.device
+        )
+        self.returns = torch.zeros(
+            num_transitions_per_env, num_envs, 1, device=self.device
+        )
+        
+        # For Dagger
+        self.expert_actions = torch.zeros(
+            num_transitions_per_env, num_envs, *actions_shape, device=self.device
+        )
+        self.expert_values = torch.zeros(
+            num_transitions_per_env, num_envs, 1, device=self.device
+        )
+
+        self.num_transitions_per_env = num_transitions_per_env
+        self.num_envs = num_envs
+
+        self.step = 0
+
+    def add_transitions(
+        self,
+        observations,
+        states,
+        actions, 
+        rewards, 
+        dones,
+        values, 
+        expert_id
+    ):
+        if self.step >= self.num_transitions_per_env:
+            raise AssertionError("Rollout buffer overflow")
+
+        self.observations[self.step].copy_(observations)
+        self.states[self.step].copy_(states)
+        self.actions[self.step].copy_(actions)
+        self.rewards[self.step].copy_(rewards.view(-1, 1))
+        self.dones[self.step].copy_(dones.view(-1, 1))
+        self.values[self.step].copy_(values)
+        self.expert_ids[self.step].copy_(expert_id)
+        self.step += 1
+        
+    def add_transitions_with_expert_labels(
+        self,
+        observations,
+        states,
+        actions,
+        rewards,
+        dones,
+        values,
+        expert_actions, 
+        expert_values, 
+        expert_id
+    ):
+        if self.step >= self.num_transitions_per_env:
+            raise AssertionError("Rollout buffer overflow")
+
+        self.observations[self.step].copy_(observations)
+        self.states[self.step].copy_(states)
+        self.actions[self.step].copy_(actions)
+        self.rewards[self.step].copy_(rewards.view(-1, 1))
+        self.dones[self.step].copy_(dones.view(-1, 1))
+        self.values[self.step].copy_(values)
+        self.expert_ids[self.step].copy_(expert_id)
+        self.expert_actions[self.step].copy_(expert_actions)
+        self.expert_values[self.step].copy_(expert_values)
+        self.step += 1
+
+    def clear(self):
+        self.step = 0
+
+    def compute_returns(self, last_values, gamma, lam):
+        advantage = 0
+        for step in reversed(range(self.num_transitions_per_env)):
+            next_values = last_values if step == self.num_transitions_per_env - 1 else self.values[step + 1]
+            next_is_not_terminal = 1.0 - self.dones[step].float()
+            delta = self.rewards[step] + next_is_not_terminal * gamma * next_values - self.values[step]
+            advantage = delta + next_is_not_terminal * gamma * lam * advantage
+            self.returns[step] = advantage + self.values[step]
+
+    def get_statistics(self):
+        done = self.dones.cpu()
+        done[-1] = 1
+        flat_dones = done.permute(1, 0, 2).reshape(-1, 1)
+        done_indices = torch.cat((
+            flat_dones.new_tensor([-1], dtype=torch.int64),
+            flat_dones.nonzero(as_tuple=False)[:, 0],
+        ))
+        trajectory_lengths = done_indices[1:] - done_indices[:-1]
+        return trajectory_lengths.float().mean(), self.rewards.mean()
 
     def mini_batch_generator(self, num_mini_batches):
         batch_size = self.num_envs * self.num_transitions_per_env

@@ -90,5 +90,6 @@ objectOffset: 0.1
 train_ids: 0 #[1, 2, 3, 5, 6, 7, 8, 10]
 
 rewfunc: 'multippo'  # ab_stage1, ab_funcgrasp, ab_bonus
+expertModel: "IPPO"
 
 

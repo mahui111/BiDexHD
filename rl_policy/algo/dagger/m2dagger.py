@@ -13,7 +13,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 
-from ..common import M2DaggerStorage, ActorCritic
+from ..common import IPPODaggerStorage, ActorCritic
 
 class M2DaggerValue(nn.Module):
     def __init__(
@@ -117,7 +117,7 @@ class M2DaggerValue(nn.Module):
                 expert.load(expert_ckpt_file)
                 expert.eval()
                 self.expert_list.append(expert)
-            self.storage = M2DaggerStorage(self.vec_env.num_envs, self.num_transitions_per_env, self.observation_space.shape,
+            self.storage = IPPODaggerStorage(self.vec_env.num_envs, self.num_transitions_per_env, self.observation_space.shape,
                                         self.state_space.shape, self.single_action_space_shape, self.device, self.sampler)
     
     def test(self, path):

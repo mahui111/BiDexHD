@@ -136,3 +136,4 @@ params:
   }
   clipAction: False
   lossFunc: "huber" #"l1"
+  expertModel: ${...expertModel}

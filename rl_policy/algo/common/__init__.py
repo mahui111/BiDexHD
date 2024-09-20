@@ -1,3 +1,3 @@
-from .storage import RolloutStorage, DaggerStorage, M2DaggerStorage
+from .storage import RolloutStorage, DaggerStorage, PPODaggerStorage, IPPODaggerStorage
 from .module import ActorCritic
 
