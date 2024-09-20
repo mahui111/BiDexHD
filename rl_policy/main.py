@@ -31,7 +31,7 @@ def build_runner(cfg, env):
             numtotal = len(train_param.expertCkptFiles)
             tripletlist = [re.search(r'\((.*?)\)', each).group().strip('()').split(', ')[0] for each in train_param.expertCkptFiles]
             assert len(set(tripletlist)) == 1
-            log_dir = os.path.join(train_param.log_dir, 'exp2/', f"{tripletlist[0]}/distill{numtotal}", exp_name)
+            log_dir = os.path.join(train_param.log_dir, train_param.expertModel, f"{tripletlist[0]}/distill{numtotal}", exp_name)
         else:
             log_dir = os.path.join(train_param.log_dir.replace('multippo', cfg.rewfunc), 'freq3/exp2', triplet, exp_name, f'{cfg.num_envs//10000}w')
         os.makedirs(log_dir, exist_ok=True)
@@ -59,14 +59,14 @@ def build_runner(cfg, env):
         print(f'use {train_param.expertModel} as expert')
         from algo import dagger
         if 'IPPO' in train_param.expertModel:
-            runner = dagger.M3Dagger(
+            runner = dagger.M3DaggerIPPO(
                 vec_env=env,
                 train_param=train_param,
                 expert_class=ppo.IPPO,
                 log_dir=log_dir,
             )  
         elif 'PPO' in train_param.expertModel:
-            runner = dagger.M3Dagger(
+            runner = dagger.M3DaggerPPO(
                 vec_env=env,
                 train_param=train_param,
                 expert_class=ppo.PPO,

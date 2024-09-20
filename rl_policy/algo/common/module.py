@@ -107,7 +107,7 @@ class ActorCritic(nn.Module):
             if self.backbone_type == "PointNetBackbone":
                 self.backbone = PointNetBackbone(
                     pc_dim=self.each_point_dim + 2 * self.use_seg,
-                    feature_dim=self.pc_emb_dim,
+                    feature_dim=self.pc_emb_dim if 'centralize' in kwargs else self.pc_emb_dim // 2
                 )
             elif self.backbone_type == "TransPointNetBackbone":
                 self.backbone = TransPointNetBackbone(
@@ -118,7 +118,7 @@ class ActorCritic(nn.Module):
                 )
             else:
                 raise ValueError(f"Invalid backbone type: {self.backbone_type}")
-            assert len(self.pointcloud_indices) == self.num_pc_flatten
+            assert len(self.pointcloud_indices) % self.num_pc_flatten == 0
         else:
             self.pc_emb_dim = 0
 
@@ -194,7 +194,7 @@ class ActorCritic(nn.Module):
         if self.backbone_type == "TransPointNetBackbone":
             raise NotImplementedError 
             input_data.update(dict(state=robot_state,))
-        pc_feature = self.backbone(input_data).reshape(-1, self.pc_emb_dim)
+        pc_feature = self.backbone(input_data).reshape(len(observations), -1)
         return pc_feature
 
     def get_all_observation(self, observations):

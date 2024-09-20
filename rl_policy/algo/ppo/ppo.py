@@ -20,12 +20,16 @@ class PPO:
         log_dir="run",
         obs_type="",
         apply_reset=False,
+        **kwargs
     ):
-        left_obs_indices, right_obs_indices, num_obs = vec_env.get_obs_idx_dict(obs_type,)
-        both_obs_indices = dict()
-        for key in left_obs_indices:
-            assert key in right_obs_indices
-            both_obs_indices[key] = left_obs_indices[key] + right_obs_indices[key]
+        if 'all_obs_indices' in kwargs:
+            both_obs_indices = kwargs['all_obs_indices']
+        else:
+            left_obs_indices, right_obs_indices, num_obs = vec_env.get_obs_idx_dict(obs_type,)
+            both_obs_indices = dict()
+            for key in left_obs_indices:
+                assert key in right_obs_indices
+                both_obs_indices[key] = left_obs_indices[key] + right_obs_indices[key]
 
         # PPO parameters
         self.clip_param = train_param["cliprange"]
@@ -69,6 +73,7 @@ class PPO:
             self.init_noise_std,
             None, #train_param.policy,
             asymmetric=self.asymmetric,
+            centralize=True,
             **both_obs_indices
         )
         self.actor_critic.to(self.device)
@@ -117,6 +122,7 @@ class PPO:
         saved_ckpt = torch.load(path, map_location=self.device)
         if "model_state_dict" in saved_ckpt:
             self.actor_critic.load_state_dict(saved_ckpt["model_state_dict"])
+
             if 'optimizer_state_dict' in saved_ckpt:
                 optimizer_state_dict = saved_ckpt["optimizer_state_dict"]
                 self.optimizer.load_state_dict(optimizer_state_dict)
