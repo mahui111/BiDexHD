@@ -59,7 +59,7 @@ class M3DaggerValueIPPO(nn.Module):
         self.student_right_pointcloud_indices = list(range(226 + self.num_pc_flatten, 226 + self.num_pc_flatten * 2))
         # self.student_right_objlabel_indices = list(range(226 + self.num_pc_flatten * 2 + 1, self.num_pc_flatten * 2 + 228))
         self.student_right_instrlabel_indices = []  
-        self.student_right_futureobjps_indices = list(range(self.num_pc_flatten * 2 + self.Kfuturestep * 3, self.num_pc_flatten * 2 + self.Kfuturestep * 6))
+        self.student_right_futureobjps_indices = list(range(self.num_pc_flatten * 2 + 228 + self.Kfuturestep * 3, self.num_pc_flatten * 2 + 228 + self.Kfuturestep * 6))
         self.student_right_obs_indices = self.student_right_robostate_indices + self.student_right_pointcloud_indices + self.student_right_instrlabel_indices
         assert len(self.expert_left_robostate_indices) == len(self.expert_right_robostate_indices) and len(self.student_left_obs_indices) == len(self.student_right_obs_indices)
         self.single_observation_space_shape = (len(self.student_left_obs_indices),)
@@ -287,9 +287,9 @@ class M3DaggerValueIPPO(nn.Module):
                 right_action_loss = self.criterion(cur_right_actions_batch, expert_right_actions_batch)
                 # Value loss
                 if self.value_loss_cfg['apply']:
-                    left_action_batch = self.storage.actions.view(-1, self.storage.actions.size(-1))[indices]
+                    left_action_batch = self.storage.left_actions.view(-1, self.storage.actions.size(-1))[indices]
                     right_action_batch = self.storage.right_actions.view(-1, self.storage.right_actions.size(-1))[indices]
-                    left_returns_batch = self.storage.returns.view(-1, 1)[indices]
+                    left_returns_batch = self.storage.left_returns.view(-1, 1)[indices]
                     right_returns_batch = self.storage.right_returns.view(-1, 1)[indices]
                     cur_left_value_batch = self.left_actor_critic.evaluate(obs_batch, left_action_batch)[2]
                     cur_right_value_batch = self.right_actor_critic.evaluate(obs_batch, right_action_batch)[2]
