@@ -4,12 +4,12 @@ cd rl_policy
 Kfuturestep=${1:-5}
 
 verbs=(
-    # "empty" 
-    # "pourinsome"
-    # "putout"
-    # "dust"
+    "empty" 
+    "pourinsome"
+    "putout"
+    "dust"
     "smear"
-    # "skimoff"
+    "skimoff"
 )
 
 for i in "${!verbs[@]}"; do

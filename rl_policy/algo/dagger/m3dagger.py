@@ -276,9 +276,9 @@ class M3DaggerValueIPPO(nn.Module):
                 obs_batch = self.storage.observations.view(-1, *self.storage.observations.size()[2:])[indices]
                 # expertid_batch = self.storage.expert_ids.view(-1)[indices]
                 expert_left_actions_batch, expert_left_values_batch, expert_right_actions_batch, expert_right_values_batch = \
-                    self.storage.expert_actions.view(-1, self.storage.expert_actions.size(-1))[indices], \
+                    self.storage.expert_left_actions.view(-1, self.storage.expert_left_actions.size(-1))[indices], \
                     self.storage.expert_left_values.view(-1, 1)[indices], \
-                    self.storage.expert_actions.view(-1, self.storage.expert_actions.size(-1))[indices], \
+                    self.storage.expert_right_actions.view(-1, self.storage.expert_right_actions.size(-1))[indices], \
                     self.storage.expert_right_values.view(-1, 1)[indices]
                 # Policy loss
                 cur_left_actions_batch = self.left_actor_critic.act(obs_batch, grad=True)[3]
