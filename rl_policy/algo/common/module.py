@@ -104,6 +104,7 @@ class ActorCritic(nn.Module):
             self.each_point_dim = model_cfg["numEachPoint"]
             self.num_pc_flatten = self.num_downsample * self.each_point_dim
             self.backbone_type = model_cfg["backbone_type"]
+            breakpoint()
             if self.backbone_type == "PointNetBackbone":
                 self.backbone = PointNetBackbone(
                     pc_dim=self.each_point_dim + 2 * self.use_seg,

@@ -40,6 +40,7 @@ class M3DaggerValueIPPO(nn.Module):
         self.action_space = vec_env.action_space
         self.state_space = vec_env.state_space
         # teacher obs: 'dofps+dofvel+ftps+lastact+objstate+palmpose+relps+objlabel'
+        self.Kfuturestep = train_param['Kfuturestep']
         self.num_pc_flatten = train_param.policy['numDownsample'] * train_param.policy['numEachPoint']
         self.expert_left_robostate_indices = list(range(0, 22)) + list(range(44, 66)) + list(range(88, 100)) + list(range(112, 134)) + list(range(156, 169)) + list(range(182, 189)) + list(range(196, 211))
         self.expert_left_pointcloud_indices = []
@@ -52,13 +53,13 @@ class M3DaggerValueIPPO(nn.Module):
         self.student_left_pointcloud_indices = list(range(226, 226 + self.num_pc_flatten))
         # self.student_left_objlabel_indices = list(range(226 + self.num_pc_flatten * 2, 226 + self.num_pc_flatten * 2 + 1))
         self.student_left_instrlabel_indices = []  
-        self.student_left_futureobjps_indices = list(range(self.num_pc_flatten * 2 + 228, self.num_pc_flatten * 2 + 243))
+        self.student_left_futureobjps_indices = list(range(self.num_pc_flatten * 2 + 228, self.num_pc_flatten * 2 + 228 + self.Kfuturestep * 3))
         self.student_left_obs_indices = self.student_left_robostate_indices + self.student_left_pointcloud_indices + self.student_left_instrlabel_indices
         self.student_right_robostate_indices = list(range(22, 44)) + list(range(100, 112)) + list(range(134, 156)) + list(range(189, 196))
         self.student_right_pointcloud_indices = list(range(226 + self.num_pc_flatten, 226 + self.num_pc_flatten * 2))
         # self.student_right_objlabel_indices = list(range(226 + self.num_pc_flatten * 2 + 1, self.num_pc_flatten * 2 + 228))
         self.student_right_instrlabel_indices = []  
-        self.student_right_futureobjps_indices = list(range(self.num_pc_flatten * 2 + 243, self.num_pc_flatten * 2 + 258))
+        self.student_right_futureobjps_indices = list(range(self.num_pc_flatten * 2 + self.Kfuturestep * 3, self.num_pc_flatten * 2 + self.Kfuturestep * 6))
         self.student_right_obs_indices = self.student_right_robostate_indices + self.student_right_pointcloud_indices + self.student_right_instrlabel_indices
         assert len(self.expert_left_robostate_indices) == len(self.expert_right_robostate_indices) and len(self.student_left_obs_indices) == len(self.student_right_obs_indices)
         self.single_observation_space_shape = (len(self.student_left_obs_indices),)

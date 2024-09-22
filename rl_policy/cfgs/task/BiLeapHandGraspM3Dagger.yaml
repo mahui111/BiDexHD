@@ -81,6 +81,7 @@ task:
   isStage1HOReward: ${isStage1HOReward}
   isStage1LinReward: ${isStage1LinReward}
   isStage2PosRewExp: ${isStage2PosRewExp}
+  Kfuturestep: ${Kfuturestep}
   randomize: False
   randomization_params:
     frequency: 720   # Define how many simulation steps between generating new randomizations

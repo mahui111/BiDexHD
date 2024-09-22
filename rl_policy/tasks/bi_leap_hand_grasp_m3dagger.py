@@ -701,7 +701,6 @@ class BiLeapHandGraspM3Dagger(VecTask):
         self.is_stage1_hand_object_rew = self.cfg["task"]["isStage1HOReward"]
         self.is_stage1_lin_rew = self.cfg["task"]["isStage1LinReward"]
         self.is_stage2_pos_rew_exp = self.cfg["task"]["isStage2PosRewExp"]
-        self.Kfuturestep = 5
 
         self.randomize = self.cfg["task"]["randomize"]
         self.randomization_params = self.cfg["task"]["randomization_params"]
@@ -753,6 +752,7 @@ class BiLeapHandGraspM3Dagger(VecTask):
         self.use_vel_obs = False
         self.fingertip_obs = True
         self.asymmetric_obs = self.cfg["env"]["asymmetric_observations"]
+        self.Kfuturestep = self.cfg["task"]['Kfuturestep']
 
         self.cfg["env"]["numObservations"] = self.get_obs_idx_dict()[-1]
         print(f'number of observation: {self.cfg["env"]["numObservations"]}')
