@@ -4,10 +4,10 @@ cd rl_policy
 Kfuturestep=${1:-5}
 
 verbs=(
+    "dust"
     "empty" 
     "pourinsome"
     "putout"
-    "dust"
     "smear"
     "skimoff"
 )
