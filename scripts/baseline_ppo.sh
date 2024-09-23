@@ -37,5 +37,6 @@ triplet_list=(
 
 # test
 checkpoint=$1
+train_ids=${2:-[]}
 triplet=$(echo "$checkpoint" | grep -oP '\(.*?\)')
-python main.py task=BiLeapHandGraspV6 train=LeapHandGraspBaselinePPO algo=ppo num_envs=100 triplet="'$triplet'" objectOffset=0.2 exp_name=ema0.1+ol2_oo0.2 test=True checkpoint="$checkpoint"
+python main.py task=BiLeapHandGraspV6 train=LeapHandGraspBaselinePPO algo=ppo num_envs=100 triplet="'$triplet'" train_ids="$train_ids" objectOffset=0.2 exp_name=ema0.1+ol2_oo0.2 headless=True test=True checkpoint="$checkpoint"

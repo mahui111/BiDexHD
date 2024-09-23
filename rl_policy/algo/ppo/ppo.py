@@ -148,7 +148,7 @@ class PPO:
         if self.is_testing:
             sr1, sr2, ne = torch.zeros(self.vec_env.num_envs, dtype=torch.float, device=self.device), torch.zeros(self.vec_env.num_envs, dtype=torch.float, device=self.device), 1e-8+torch.zeros(self.vec_env.num_envs, dtype=torch.float, device=self.device)
             eplen = self.vec_env.max_episode_length
-            for i in range(1, 1 + eplen * 3):
+            for i in range(1, 1 + eplen * 10):
                 with torch.no_grad():
                     if self.apply_reset:
                         current_obs = self.vec_env.reset()["obs"]
@@ -174,21 +174,21 @@ class PPO:
                     # print(f"testing set\t| stage1_successes: {avgsr1[test_env_ids].mean()}\t| stage2_successes: {avgsr2[test_env_ids].mean()}")
                     print(f"testing seen\t| stage1_successes: {avgsr1[self.vec_env.types == 1].mean()}\t| stage2_successes: {avgsr2[self.vec_env.types == 1].mean()}")
                     print(f"testing unseen\t| stage1_successes: {avgsr1[self.vec_env.types == 2].mean()}\t| stage2_successes: {avgsr2[self.vec_env.types == 2].mean()}")
-                        
-                    # 2. log success rate for each id-pair
-                    print('-'*90 + f'\n Trained Tasks')
-                    for task_id in range(self.vec_env.num_task):
-                        if task_id in self.vec_env.train_task_ids:
-                            print(f"task: {task_id}\t| stage1_successes: {avgsr1[task_id::self.vec_env.num_task].mean()}\t| stage2_successes: {avgsr2[task_id::self.vec_env.num_task].mean()}")
-                    print(f'Tested Tasks')
-                    for task_id in range(self.vec_env.num_task):
-                        if task_id in self.vec_env.test_task_ids:
-                            print(f"task: {task_id}\t| stage1_successes: {avgsr1[task_id::self.vec_env.num_task].mean()}\t| stage2_successes: {avgsr2[task_id::self.vec_env.num_task].mean()}")
+                    if False:    
+                        # 2. log success rate for each id-pair
+                        print('-'*90 + f'\n Trained Tasks')
+                        for task_id in range(self.vec_env.num_task):
+                            if task_id in self.vec_env.train_task_ids:
+                                print(f"task: {task_id}\t| stage1_successes: {avgsr1[task_id::self.vec_env.num_task].mean()}\t| stage2_successes: {avgsr2[task_id::self.vec_env.num_task].mean()}")
+                        print(f'Tested Tasks')
+                        for task_id in range(self.vec_env.num_task):
+                            if task_id in self.vec_env.test_task_ids:
+                                print(f"task: {task_id}\t| stage1_successes: {avgsr1[task_id::self.vec_env.num_task].mean()}\t| stage2_successes: {avgsr2[task_id::self.vec_env.num_task].mean()}")
 
-                    # log total
-                    print('-'*90 + f'\n Total')
-                    print(f"Average\t| stage1_successes: {avgsr1.mean()}\t| stage2_successes: {avgsr2.mean()}")
-                    print(f"Average Nonzero\t| stage1_successes: {avgsr1[avgsr1>0].mean()}\t| stage2_successes: {avgsr2[avgsr2>0].mean()}")
+                        # log total
+                        print('-'*90 + f'\n Total')
+                        print(f"Average\t| stage1_successes: {avgsr1.mean()}\t| stage2_successes: {avgsr2.mean()}")
+                        print(f"Average Nonzero\t| stage1_successes: {avgsr1[avgsr1>0].mean()}\t| stage2_successes: {avgsr2[avgsr2>0].mean()}")
                     print('-'*90)
             exit()
 
