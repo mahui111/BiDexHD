@@ -86,8 +86,8 @@ params:
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(put out, bowl, plate)/ema0.1+ol2_oo0.2/6w/model_9.5k.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(dust, brush, bowl)/ema0.1+ol2_oo0.2/model_9000.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(dust, brush, pan)/ema0.1+ol2_oo0.2/4w/model_14000.pt',
-    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(smear, glue gun, plate)/ema0.1+ol2_oo0.2/model_11000.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(skim off, bowl, plate)/ema0.1+ol2_oo0.2/model_13500.pt',
+    # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(smear, glue gun, plate)/ema0.1+ol2_oo0.2/model_11000.pt',
     
     
     

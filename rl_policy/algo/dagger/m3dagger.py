@@ -156,7 +156,7 @@ class M3DaggerValueIPPO(nn.Module):
         if self.is_testing:
             eplen = self.vec_env.max_episode_length
             sr1, sr2, ne = torch.zeros(self.vec_env.num_envs, dtype=torch.float, device=self.device), torch.zeros(self.vec_env.num_envs, dtype=torch.float, device=self.device), 1e-8+torch.zeros(self.vec_env.num_envs, dtype=torch.float, device=self.device)
-            for i in range(1, 1 + eplen * 3):
+            for i in range(1, 1 + eplen * 10):
                 with torch.no_grad():
                     # Compute the action
                     stu_left_actions = self.left_actor_critic.act_inference(current_obs)

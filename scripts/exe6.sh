@@ -18,7 +18,7 @@ fi
 # CUDA_VISIBLE_DEVICES=0 python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=ippo num_envs=20000 train_ids="$train_ids" objectOffset=$objoffset triplet="$triplet" exp_name=ema0.1+ol2 headless=True
 
 # evaluate
-python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=ippo num_envs=100 triplet="$triplet" train_ids="$train_ids" objectOffset=$objoffset test=True checkpoint="'\
-/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, teapot, cup)/ema0.1+ol2_oo0.2/model_10500.pt\
+python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=ippo num_envs=100 triplet="$triplet" train_ids="$train_ids" objectOffset=$objoffset headless=True test=True checkpoint="'\
+/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-multippo/freq3/exp2/(brush, brush, bowl)/ema0.1+ol2_sel[1,2,3,5,9,10,11]/model_20000.pt\
 '"
 
