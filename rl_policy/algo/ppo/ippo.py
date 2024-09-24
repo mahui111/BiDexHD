@@ -130,23 +130,21 @@ class IPPO(nn.Module):
                     next_obs = next_obs_dict["obs"]
                     current_obs.copy_(next_obs)
                 
-                ne = torch.where(self.vec_env.is_expect_end, ne + 1, ne)
-                sr1 = torch.where(self.vec_env.is_expect_end, sr1 + self.vec_env.stage1_successes, sr1)
-                sr2 = torch.where(self.vec_env.is_expect_end, sr2 + self.vec_env.stage2_successes, sr2)
+                termination = torch.logical_or(self.vec_env.progress_buf >= self.vec_env.max_episode_length, self.vec_env.is_expect_end)  # self.vec_env.reset_buf > 0
+                ne = torch.where(termination, ne + 1, ne)
+                sr1 = torch.where(termination, sr1 + self.vec_env.stage1_successes, sr1)
+                sr2 = torch.where(termination, sr2 + self.vec_env.stage2_successes, sr2)
                 if i % eplen == 0: 
                     print(f"step {i}")
-                    avgsr1 = sr1 / ne
-                    avgsr2 = sr2 / ne
                     # 1. log success rate for train & test
                     print('-'*90 + f'\nTrain & Test')
                     train_env_ids = [l for l in range(self.vec_env.num_envs) if l % self.vec_env.num_task in self.vec_env.train_task_ids]
                     test_env_ids = [l for l in range(self.vec_env.num_envs) if l % self.vec_env.num_task in self.vec_env.test_task_ids]
-                    print(f"training set\t| stage1_successes: {avgsr1[train_env_ids].mean()}\t| stage2_successes: {avgsr2[train_env_ids].mean()}")
+                    print(f"training set\t| stage1_successes: {sr1[train_env_ids].sum() / ne[train_env_ids].sum()}\t| stage2_successes: {sr2[train_env_ids].sum() / ne[train_env_ids].sum()}")
                     # print(f"testing set\t| stage1_successes: {avgsr1[test_env_ids].mean()}\t| stage2_successes: {avgsr2[test_env_ids].mean()}")
-                    print(f"testing seen\t| stage1_successes: {avgsr1[self.vec_env.types == 1].mean()}\t| stage2_successes: {avgsr2[self.vec_env.types == 1].mean()}")
-                    print(f"testing unseen\t| stage1_successes: {avgsr1[self.vec_env.types == 2].mean()}\t| stage2_successes: {avgsr2[self.vec_env.types == 2].mean()}")
-
-                    if False:    
+                    print(f"testing seen\t| stage1_successes: {sr1[self.vec_env.types == 1].sum() / ne[self.vec_env.types == 1].sum()}\t| stage2_successes: {sr2[self.vec_env.types == 1].sum() / ne[self.vec_env.types == 1].sum()}")
+                    print(f"testing unseen\t| stage1_successes: {sr1[self.vec_env.types == 2].sum() / ne[self.vec_env.types == 2].sum()}\t| stage2_successes: {sr2[self.vec_env.types == 2].sum() / ne[self.vec_env.types == 2].sum()}")
+                    if False:   
                         # 2. log success rate for each id-pair
                         print('-'*90 + f'\n Trained Tasks')
                         for task_id in range(self.vec_env.num_task):
