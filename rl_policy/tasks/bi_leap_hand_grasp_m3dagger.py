@@ -1,5 +1,6 @@
 import os, json, sys, re
 import random
+from tqdm import tqdm
 import torch
 import numpy as np
 from torch.nn import functional as F
@@ -1224,7 +1225,7 @@ class BiLeapHandGraspM3Dagger(VecTask):
 
         
         self.all_triplet = [re.search(r'\((.*?)\)', ecfile).group() for ecfile in self.train_cfg['expertCkptFiles']]
-        category2idx = {
+        self.category2idx = {
             'brush': 0,
             'cut': 1,
             'dust': 2,
@@ -1251,7 +1252,16 @@ class BiLeapHandGraspM3Dagger(VecTask):
         cul_len = 0
         self.train_task_ids, self.test_task_ids = [], []
         train_task_id_dict = self.train_cfg['train_task_id_dict']
+        self.all_retargeting_datas = []
+        self.retargeting_path = '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/taco_dataset/sampled_data/'
         for itriplet, triplet in enumerate(self.all_triplet):
+            retargeting_file = os.path.join(self.retargeting_path, f'{triplet}.json')
+            if os.path.exists(retargeting_file):
+                with open(retargeting_file, 'r') as f:
+                    retargeting_data = json.load(f)
+                    self.all_retargeting_datas.extend(retargeting_data)
+            else:
+                retargeting_data = None
             with open(f'taco_dataset/task_data/{triplet}.json', 'r') as f:
                 dataset_taco_data = json.load(f)
                 train_task_id_list = train_task_id_dict[triplet]
@@ -1295,7 +1305,7 @@ class BiLeapHandGraspM3Dagger(VecTask):
                 self.dataset_taco_datas.extend(dataset_taco_data)
                 is_regen_hull_list.extend([triplet in regen_hull_task_list] * len_dataset_taco_data)
                 self.expert_ids.extend([itriplet] * len_dataset_taco_data)
-                self.verb_category.extend([category2idx[triplet.strip('()').split(', ')[0]]] * len_dataset_taco_data)
+                self.verb_category.extend([self.category2idx[triplet.strip('()').split(', ')[0]]] * len_dataset_taco_data)
                 self.num_task += len_dataset_taco_data
 
         assert len(self.dataset_taco_datas) == self.num_task
@@ -1307,6 +1317,8 @@ class BiLeapHandGraspM3Dagger(VecTask):
         self.types = torch.tensor(self.types, dtype=torch.long, device=self.device)[self.all_task_idx]
         obj_asset_storage = dict()
         object_max_shape, tool_max_shape = -1, -1
+        self.all_target_left_poses, self.all_target_right_poses, self.all_both_fingers_dofs = [], [], []
+        self.origin_dataset_object_poses, self.origin_dataset_tool_poses = [], []
         for task_id in range(self.num_task):
             object_start_pose, tool_start_pose, \
             left_robot_start_pose, right_robot_start_pose, \
@@ -1314,7 +1326,7 @@ class BiLeapHandGraspM3Dagger(VecTask):
             dataset_object_pose, dataset_tool_pose, \
             ref_timestep, end_timestep, \
             object_grasp_pos, tool_grasp_pos\
-            = self._initialize_task(self.dataset_taco_datas[task_id])
+            = self._initialize_task(self.dataset_taco_datas[task_id], self.all_retargeting_datas[task_id])
             self.dataset_object_grasp_pos.append(object_grasp_pos)
             self.dataset_tool_grasp_pos.append(tool_grasp_pos)
             self.dataset_object_poses.append(dataset_object_pose)   
@@ -1380,7 +1392,7 @@ class BiLeapHandGraspM3Dagger(VecTask):
         self.object_mesh_pointclouds = torch.stack(self.object_mesh_pointclouds, dim=0)  # (K, N, 3)
         self.tool_mesh_pointclouds = torch.stack(self.tool_mesh_pointclouds, dim=0)  # (K, N, 3)
 
-    def _initialize_task(self, taco_task_data):
+    def _initialize_task(self, taco_task_data, retargeting_data=None):
         epi_len = self.cfg['env']['episodeLength']
         # timestep
         init_timestep = taco_task_data['key_steps']['init']
@@ -1415,6 +1427,10 @@ class BiLeapHandGraspM3Dagger(VecTask):
         right_robot_start_pose.r = gymapi.Quat(0.5,  0.5,  0.5, -0.5)
         # add offset to dataset
         offset = np.array([-object_center_coord[0], -object_center_coord[1], table_height + 0.03 - min(dataset_object_init_pos[2],dataset_tool_init_pos[2])])
+        self.origin_dataset_object_poses.append(np.concatenate([
+            dataset_object_pos + offset,
+            dataset_object_quat,
+        ], axis=-1))
         dataset_object_pose = to_torch(torch.from_numpy(np.concatenate([
             dataset_object_pos + offset,
             dataset_object_quat,
@@ -1424,7 +1440,10 @@ class BiLeapHandGraspM3Dagger(VecTask):
             dataset_object_pose = torch.cat([dataset_object_pose, dataset_object_pose[-1].repeat(epi_len - len(dataset_object_pose), 1)])
         else:
             dataset_object_pose = dataset_object_pose[:epi_len]
-        
+        self.origin_dataset_tool_poses.append(np.concatenate([
+            dataset_tool_pos + offset,
+            dataset_tool_quat,
+        ], axis=-1))
         dataset_tool_pose = to_torch(torch.from_numpy(np.concatenate([
             dataset_tool_pos + offset,
             dataset_tool_quat,
@@ -1443,25 +1462,31 @@ class BiLeapHandGraspM3Dagger(VecTask):
         tool_start_pose = gymapi.Transform()
         tool_start_pose.p = gymapi.Vec3(self.objoffset, 0, dataset_tool_init_pos[2] + offset[2])
         tool_start_pose.r = gymapi.Quat(0,0,0,1)
-        '''
-        # left palm poses
-        dataset_left_palm_pos = np.array(self.sampled_taco_task_data['left']['palm']['pos'])
-        dataset_left_palm_quat = np.array(self.sampled_taco_task_data['left']['palm']['quat'])
-        # (7)
-        dataset_left_palm_pose = to_torch(torch.from_numpy(np.concatenate([
-            dataset_left_palm_pos[[ref_timestep]],
-            dataset_left_palm_quat[[ref_timestep]],
-        ], axis=-1)), device=self.device, dtype=torch.float)
-        # right palm poses
-        dataset_right_palm_pos = np.array(self.sampled_taco_task_data['right']['palm']['pos'])
-        dataset_right_palm_quat = np.array(self.sampled_taco_task_data['right']['palm']['quat'])
-        # (7)
-        dataset_right_palm_pose = to_torch(torch.from_numpy(np.concatenate([
-            dataset_right_palm_pos[[ref_timestep]],
-            dataset_right_palm_quat[[ref_timestep]],
-        ], axis=-1)), device=self.device, dtype=torch.float)
-        '''
         
+        # add retargeting data
+        if retargeting_data is not None:
+            dataset_left_palm_pos, dataset_left_palm_quat, dataset_left_fingers_qpos = retargeting_data['left']['p'], retargeting_data['left']['q'], retargeting_data['left']['qpos']
+            target_left_pose = to_torch(torch.from_numpy(np.concatenate([
+                dataset_left_palm_pos + offset,
+                dataset_left_palm_quat,
+            ], axis=-1)), device=self.device, dtype=torch.float)
+            # target_left_pose = torch.cat([target_left_pose, target_left_pose[-1].repeat(epi_len - len(target_left_pose), 1)])
+
+            dataset_right_palm_pos, dataset_right_palm_quat, dataset_right_fingers_qpos = retargeting_data['right']['p'], retargeting_data['right']['q'], retargeting_data['right']['qpos']
+            target_right_pose = to_torch(torch.from_numpy(np.concatenate([
+                dataset_right_palm_pos + offset,
+                dataset_right_palm_quat,
+            ], axis=-1)), device=self.device, dtype=torch.float)
+            # target_right_pose = torch.cat([target_right_pose, target_right_pose[-1].repeat(epi_len - len(target_right_pose), 1)])
+        
+            both_fingers_dof = to_torch(torch.from_numpy(np.concatenate([
+                dataset_left_fingers_qpos,
+                dataset_right_fingers_qpos
+            ], axis=-1)), device=self.device, dtype=torch.float)
+
+            self.all_target_left_poses.append(target_left_pose)
+            self.all_target_right_poses.append(target_right_pose)
+            self.all_both_fingers_dofs.append(both_fingers_dof)
 
         return object_start_pose, tool_start_pose, \
             left_robot_start_pose, right_robot_start_pose, \
@@ -1993,3 +2018,46 @@ class BiLeapHandGraspM3Dagger(VecTask):
         lmbda = torch.eye(6, device=self.device) * (damping**2)
         u = (j_eef_T @ torch.inverse(j_eef @ j_eef_T + lmbda) @ dpose).view(self.num_envs, 6)
         return u
+
+    def visualize(self):
+        BC_dataset=dict(obs=[], act=[])
+        for i_task in tqdm(range(self.num_task), total=self.num_task):
+            target_left_pose, target_right_pose, both_fingers_dof, dataset_object_pose, dataset_tool_pose = self.all_target_left_poses[i_task], self.all_target_right_poses[i_task], self.all_both_fingers_dofs[i_task], to_torch(self.origin_dataset_object_poses[i_task]), to_torch(self.origin_dataset_tool_poses[i_task])
+            assert len(target_left_pose) == len(target_right_pose) == len(both_fingers_dof) == len(dataset_object_pose) == len(dataset_tool_pose)
+            observation, action = [], []
+            for i in range(len(target_left_pose)):
+                self.actions = torch.zeros_like(self.robot_dof_pos)
+                self.actions[:, self.both_fingers_dof_indices] = both_fingers_dof[i:i+1]
+                self.actions[:, self.both_arm_dof_indices] = self.calculate_ik(target_left_pose[i:i+1], target_right_pose[i:i+1])
+
+                # step dataset in the environment
+                # 1.set dof state
+                self.robot_dof_pos[:] = self.actions
+                self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(self.robot_dof_state))
+                # self.prev_targets[:] = self.robot_dof_pos[:]
+                # self.gym.set_dof_position_target_tensor_indexed(self.sim, gymtorch.unwrap_tensor(self.prev_targets), gymtorch.unwrap_tensor(self.both_robot_dof_indices.to(torch.int32)), len(self.both_robot_dof_indices))
+        
+                # 2.step object
+                self.root_state_tensor[self.tool_indices, 0:3] = dataset_tool_pose[i, 0:3]
+                self.root_state_tensor[self.tool_indices, 3:7] = dataset_tool_pose[i, 3:7]
+                self.root_state_tensor[self.object_indices, 0:3] = dataset_object_pose[i, 0:3]
+                self.root_state_tensor[self.object_indices, 3:7] = dataset_object_pose[i, 3:7]
+                self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_state_tensor))
+
+                observation.append(self.obs_buf[0].tolist())
+                action.append(self.actions[0].tolist())
+
+                # 3.step simulation
+                self.render()
+                self.gym.simulate(self.sim)
+                self.gym.fetch_results(self.sim, True)
+                self.compute_observations()
+            BC_dataset["obs"].append(observation[1:])
+            BC_dataset["act"].append(action[1:])
+        
+        # save
+        verb = [k for k, v in self.category2idx.items() if self.verb_category[0] == v][0]
+        with open(os.path.join(self.retargeting_path, f'BC_{verb}.json'), 'r') as f:
+            json.dump(BC_dataset, f, indent=4)
+        
+                
