@@ -2057,7 +2057,7 @@ class BiLeapHandGraspM3Dagger(VecTask):
         
         # save
         verb = [k for k, v in self.category2idx.items() if self.verb_category[0] == v][0]
-        with open(os.path.join(self.retargeting_path, f'BC_{verb}.json'), 'r') as f:
+        with open(os.path.join(self.retargeting_path, f'BC_{verb}.json'), 'w') as f:
             json.dump(BC_dataset, f, indent=4)
         
                 
