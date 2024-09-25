@@ -1,5 +1,5 @@
 import os, json, sys, re
-import random
+import random, pickle
 from tqdm import tqdm
 import torch
 import numpy as np
@@ -2056,8 +2056,10 @@ class BiLeapHandGraspM3Dagger(VecTask):
             BC_dataset["act"].append(action[1:])
         
         # save
-        verb = [k for k, v in self.category2idx.items() if self.verb_category[0] == v][0]
-        with open(os.path.join(self.retargeting_path, f'BC_{verb}.json'), 'w') as f:
-            json.dump(BC_dataset, f, indent=4)
+        verb = [k for k, v in self.category2idx.items() if self.verb_category[0] == v][0].replace(" ", "")
+        with open(os.path.join(self.retargeting_path, f'BC_{verb}.pkl'), 'wb') as f:
+            pickle.dump(BC_dataset, f)
+        # with open(os.path.join(self.retargeting_path, f'BC_{verb}.json'), 'w') as f:
+        #     json.dump(BC_dataset, f, indent=4)
         
                 
