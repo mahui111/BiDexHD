@@ -21,17 +21,20 @@ def build_runner(cfg, env):
     is_testing = cfg.test
     ckpt_path = cfg.checkpoint
     print(f'triplet: {cfg.triplet}, objectOffset: {env.objoffset}')
+    verb = cfg.triplet#triplet.strip('()').split(', ')[0]
     if not is_testing:
         time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         exp_name = f"{cfg.algo}_{time_str}_s{cfg.seed}" if not cfg.exp_name else cfg.exp_name
         # triplet = re.search(r'\([^)]+\)', train_param.expertCkptFile).group(0)
         triplet = cfg.triplet  # train_param.expertCkptFiles[0].split('/')[-3]
-        # verb = triplet.strip('()').split(', ')[0]
         if 'dagger' in cfg.algo:
             numtotal = len(train_param.expertCkptFiles)
             tripletlist = [re.search(r'\((.*?)\)', each).group().strip('()').split(', ')[0] for each in train_param.expertCkptFiles]
             assert len(set(tripletlist)) == 1
-            log_dir = os.path.join(train_param.log_dir, train_param.expertModel, f'K={train_param.Kfuturestep}', f"{tripletlist[0]}/distill{numtotal}", exp_name)
+            verb = tripletlist[0]
+            log_dir = os.path.join(train_param.log_dir, train_param.expertModel, f'K={train_param.Kfuturestep}', f"{verb}/distill{numtotal}", exp_name)
+        elif 'bc' in cfg.algo:
+            log_dir = os.path.join(train_param.log_dir.replace('dagger', 'bc'), verb, exp_name)
         else:
             log_dir = os.path.join(train_param.log_dir.replace('multippo', cfg.rewfunc), 'freq3/exp2', triplet, exp_name, f'{cfg.num_envs//10000}w')
         os.makedirs(log_dir, exist_ok=True)
@@ -72,6 +75,14 @@ def build_runner(cfg, env):
                 expert_class=ppo.PPO,
                 log_dir=log_dir,
             )
+    elif train_param.name == "bc":
+        from algo import bc
+        runner = bc.BC(
+            vec_env=env,
+            train_param=train_param,
+            log_dir=log_dir,
+            dataset_file=f'taco_dataset/sampled_data/BC_{verb}.pkl'
+        )
     else:
         raise ValueError("Unrecognized algorithm!")
     

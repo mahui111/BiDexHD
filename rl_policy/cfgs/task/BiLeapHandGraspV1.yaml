@@ -51,6 +51,7 @@ env:
     rightAssetFile: "rm65_leap_right/rm65_leap_right_m1.urdf"
     objectAssetFile: "obj/urdf/cup.urdf"
     toolAssetFile: "obj/urdf/cup.urdf"
+    textureFile: "texture/texture_wood_brown_1033760.jpg"
     objectAssetDir: "obj/urdf"
   
   # palm_offset: [0.0, 0.0, 0.0]

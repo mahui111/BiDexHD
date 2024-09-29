@@ -1166,6 +1166,7 @@ class BiLeapHandGraspV1(VecTask):
 
         # viewer camera setup
         if self.viewer != None:
+            # self.gym.set_viewer_clear_color(self.viewer, gymapi.Vec3(0.53, 0.81, 0.92))
             self.gym.viewer_camera_look_at(self.viewer, None, gymapi.Vec3(*self.cfg['env']['cameraPosition']), gymapi.Vec3(*self.cfg['env']['cameraTarget']))
 
         # get gym GPU state tensors
@@ -1241,6 +1242,7 @@ class BiLeapHandGraspV1(VecTask):
         link_id = object_dict["id"]
         xyz = ' '.join(map(str, object_dict["xyz"])) if "xyz" in object_dict else '0 0 0'
         rpy = ' '.join(map(str, object_dict["rpy"])) if "rpy" in object_dict else '0 0 0'
+        rgb = ' '.join(map(str, object_dict["rgb"])) if "rgb" in object_dict else '0.75 0.75 0.75'
         # modify the scale of object here
         scale = ' '.join(map(str, object_dict["scale"])) if "scale" in object_dict else "0.01 0.01 0.01"
         link_section = f"""
@@ -1252,7 +1254,7 @@ class BiLeapHandGraspV1(VecTask):
         <mesh filename="{link_id}_cm.obj" scale="{scale}"/>
     </geometry>
     <material name="">
-        <color rgba="0.75 0.75 0.75 1"/>
+        <color rgba="{rgb} 1"/>
     </material>
     </visual>
     <collision>
@@ -1269,15 +1271,25 @@ class BiLeapHandGraspV1(VecTask):
     def _create_urdf(self, tool_id, target_id, save_path):
         task_tool_urdf_file = os.path.join(save_path, "tool.urdf")
         with open(task_tool_urdf_file, 'w') as urdf_file:
-            urdf_file.write(self._generate_urdf(dict(id=tool_id)))
+            urdf_file.write(self._generate_urdf(dict(id=tool_id, rgb=[147/255, 215/255, 160/255])))
         task_object_urdf_file = os.path.join(save_path, "object.urdf")
         with open(task_object_urdf_file, 'w') as urdf_file:
-            urdf_file.write(self._generate_urdf(dict(id=target_id)))
+            urdf_file.write(self._generate_urdf(dict(id=target_id, rgb=[90/255, 94/255, 173/255])))
         return task_object_urdf_file, task_tool_urdf_file
 
     def _create_ground_plane(self):
+        # Define material properties
+        # material = gymapi.MaterialProperties()
+        # material.roughness = 0.9
+        # material.albedo = gymapi.Vec3(0.2, 0.8, 0.2)  # Green color for grass
+
+        # Add ground plane with material
         plane_params = gymapi.PlaneParams()
-        plane_params.normal = gymapi.Vec3(0.0, 0.0, 1.0)
+        plane_params.normal = gymapi.Vec3(0, 0, 1)
+        # plane_params.static_friction = 1.0
+        # plane_params.dynamic_friction = 1.0
+        # plane_params.restitution = 0.5
+        # plane_params.material = material
         self.gym.add_ground(self.sim, plane_params)
 
     def _create_envs(self, num_envs, spacing, num_per_row):
@@ -1365,6 +1377,7 @@ class BiLeapHandGraspV1(VecTask):
 
         if self.arm_controller == "ik":
             self.eef_idx = []
+        table_texture_handle = self.gym.create_texture_from_file(self.sim, os.path.join(asset_root, self.cfg["env"]["asset"]["textureFile"]))
         for i in range(num_envs):
             env_ptr = self.gym.create_env(self.sim, lower, upper, num_per_row)
 
@@ -1438,6 +1451,7 @@ class BiLeapHandGraspV1(VecTask):
             )
             object_idx = self.gym.get_actor_index(env_ptr, object_handle, gymapi.DOMAIN_SIM)
             self.object_indices.append(object_idx)
+            self.gym.set_rigid_body_color(env_ptr, object_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(80/255, 150/255, 200/255))
 
             # add tool
             tool_handle = self.gym.create_actor(env_ptr, tool_asset, tool_start_pose, "tool", i, -1, 0)
@@ -1460,10 +1474,13 @@ class BiLeapHandGraspV1(VecTask):
             )
             tool_idx = self.gym.get_actor_index(env_ptr, tool_handle, gymapi.DOMAIN_SIM)
             self.tool_indices.append(tool_idx)
+            self.gym.set_rigid_body_color(env_ptr, tool_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(147/255, 215/255, 160/255))
 
 
             # add table
-            table_actor = self.gym.create_actor(env_ptr, table_asset, self.table_start_pose, "table", i, -1, 0)
+            table_handle = self.gym.create_actor(env_ptr, table_asset, self.table_start_pose, "table", i, -1, 0)
+            self.gym.set_rigid_body_color(env_ptr, table_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(230/255, 180/255, 155/255))
+            # self.gym.set_rigid_body_texture(env_ptr, table_handle, 0, gymapi.MESH_VISUAL, table_texture_handle)
             # side_panel_actor = self.gym.create_actor(env_ptr, side_panel_asset, side_panel_start_pose, "side_panel", i, -1, 0)
 
             # add camera

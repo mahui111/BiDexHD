@@ -1467,6 +1467,7 @@ class BiLeapHandGraspV6(VecTask):
         link_id = object_dict["id"]
         xyz = ' '.join(map(str, object_dict["xyz"])) if "xyz" in object_dict else '0 0 0'
         rpy = ' '.join(map(str, object_dict["rpy"])) if "rpy" in object_dict else '0 0 0'
+        rgb = ' '.join(map(str, object_dict["rgb"])) if "rgb" in object_dict else '0.75 0.75 0.75'
         # modify the scale of object here
         scale = ' '.join(map(str, object_dict["scale"])) if "scale" in object_dict else "0.01 0.01 0.01"
         link_section = f"""
@@ -1478,7 +1479,7 @@ class BiLeapHandGraspV6(VecTask):
         <mesh filename="{link_id}_cm.obj" scale="{scale}"/>
     </geometry>
     <material name="">
-        <color rgba="0.75 0.75 0.75 1"/>
+        <color rgba="{rgb} 1"/>
     </material>
     </visual>
     <collision>
@@ -1848,6 +1849,7 @@ class BiLeapHandGraspV6(VecTask):
                 print(f'training set: 0, testing set: {num_train_set + num_test_set}')
         self.num_task = len(dataset_taco_data)
         self.all_task_idx = torch.tensor([i % self.num_task for i in range(self.num_envs)], dtype=torch.long, device=self.device)
+        print(f"All: {self.num_task} | Train: {sum(self.types==0)} | Test Comb: {sum(self.types==1)} | Test Unseen: {sum(self.types==2)} | Tool:{len(set([each['right']['tool']['id'] for each in dataset_taco_data]))} | Object:{len(set([each['left']['object']['id'] for each in dataset_taco_data]))}")
         self.types = torch.tensor(self.types, dtype=torch.long, device=self.device)[self.all_task_idx]
         obj_asset_storage = {}
         object_max_shape, tool_max_shape = -1, -1

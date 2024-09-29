@@ -13,8 +13,8 @@ from isaacgym import gymapi
 from isaacgymenvs.utils.torch_jit_utils import *
 from isaacgymenvs.tasks.base.vec_task import VecTask
 
-# sys.path.append('../')
-# from taco_dataset import Visualizer3D
+sys.path.append('../')
+from taco_dataset import Visualizer3D
 
 @torch.jit.script
 def standardize_quaternion(quaternions: torch.Tensor) -> torch.Tensor:
@@ -2021,6 +2021,9 @@ class BiLeapHandGraspM3Dagger(VecTask):
 
     def visualize(self):
         BC_dataset=dict(obs=[], act=[])
+        # prepare pointcloud: (N, 512, 3)
+        object_pointclouds = index_points(self.object_mesh_pointclouds, farthest_point_sample(self.object_mesh_pointclouds, self.num_sample_points, self.device), self.device)
+        tool_pointclouds = index_points(self.tool_mesh_pointclouds, farthest_point_sample(self.tool_mesh_pointclouds, self.num_sample_points, self.device), self.device)
         for i_task in tqdm(range(self.num_task), total=self.num_task):
             target_left_pose, target_right_pose, both_fingers_dof, dataset_object_pose, dataset_tool_pose = self.all_target_left_poses[i_task], self.all_target_right_poses[i_task], self.all_both_fingers_dofs[i_task], to_torch(self.origin_dataset_object_poses[i_task]), to_torch(self.origin_dataset_tool_poses[i_task])
             assert len(target_left_pose) == len(target_right_pose) == len(both_fingers_dof) == len(dataset_object_pose) == len(dataset_tool_pose)
@@ -2044,14 +2047,45 @@ class BiLeapHandGraspM3Dagger(VecTask):
                 self.root_state_tensor[self.object_indices, 3:7] = dataset_object_pose[i, 3:7]
                 self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_state_tensor))
 
+                # modify object-related observation
+                cnt = 226
+                self.obs_buf[0, cnt : cnt + self.num_pc_flatten] = transformation_apply(
+                    dataset_object_pose[i, 0:3], 
+                    dataset_object_pose[i, 3:7], 
+                    object_pointclouds[i_task]
+                ).view(-1, self.num_pc_flatten)
+                self.obs_buf[0, cnt + self.num_pc_flatten : cnt + 2 * self.num_pc_flatten] = transformation_apply(
+                    dataset_tool_pose[i, 0:3], 
+                    dataset_tool_pose[i, 3:7], 
+                    tool_pointclouds[i_task]
+                ).view(-1, self.num_pc_flatten)
+                cnt += 2 * self.num_pc_flatten
+                self.obs_buf[0, cnt] = self.object_labels[i_task]
+                self.obs_buf[0, cnt + 1] = self.tool_labels[i_task]
+                cnt += 2
+                object_future_pos = dataset_object_pose[i:i+self.Kfuturestep, :3]
+                tool_future_pos = dataset_tool_pose[i:i+self.Kfuturestep, :3]
+                object_future_pos = torch.cat([object_future_pos, object_future_pos[-1].repeat(self.Kfuturestep - len(object_future_pos), 1)])
+                tool_future_pos = torch.cat([tool_future_pos, tool_future_pos[-1].repeat(self.Kfuturestep - len(tool_future_pos), 1)])
+                self.obs_buf[0, cnt : cnt + self.Kfuturestep * 3] = object_future_pos.view(-1)
+                self.obs_buf[0, cnt + self.Kfuturestep * 3 : cnt + 2 * self.Kfuturestep * 3] = tool_future_pos.view(-1)
+                cnt += 2 * self.Kfuturestep * 3
+                assert cnt == self.obs_buf.shape[1]
+                # if not i:
+                #     visualizer = Visualizer3D()
+                #     visualizer.visualize_point_clouds(self.obs_buf[0, 226 : 226 + self.num_pc_flatten].view(-1, 3).detach().cpu().numpy())
+                #     visualizer.visualize_point_clouds(self.obs_buf[0, 226 + self.num_pc_flatten : 226 + 2 * self.num_pc_flatten].view(-1, 3).detach().cpu().numpy())
+                #     visualizer.draw(True)
+                #     continue
+
                 observation.append(self.obs_buf[0].tolist())
                 action.append(self.actions[0].tolist())
-
                 # 3.step simulation
                 self.render()
                 self.gym.simulate(self.sim)
                 self.gym.fetch_results(self.sim, True)
                 self.compute_observations()
+            
             BC_dataset["obs"].append(observation[1:])
             BC_dataset["act"].append(action[1:])
         

@@ -344,18 +344,18 @@ class TACODataset:
                 tool_grasp_center = np.zeros(3)
 
             # return all data
-            # total_data = dict(
-            #     save_name=os.path.join(save_dir, f'{triplet}-{sequence_name}.json'),
-            #     key_steps=dict(init=init_timestep, ref=ref_timestep, end=end_timestep, grasp=grasp_timestep),
-            #     tool=dict(id=tool_name, T=load_tool_poses.tolist(), grasp_center=tool_grasp_center.tolist()),
-            #     object=dict(id=target_name, T=load_target_poses.tolist(), grasp_center=object_grasp_center.tolist()),
-            #     left=dict(p=all_left_trans.tolist(), q=all_left_quat.tolist(), qpos=all_left_finger_qpos.tolist(), fingertip_ref_init_center=left_fingertip_init_mean_pos.tolist(), fingertip_pos=left_fingertip_pos.tolist()),
-            #     right=dict(p=all_right_trans.tolist(), q=all_right_quat.tolist(), qpos=all_right_finger_qpos.tolist(), fingertip_ref_init_center=right_fingertip_init_mean_pos.tolist(), fingertip_pos=right_fingertip_pos.tolist()),
-            # )
             total_data = dict(
-                left=dict(p=all_left_trans.tolist(), q=all_left_quat.tolist(), qpos=all_left_finger_qpos.tolist()),
-                right=dict(p=all_right_trans.tolist(), q=all_right_quat.tolist(), qpos=all_right_finger_qpos.tolist()),
+                save_name=os.path.join(save_dir, f'{triplet}-{sequence_name}.json'),
+                key_steps=dict(init=init_timestep, ref=ref_timestep, end=end_timestep, grasp=grasp_timestep),
+                tool=dict(id=tool_name, T=load_tool_poses.tolist(), grasp_center=tool_grasp_center.tolist()),
+                object=dict(id=target_name, T=load_target_poses.tolist(), grasp_center=object_grasp_center.tolist()),
+                left=dict(p=all_left_trans.tolist(), q=all_left_quat.tolist(), qpos=all_left_finger_qpos.tolist(), fingertip_ref_init_center=left_fingertip_init_mean_pos.tolist(), fingertip_pos=left_fingertip_pos.tolist()),
+                right=dict(p=all_right_trans.tolist(), q=all_right_quat.tolist(), qpos=all_right_finger_qpos.tolist(), fingertip_ref_init_center=right_fingertip_init_mean_pos.tolist(), fingertip_pos=right_fingertip_pos.tolist()),
             )
+            # total_data = dict(
+            #     left=dict(p=all_left_trans.tolist(), q=all_left_quat.tolist(), qpos=all_left_finger_qpos.tolist()),
+            #     right=dict(p=all_right_trans.tolist(), q=all_right_quat.tolist(), qpos=all_right_finger_qpos.tolist()),
+            # )
             total_dataset.append(total_data)
 
         

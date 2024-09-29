@@ -598,3 +598,31 @@ class PPODaggerStorage:
 
         batch = BatchSampler(subset, mini_batch_size, drop_last=True)
         return batch
+
+class BCStorage:
+    def __init__(
+        self,
+        dataset_obs,
+        dataset_act,
+        device="cpu",
+        sampler="sequential",
+    ):
+        assert len(dataset_obs) == len(dataset_act)
+        self.device = device
+        self.sampler = sampler
+        self.dataset_len = len(dataset_act)
+        # Core
+        self.observations = dataset_obs
+        self.actions = dataset_act.detach()
+
+    def mini_batch_generator(self, num_mini_batches):
+        batch_size = self.dataset_len
+        mini_batch_size = batch_size // num_mini_batches
+
+        if self.sampler == "sequential":
+            subset = SequentialSampler(range(batch_size))
+        elif self.sampler == "random":
+            subset = SubsetRandomSampler(range(batch_size))
+
+        batch = BatchSampler(subset, mini_batch_size, drop_last=False)
+        return batch
