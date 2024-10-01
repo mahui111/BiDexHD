@@ -1,67 +1,56 @@
-# BVDex
-bimanual dexterous manipulation from videos
+# BiDexHD 🤖
+🙌 Official implementation of "Learning Diverse Bimanual Dexterous Manipulation Skills from Human Demonstrations"
 
+## 0. Overview
+we propose a unified and scalable three-phase framework BiDexHD
+- Task Construction: construct a bimanual tool-using task from each demonstration in TACO dataset
+- Teacher Learning: train state-based multi-task teacher policies for constructed bimanual dexterous tasks in parallel
+- Student Learning: Distill teacher policies into single vision-based (pointcloud) policy
 
-(download isaac gym preview) 
-conda create -y -n bvdex python=3.8
-conda activate bvdex
+## 1. Install 🚀
+### 1.1 Download isaac gym preview 📑
+Refer to https://developer.nvidia.com/isaac-gym/download .
+
+### 1.2 Download TACO dataset 🍔
+Follow the instructions in https://github.com/leolyliu/TACO-Instructions .
+All triplets can be found in `${dataset_root}/overall/Object_Poses/*` .
+
+### 1.3 Build up virtual environment 🛰️
+```bash
+conda create -y -n bidexhd python=3.8
+conda activate bidexhd
 pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 cd rl_policy/taco_dataset/
 pip install -e .
 cd rl_policy/Pointnet2_PyTorch/pointnet2_ops_lib
 pip install -e .
+# 
 cd /home/zbh/Downloads/IsaacGym_Preview_4_Package/isaacgym/python
 pip install -e .
 cd /home/zbh/Downloads/IsaacGymEnvs/
 pip install -e .
-pip install ipdb addict yapf h5py sorcery pynvml seaborn einops tensorboard accelerate open3d anytree chumpy kornia pytransform3d nlopt natsort hydra omegaconf nvitop trimesh gym -i https://pypi.tuna.tsinghua.edu.cn/simple  # git+https://github.com/isaac-sim/IsaacGymEnvs.git 
+pip install ipdb addict yapf h5py sorcery pynvml seaborn einops tensorboard accelerate open3d anytree chumpy kornia pytransform3d nlopt natsort hydra omegaconf nvitop trimesh gym git+https://github.com/isaac-sim/IsaacGymEnvs.git -i https://pypi.tuna.tsinghua.edu.cn/simple 
+```
 
+## 2. Implement 📚
+### 2.1 Task construction 🗂️
+Run the code below to store all task data including pose sequences of tool, target object and hands in `rl_policy/taco_dataset/sampled_data/${triplet}.json` and visualize all tasks under ${triplet} in Isaac Gym with different object ids.  
 ```bash
-python taco_dataset/TACOdataset.py --mode make_dataset --triplet "(stir, spoon, pan)"
+bash vis_all.sh "'$triplet'"
 ```
 triplet can be:
 - "(empty, bowl, bowl)"
 - "(stir-fry, spatula, pan)"
+- ...
 
+### 2.2 Multi-Task Reinforcement Learning 📥
 ```bash
-python -m pdb main.py task=BiLeapHandGrasp train=LeapHandGraspPPO num_envs=10000 headless=True algo=ppo
+bash scripts/exe6.sh "'$triplet'" "$train_ids" 
+# or parallel: bash scripts/exe6p.sh
 ```
 
-replace:
-"gpos": \[.*\n.*\n.*\n.*\n.*   -> "gpos": [0.0,0.0,0.0]
+### 2.3 Policy Distillation (DAgger)
+```bash
+bash scripts/exem3dagger.sh "$device_id" "'$verb'" 
+```
 
-(empty, kettle, cup)            x
-(skim off, bowl, bowl)          x
-(dust, roller, bowl)            x
-(empty, cup, bowl)              x left-right-inverse
-(brush, brush, cup)             x
-(skim off, spoon, bowl)         x
-(pour in some, bowl, cup)       x left-right-inverse
-(put in, spoon, bowl)           x
-(screw, screwdriver, box)       x
-(put in, spoon, pan)            x
-(smear, eraser, plate)          x
-(stir, spoon, plate)            x    
-(empty, plate, box)             x   
-(smear, soap, plate)            x tiny
-(skim off, bowl, pan)           x
-
-
-candidate:
-(brush, brush, bowl)            done
-(brush, brush, box)             done
-(dust, brush, bowl)             done (soso)
-(dust, brush, pan)              done 
-(dust, roller, bowl)            done
-(empty, bowl, bowl)             done
-(empty, bowl, plate)            done (soso)
-(empty, cup, teapot)            done
-(empty, teapot, plate)          done
-(empty, teapot, teapot)         done
-(pour in some, bowl, bowl)      done
-(pour in some, cup, cup)        done (soso)
-(put out, bowl, bowl)           done
-(put out, bowl, pan)            done
-(put out, bowl, plate)          done
-(smear, glue gun, box)          done (soso)
-(scrape off, knife, bowl)       done (soso)
