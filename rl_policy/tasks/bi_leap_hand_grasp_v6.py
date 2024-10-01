@@ -1614,6 +1614,7 @@ class BiLeapHandGraspV6(VecTask):
             ])
             object_idx = self.gym.get_actor_index(env_ptr, object_handle, gymapi.DOMAIN_SIM)
             self.object_indices.append(object_idx)
+            self.gym.set_rigid_body_color(env_ptr, object_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(80/255, 150/255, 200/255))#147/255, 215/255, 160/255
 
             # add tool
             tool_start_pose = self.tool_start_poses[i_task]
@@ -1635,12 +1636,13 @@ class BiLeapHandGraspV6(VecTask):
             ])
             tool_idx = self.gym.get_actor_index(env_ptr, tool_handle, gymapi.DOMAIN_SIM)
             self.tool_indices.append(tool_idx)
-
+            self.gym.set_rigid_body_color(env_ptr, tool_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(180/255, 105/255, 105/255))
 
             # add table
             table_asset, table_start_pose = self.table_assets[i_task], self.table_start_poses[i_task]
             self.table_heights.append(table_start_pose.p.z * 2)
-            table_actor = self.gym.create_actor(env_ptr, table_asset, table_start_pose, "table", i, -1, 0)
+            table_handle = self.gym.create_actor(env_ptr, table_asset, table_start_pose, "table", i, -1, 0)
+            # self.gym.set_rigid_body_color(env_ptr, table_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(130/255, 145/255, 170/255))
 
             # enable DOF force sensors, if needed
             if self.obs_type == "full_state" or self.asymmetric_obs:

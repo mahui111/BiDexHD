@@ -143,7 +143,7 @@ def main(cfg: DictConfig) -> None:
         while True:
             # action[:, [10,11,12,13,10+22,11+22,12+22,13+22]] = 1-2*((i//10)%2)*torch.tensor([1,1,1,1,1,1,1,1,], dtype=torch.float32)
             # action[:, [10,11, 10+22,11+22]] = (1-2*((i//10)%2))*torch.tensor([-1,-1,1,1,], dtype=torch.float32)
-            action[:, [10,10+22]] = (1-2*((i//10)%2))*torch.tensor([-1,1,], dtype=torch.float32)
+            # action[:, [10,10+22]] = (1-2*((i//10)%2))*torch.tensor([-1,1,], dtype=torch.float32)
             # action[:, [10]] = 1-2*((i//10)%2)*torch.tensor([1,], dtype=torch.float32)
             _, _, _, _ = env.step(action)
             i+=1

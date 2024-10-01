@@ -15,6 +15,8 @@ from isaacgym import gymapi
 from isaacgymenvs.utils.torch_jit_utils import *
 from isaacgymenvs.tasks.base.vec_task import VecTask
 
+magenta=(163/255,24/255,155/255)
+deepblue = (0/255, 8/255, 166/255)
 
 @torch.jit.script
 def standardize_quaternion(quaternions: torch.Tensor) -> torch.Tensor:
@@ -1293,6 +1295,8 @@ class BiLeapHandGraspV1(VecTask):
         self.gym.add_ground(self.sim, plane_params)
 
     def _create_envs(self, num_envs, spacing, num_per_row):
+        # self.gym.set_light_parameters(self.sim, 0, gymapi.Vec3(0.6, 0.6, 0.6), gymapi.Vec3(0.5, 0.5, 0.5), gymapi.Vec3(0., 0., -1))
+
         lower = gymapi.Vec3(-spacing, -spacing, 0.0)
         upper = gymapi.Vec3(spacing, spacing, spacing)
 
@@ -1451,7 +1455,7 @@ class BiLeapHandGraspV1(VecTask):
             )
             object_idx = self.gym.get_actor_index(env_ptr, object_handle, gymapi.DOMAIN_SIM)
             self.object_indices.append(object_idx)
-            self.gym.set_rigid_body_color(env_ptr, object_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(80/255, 150/255, 200/255))
+            self.gym.set_rigid_body_color(env_ptr, object_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(80/255, 150/255, 200/255 ))#147/255, 215/255, 160/255
 
             # add tool
             tool_handle = self.gym.create_actor(env_ptr, tool_asset, tool_start_pose, "tool", i, -1, 0)
@@ -1474,12 +1478,12 @@ class BiLeapHandGraspV1(VecTask):
             )
             tool_idx = self.gym.get_actor_index(env_ptr, tool_handle, gymapi.DOMAIN_SIM)
             self.tool_indices.append(tool_idx)
-            self.gym.set_rigid_body_color(env_ptr, tool_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(147/255, 215/255, 160/255))
+            self.gym.set_rigid_body_color(env_ptr, tool_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(180/255, 105/255, 105/255))#80/255, 150/255, 200/255    180/255, 105/255, 105/255
 
 
             # add table
             table_handle = self.gym.create_actor(env_ptr, table_asset, self.table_start_pose, "table", i, -1, 0)
-            self.gym.set_rigid_body_color(env_ptr, table_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(230/255, 180/255, 155/255))
+            # self.gym.set_rigid_body_color(env_ptr, table_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(130/255, 145/255, 170/255))
             # self.gym.set_rigid_body_texture(env_ptr, table_handle, 0, gymapi.MESH_VISUAL, table_texture_handle)
             # side_panel_actor = self.gym.create_actor(env_ptr, side_panel_asset, side_panel_start_pose, "side_panel", i, -1, 0)
 
@@ -2311,7 +2315,7 @@ class BiLeapHandGraspV1(VecTask):
         u = (j_eef_T @ torch.inverse(j_eef @ j_eef_T + lmbda) @ dpose).view(self.num_envs, 6)
         return u
 
-    def visualize(self, replay_times=5, debug=False, vis_metrics=False,):
+    def visualize(self, replay_times=5000, debug=False, vis_metrics=False,):
         def visualize_curves(data_dict):
             """
             Visualize each list in the dictionary as a curve in a 2xM matrix of subplots.
@@ -2353,8 +2357,8 @@ class BiLeapHandGraspV1(VecTask):
                 self.actions = torch.zeros_like(self.robot_dof_pos)
                 self.actions[:, self.both_fingers_dof_indices] = self.both_fingers_dof[i:i+1]
                 self.actions[:, self.both_arm_dof_indices] = self.calculate_ik(self.target_left_pose[i:i+1], self.target_right_pose[i:i+1])
-                if i == self.ref_timestep:
-                    time.sleep(1)
+                # if i == self.ref_timestep:
+                #     time.sleep(1)
 
                 # step dataset in the environment
                 # 1.set dof state
