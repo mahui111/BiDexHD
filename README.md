@@ -44,12 +44,14 @@ triplet can be:
 - ...
 
 ### 2.2 Multi-Task Reinforcement Learning 📥
+Train and evaluate IPPO:
 ```bash
 bash scripts/exe6.sh "'$triplet'" "$train_ids" 
 # or parallel: bash scripts/exe6p.sh
 ```
 
-### 2.3 Policy Distillation (DAgger)
+### 2.3 Policy Distillation 🏆
+Train and evaluate DAgger:
 ```bash
 bash scripts/exem3dagger.sh "$device_id" "'$verb'" 
 ```
