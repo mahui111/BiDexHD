@@ -1260,8 +1260,6 @@ class BiLeapHandGraspM3Dagger(VecTask):
                 with open(retargeting_file, 'r') as f:
                     retargeting_data = json.load(f)
                     self.all_retargeting_datas.extend(retargeting_data)
-            else:
-                retargeting_data = None
             with open(f'taco_dataset/task_data/{triplet}.json', 'r') as f:
                 dataset_taco_data = json.load(f)
                 train_task_id_list = train_task_id_dict[triplet]
@@ -1288,7 +1286,7 @@ class BiLeapHandGraspM3Dagger(VecTask):
                 id_pairs = np.array([(dataset_taco_data[k]['left']['object']['id'], dataset_taco_data[k]['right']['tool']['id']) for k in range(len_dataset_taco_data)])
                 types = np.int_([_ in test_task_ids for _ in range(cul_len, cul_len + len(dataset_taco_data))])
                 unique_trained_object_ids = np.unique(id_pairs[cur_train_task_id_list, 0])
-                unique_trained_tool_ids = np.unique(id_pairs[cur_test_task_ids,1])
+                unique_trained_tool_ids = np.unique(id_pairs[cur_train_task_id_list,1])
                 for k in range(len_dataset_taco_data):
                     if k in cur_test_task_ids:
                         objid, toolid = id_pairs[k]
@@ -1307,7 +1305,7 @@ class BiLeapHandGraspM3Dagger(VecTask):
                 self.expert_ids.extend([itriplet] * len_dataset_taco_data)
                 self.verb_category.extend([self.category2idx[triplet.strip('()').split(', ')[0]]] * len_dataset_taco_data)
                 self.num_task += len_dataset_taco_data
-
+        print(f"All: {self.num_task} | Train: {sum([e==0 for e in self.types])} | Test Comb: {sum([e==1 for e in self.types])} | Test Unseen: {sum([e==2 for e in self.types])} | Tool:{len(set([each['right']['tool']['id'] for each in dataset_taco_data]))} | Object:{len(set([each['left']['object']['id'] for each in dataset_taco_data]))}")
         assert len(self.dataset_taco_datas) == self.num_task
         self.all_task_idx = torch.tensor([i % self.num_task for i in range(self.num_envs)], dtype=torch.long, device=self.device)
         assert len(self.expert_ids) == self.num_task
@@ -1320,13 +1318,14 @@ class BiLeapHandGraspM3Dagger(VecTask):
         self.all_target_left_poses, self.all_target_right_poses, self.all_both_fingers_dofs = [], [], []
         self.origin_dataset_object_poses, self.origin_dataset_tool_poses = [], []
         for task_id in range(self.num_task):
+            retargeting_data = self.all_retargeting_datas[task_id] if task_id < len(self.all_retargeting_datas) else None
             object_start_pose, tool_start_pose, \
             left_robot_start_pose, right_robot_start_pose, \
             table_asset, table_start_pose, \
             dataset_object_pose, dataset_tool_pose, \
             ref_timestep, end_timestep, \
             object_grasp_pos, tool_grasp_pos\
-            = self._initialize_task(self.dataset_taco_datas[task_id], self.all_retargeting_datas[task_id])
+            = self._initialize_task(self.dataset_taco_datas[task_id], retargeting_data)
             self.dataset_object_grasp_pos.append(object_grasp_pos)
             self.dataset_tool_grasp_pos.append(tool_grasp_pos)
             self.dataset_object_poses.append(dataset_object_pose)   
