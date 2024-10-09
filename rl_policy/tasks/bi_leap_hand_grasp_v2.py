@@ -924,79 +924,98 @@ class BiLeapHandGraspV2(VecTask):
     '''
     Single-object training for bimanual manipulation from demonstrations.
     '''
-    def get_obs_idx_num(self,obs_type=''):
-        if not obs_type:
+    def get_obs_idx_dict(self,obs_type=''):
+        if obs_type == '':
             obs_type = self.obs_type
         cnt = 0
-        lidx, ridx = [], []
+        left_robostate_idx, right_robostate_idx = [], []
+        left_pointcloud_idx, right_pointcloud_idx = [], []
+        left_objlabel_idx, right_objlabel_idx = [], []
 
         if 'dofps' in obs_type:  # dof pos, 44 
             num_robot_dofs = 44
-            lidx.extend(list(range(cnt, cnt + num_robot_dofs//2)))
-            ridx.extend(list(range(cnt + num_robot_dofs//2, cnt + num_robot_dofs)))
+            left_robostate_idx.extend(list(range(cnt, cnt + num_robot_dofs//2)))
+            right_robostate_idx.extend(list(range(cnt + num_robot_dofs//2, cnt + num_robot_dofs)))
             cnt += num_robot_dofs
 
         if 'dofvel' in obs_type:  # dof vel, 44
             num_robot_dofs = 44
-            lidx.extend(list(range(cnt, cnt + num_robot_dofs//2)))
-            ridx.extend(list(range(cnt + num_robot_dofs//2, cnt + num_robot_dofs)))
+            left_robostate_idx.extend(list(range(cnt, cnt + num_robot_dofs//2)))
+            right_robostate_idx.extend(list(range(cnt + num_robot_dofs//2, cnt + num_robot_dofs)))
             cnt += num_robot_dofs
 
         if 'ftps' in obs_type:  # fingertip pos, 3 * 4 * 2
             num_ft_states = 4 * 3
-            lidx.extend(list(range(cnt, cnt + num_ft_states)))
-            ridx.extend(list(range(cnt + num_ft_states, cnt + 2 * num_ft_states)))
+            left_robostate_idx.extend(list(range(cnt, cnt + num_ft_states)))
+            right_robostate_idx.extend(list(range(cnt + num_ft_states, cnt + 2 * num_ft_states)))
             cnt += 2 * num_ft_states
 
         if 'ftstate' in obs_type:  # fingertip state, 13 * 4 * 2
             num_ft_states = 4 * 13
-            lidx.extend(list(range(cnt, cnt + num_ft_states)))
-            ridx.extend(list(range(cnt + num_ft_states, cnt + 2 * num_ft_states)))
+            left_robostate_idx.extend(list(range(cnt, cnt + num_ft_states)))
+            right_robostate_idx.extend(list(range(cnt + num_ft_states, cnt + 2 * num_ft_states)))
             cnt += 2 * num_ft_states
 
         if 'lastact' in obs_type:  # last action, 44
             num_actions = 44
-            lidx.extend(list(range(cnt, cnt + num_actions//2)))
-            ridx.extend(list(range(cnt + num_actions//2, cnt + num_actions)))
+            left_robostate_idx.extend(list(range(cnt, cnt + num_actions//2)))
+            right_robostate_idx.extend(list(range(cnt + num_actions//2, cnt + num_actions)))
             cnt += num_actions
 
         if 'objpose' in obs_type:  # object pose, 7 * 2
             obj_dim = 7
-            lidx.extend(list(range(cnt, cnt + obj_dim)))
-            ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
+            left_robostate_idx.extend(list(range(cnt, cnt + obj_dim)))
+            right_robostate_idx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
             cnt += 2 * obj_dim
 
         if 'objstate' in obs_type:  # object state, pose, linvel, angvel. 13 * 2
             obj_dim = 13
-            lidx.extend(list(range(cnt, cnt + obj_dim)))
-            ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
+            left_robostate_idx.extend(list(range(cnt, cnt + obj_dim)))
+            right_robostate_idx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
             cnt += 2 * obj_dim
         
         if 'palmps' in obs_type:  # palm pos, 3 * 2
             obj_dim = 3
-            lidx.extend(list(range(cnt, cnt + obj_dim)))
-            ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
+            left_robostate_idx.extend(list(range(cnt, cnt + obj_dim)))
+            right_robostate_idx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
             cnt += 2 * obj_dim
 
         if 'palmpose' in obs_type:  # palm pose, 7 * 2
             obj_dim = 7
-            lidx.extend(list(range(cnt, cnt + obj_dim)))
-            ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
+            left_robostate_idx.extend(list(range(cnt, cnt + obj_dim)))
+            right_robostate_idx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
             cnt += 2 * obj_dim
 
         if 'palmstate' in obs_type: # palm state, 13 * 2
             obj_dim = 13
-            lidx.extend(list(range(cnt, cnt + obj_dim)))
-            ridx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
+            left_robostate_idx.extend(list(range(cnt, cnt + obj_dim)))
+            right_robostate_idx.extend(list(range(cnt + obj_dim, cnt + 2 * obj_dim)))
             cnt += 2 * obj_dim
 
         if 'relps' in obs_type:  # relative pos to object center, 15 * 2
             relpos_dim = 3 * (4 + 1)
-            lidx.extend(list(range(cnt, cnt + relpos_dim)))
-            ridx.extend(list(range(cnt + relpos_dim, cnt + 2 * relpos_dim)))
+            left_robostate_idx.extend(list(range(cnt, cnt + relpos_dim)))
+            right_robostate_idx.extend(list(range(cnt + relpos_dim, cnt + 2 * relpos_dim)))
             cnt += 2 * relpos_dim
 
-        return lidx, ridx, len(lidx) + len(ridx)
+        if 'objlabel' in obs_type:  # object label, 1
+            label_dim = 1
+            left_objlabel_idx.extend(list(range(cnt, cnt + label_dim)))
+            right_objlabel_idx.extend(list(range(cnt + label_dim, cnt + 2 * label_dim)))
+            cnt += 2 * label_dim
+
+        assert cnt == len(left_robostate_idx) + len(right_robostate_idx) + len(left_pointcloud_idx) + len(right_pointcloud_idx) + len(left_objlabel_idx) + len(right_objlabel_idx)  
+        left_indices = dict(
+            robostate_indices=left_robostate_idx,
+            pointcloud_indices=left_pointcloud_idx,
+            objlabel_indices=left_objlabel_idx,
+        )
+        right_indices = dict(
+            robostate_indices=right_robostate_idx,
+            pointcloud_indices=right_pointcloud_idx,
+            objlabel_indices=right_objlabel_idx,
+        )
+        return left_indices, right_indices, cnt
 
     def __init__(
         self,
@@ -1007,6 +1026,7 @@ class BiLeapHandGraspV2(VecTask):
         headless,
         virtual_screen_capture,
         force_render,
+        **kwargs,
     ):
         self.cfg = cfg
         self.mode = self.cfg["mode"]
@@ -1062,7 +1082,7 @@ class BiLeapHandGraspV2(VecTask):
         self.fingertip_obs = True
         self.asymmetric_obs = self.cfg["env"]["asymmetric_observations"]
 
-        self.cfg["env"]["numObservations"] = self.get_obs_idx_num()[-1]
+        self.cfg["env"]["numObservations"] = self.get_obs_idx_dict()[-1]
         print(f'number of observation: {self.cfg["env"]["numObservations"]}')
         self.cfg["env"]["numStates"] = 0
         self.cfg["env"]["numActions"] = 44
@@ -1499,6 +1519,8 @@ class BiLeapHandGraspV2(VecTask):
             self.dataset_taco_data = json.load(f)
         self.num_task = len(self.dataset_taco_data)
         self.task_id = self.cfg['task']['task_id']
+        self.train_task_ids = [0]
+        self.types = np.zeros((1,))
 
     def _prepare_task(self, task_id=0):
         assert len(self.dataset_taco_data) > 0 and isinstance(self.dataset_taco_data, list), "Please load the dataset first!"
@@ -1621,12 +1643,13 @@ class BiLeapHandGraspV2(VecTask):
         return side_panel_asset, side_panel_start_pose
 
     def compute_reward(self, mode):
+        self.is_expect_end = torch.zeros_like(self.reset_buf, dtype=torch.float, device=self.device)
+        self.stage2_successes = torch.zeros_like(self.reset_buf, dtype=torch.float, device=self.device)
         if mode == 's12':
             t_left = torch.where(self.left_reach_ref_timestep == -1, torch.zeros_like(self.timestep), torch.ceil((self.timestep - self.left_reach_ref_timestep)/self.frequency).int()) + self.ref_timestep
             t_right = torch.where(self.right_reach_ref_timestep == -1, torch.zeros_like(self.timestep), torch.ceil((self.timestep - self.right_reach_ref_timestep)/self.frequency).int()) + self.ref_timestep
             ref_object_pose = self.dataset_object_pose[t_left.clip(max=self.end_timestep)]  
             ref_tool_pose = self.dataset_tool_pose[t_right.clip(max=self.end_timestep)]  
-
             (
                 self.rew_buf[:],
                 self.reset_buf[:],

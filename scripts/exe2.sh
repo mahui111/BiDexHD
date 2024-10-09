@@ -17,6 +17,6 @@ fi
 
 # evaluate
 python main.py task=BiLeapHandGraspV2 train=LeapHandGraspPPO algo=ippo num_envs=1 triplet="$triplet" task_id=$task_id test=True checkpoint="'\
-/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs/(empty, bowl, bowl)/task9/ema0.1/model_14000.pt\
+/home/zbh/Desktop/zbh/robot/BiDexHD/rl_policy/runs/(pour in some, teapot, cup)/task1/ippo_Bbvdex_reward_exp/model_1500_backup.pt\
 '"
 

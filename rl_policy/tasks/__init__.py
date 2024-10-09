@@ -3,7 +3,7 @@ from isaacgymenvs.tasks import isaacgym_task_map
 # from .leap_hand_grasp import LeapHandGrasp
 # from .bi_leap_hand_grasp_v0 import BiLeapHandGraspV0
 from .bi_leap_hand_grasp_v1 import BiLeapHandGraspV1
-# from .bi_leap_hand_grasp_v2 import BiLeapHandGraspV2
+from .bi_leap_hand_grasp_v2 import BiLeapHandGraspV2
 # from .bi_leap_hand_grasp_v3 import BiLeapHandGraspV3
 from .bi_leap_hand_grasp_v4 import BiLeapHandGraspV4
 from .bi_leap_hand_grasp_v5 import BiLeapHandGraspV5
@@ -20,7 +20,7 @@ from .bi_leap_hand_grasp_bc import BiLeapHandGraspBC
 # isaacgym_task_map["LeapHandGrasp"] = LeapHandGrasp
 # isaacgym_task_map["BiLeapHandGraspV0"] = BiLeapHandGraspV0
 isaacgym_task_map["BiLeapHandGraspV1"] = BiLeapHandGraspV1
-# isaacgym_task_map["BiLeapHandGraspV2"] = BiLeapHandGraspV2
+isaacgym_task_map["BiLeapHandGraspV2"] = BiLeapHandGraspV2
 # isaacgym_task_map["BiLeapHandGraspV3"] = BiLeapHandGraspV3
 isaacgym_task_map["BiLeapHandGraspV4"] = BiLeapHandGraspV4
 isaacgym_task_map["BiLeapHandGraspV5"] = BiLeapHandGraspV5

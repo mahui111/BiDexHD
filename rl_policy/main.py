@@ -20,7 +20,6 @@ def build_runner(cfg, env):
     train_param = cfg.train.params
     is_testing = cfg.test
     ckpt_path = cfg.checkpoint
-    print(f'triplet: {cfg.triplet}, objectOffset: {env.objoffset}')
     verb = cfg.triplet#triplet.strip('()').split(', ')[0]
     if not is_testing:
         time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -36,7 +35,7 @@ def build_runner(cfg, env):
         elif 'bc' in cfg.algo:
             log_dir = os.path.join(train_param.log_dir.replace('dagger', 'bc'), verb, exp_name)
         else:
-            log_dir = os.path.join(train_param.log_dir.replace('multippo', cfg.rewfunc), 'freq3/exp2', triplet, exp_name, f'{cfg.num_envs//10000}w')
+            log_dir = os.path.join(train_param.log_dir.replace('multippo', cfg.rewfunc), 'real', triplet, exp_name, f'{cfg.num_envs//10000}w')
         os.makedirs(log_dir, exist_ok=True)
         with open(os.path.join(log_dir, "config.json"), "w") as f:
             json.dump(OmegaConf.to_container(cfg), f, indent=4)

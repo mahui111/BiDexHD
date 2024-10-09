@@ -39,7 +39,7 @@ def transformation_inverse_np(quat, pos):
     pos_inv = -R.from_quat(quat_inv).apply(pos)
     return quat_inv, pos_inv
 
-def compute_relative_position_po(a_position, b_position, b_orientation):
+def compute_relative_position_pos(a_position, b_position, b_orientation):
     """Compute the position of `a` in frame `b`.
     
     Args:
@@ -135,7 +135,7 @@ class TACODataset:
     def __init__(self, dataset_dir, mano_model_path, optimize_wrist):
         self.dataset_root = dataset_dir
         self.mano_model_path = mano_model_path
-        self.mesh_src_path = '/home/zbh/Desktop/zbh/robot/BVDex/assets/TACOobjects'
+        self.mesh_src_path = '/home/zbh/Desktop/zbh/robot/BiDexHD/assets/TACOobjects'
         self.optimize_wrist = optimize_wrist
         self.triplet_list = os.listdir(os.path.join(self.dataset_root, "Object_Poses"))
         if optimize_wrist:
@@ -411,15 +411,15 @@ class TACODataset:
             
             # find grasp center from object mesh
             if obj not in self.use_origin_object_list: 
-                left_palm_rel_pos = compute_relative_position_po(all_left_trans[ref_timestep], object_pos[ref_timestep], object_quat[ref_timestep])[None,:]
-                left_fingertip_rel_pos = compute_relative_position_po(left_fingertip_pos[ref_timestep], object_pos[ref_timestep], object_quat[ref_timestep])
+                left_palm_rel_pos = compute_relative_position_pos(all_left_trans[ref_timestep], object_pos[ref_timestep], object_quat[ref_timestep])[None,:]
+                left_fingertip_rel_pos = compute_relative_position_pos(left_fingertip_pos[ref_timestep], object_pos[ref_timestep], object_quat[ref_timestep])
                 object_grasp_rel_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, target_name + "_cm.obj"), left_fingertip_rel_pos)#np.concatenate([left_palm_rel_pos, left_fingertip_rel_pos], axis=0)
             else:
                 object_grasp_rel_center = np.zeros(3)
 
             if tool not in self.use_origin_object_list: 
-                right_palm_rel_pos = compute_relative_position_po(all_right_trans[ref_timestep], tool_pos[ref_timestep], tool_quat[ref_timestep])[None,:]
-                right_fingertip_rel_pos = compute_relative_position_po(right_fingertip_pos[ref_timestep], tool_pos[ref_timestep], tool_quat[ref_timestep])
+                right_palm_rel_pos = compute_relative_position_pos(all_right_trans[ref_timestep], tool_pos[ref_timestep], tool_quat[ref_timestep])[None,:]
+                right_fingertip_rel_pos = compute_relative_position_pos(right_fingertip_pos[ref_timestep], tool_pos[ref_timestep], tool_quat[ref_timestep])
                 tool_grasp_rel_center = self.sample_grasp_center_from_pointcloud(os.path.join(self.mesh_src_path, tool_name + "_cm.obj"), right_fingertip_rel_pos)#np.concatenate([right_palm_rel_pos, right_fingertip_rel_pos], axis=0)
             else:
                 tool_grasp_rel_center = np.zeros(3)
@@ -1093,8 +1093,8 @@ class BiRetargetor:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_dir", type=str, default="/home/zbh/Desktop/zbh/robot/TACO-Instructions/dataset/overall/")#/mnt/hpfs/baairl/zbh/BVDex/assets/TACOdatasets
-    parser.add_argument("--mano_model_path", type=str, default="/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/taco_dataset/manopth/mano/models")
+    parser.add_argument("--dataset_dir", type=str, default="/home/zbh/Desktop/zbh/robot/TACO-Instructions/dataset/overall/")#/mnt/hpfs/baairl/zbh/BiDexHD/assets/TACOdatasets
+    parser.add_argument("--mano_model_path", type=str, default="/home/zbh/Desktop/zbh/robot/BiDexHD/rl_policy/taco_dataset/manopth/mano/models")
     parser.add_argument("--triplet", type=str, default='(smear, eraser, plate)')
     parser.add_argument("--num_max", type=int, default=100)
     parser.add_argument("--viz_sapien", action="store_true")
