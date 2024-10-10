@@ -31,7 +31,8 @@ def build_runner(cfg, env):
             tripletlist = [re.search(r'\((.*?)\)', each).group().strip('()').split(', ')[0] for each in train_param.expertCkptFiles]
             assert len(set(tripletlist)) == 1
             verb = tripletlist[0]
-            log_dir = os.path.join(train_param.log_dir, train_param.expertModel, f'K={train_param.Kfuturestep}', f"{verb}/distill{numtotal}", exp_name)
+            # log_dir = os.path.join(train_param.log_dir, train_param.expertModel, f'K={train_param.Kfuturestep}', f"{verb}/distill{numtotal}", exp_name)
+            log_dir = os.path.join(train_param.log_dir, f"real_{verb}", exp_name)
         elif 'bc' in cfg.algo:
             log_dir = os.path.join(train_param.log_dir.replace('dagger', 'bc'), verb, exp_name)
         else:

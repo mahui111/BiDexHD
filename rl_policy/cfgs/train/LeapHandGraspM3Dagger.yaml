@@ -79,7 +79,7 @@ params:
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(empty, teapot, teapot)/ema0.1+ol2_oo0.2/model_23000.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, cup, cup)/ema0.1+ol2_oo0.2/model_3500.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, cup, plate)/ema0.1+ol2_oo0.2/4w/model_11500.pt',
-    '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, cup, teapot)/ema0.1+ol2_oo0.2/model_3500.pt',
+    '/home/zbh/Desktop/zbh/robot/BiDexHD/rl_policy/runs-multippo/real_ippo/(pour in some, cup, teapot)/ema0.1+ol2/1w/model_6500.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, teapot, bowl)/ema0.1+ol2_oo0.2/model_19000.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(pour in some, teapot, cup)/ema0.1+ol2_oo0.2/model_10500.pt',
     # '/mnt/hpfs/baairl/zbh/BVDex/rl_policy/runs-multippo/freq3/exp2/(put out, bowl, bowl)/ema0.1+ol2_oo0.2/model_15500.pt',

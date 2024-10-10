@@ -17,10 +17,10 @@ fi
 # python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=ippo num_envs=1 train_ids="$train_ids" objectOffset=$objoffset triplet="$triplet" test=True mode=visualize
 
 # train
-CUDA_VISIBLE_DEVICES=$device python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=$algo num_envs=10000 train_ids="$train_ids" objectOffset=$objoffset triplet="$triplet" exp_name=ema0.1+ol2 headless=True
+# CUDA_VISIBLE_DEVICES=$device python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=$algo num_envs=10000 train_ids="$train_ids" objectOffset=$objoffset triplet="$triplet" exp_name=ema0.1+ol2 headless=True
 
 # evaluate
-# CUDA_VISIBLE_DEVICES=$device python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=$algo num_envs=100 triplet="$triplet" train_ids="$train_ids" objectOffset=$objoffset test=True checkpoint="'\
-# /home/zbh/Desktop/zbh/robot/BiDexHD/rl_policy/runs-multippo/real_ippo/(pour in some, cup, teapot)/ema0.1+ol2/1w/model_8000.pt\
-# '"
+CUDA_VISIBLE_DEVICES=$device python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=$algo num_envs=100 triplet="$triplet" train_ids="$train_ids" objectOffset=$objoffset test=True checkpoint="'\
+/home/zbh/Desktop/zbh/robot/BiDexHD/rl_policy/runs-multippo/real_ippo/(pour in some, cup, teapot)/ema0.1+ol2/1w/model_6500.pt\
+'"
 
