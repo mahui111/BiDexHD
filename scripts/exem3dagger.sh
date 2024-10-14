@@ -14,13 +14,13 @@ objectOffset=${3:-0.2}
 # python main.py task=BiLeapHandGraspM3Dagger train=LeapHandGraspM3Dagger algo=m3dagger num_envs=1 test=True mode=visualize
 
 # train
-CUDA_VISIBLE_DEVICES=$device_id python main.py task=BiLeapHandGraspM3Dagger train=LeapHandGraspM3Dagger algo=m3dagger num_envs=6000 triplet=$triplet objectOffset=$objectOffset exp_name=dagger_avhuber headless=True #checkpoint="'\
+# CUDA_VISIBLE_DEVICES=$device_id python main.py task=BiLeapHandGraspM3Dagger train=LeapHandGraspM3Dagger algo=m3dagger num_envs=5000 triplet=$triplet objectOffset=$objectOffset exp_name=dagger_avhuber headless=True #checkpoint="'\
 # /home/zbh/Desktop/zbh/robot/BVDex/rl_policy/runs-dagger/distill1/dagger_avhuber/dagger_27000.pt\
 # '"n
 
 # evaluate
-# CUDA_VISIBLE_DEVICES=$device_id python main.py task=BiLeapHandGraspM3Dagger train=LeapHandGraspM3Dagger algo=m3dagger num_envs=100 triplet=$triplet objectOffset=$objectOffset test=True headless=False checkpoint="'\
-# /home/zbh/Desktop/zbh/robot/BiDexHD/rl_policy/runs-dagger/IPPO/K=5/pourinsome/distill5/dagger_avhuber/dagger_7000.pt\
-# '"
+CUDA_VISIBLE_DEVICES=$device_id python main.py task=BiLeapHandGraspM3Dagger train=LeapHandGraspM3Dagger algo=m3dagger num_envs=1 triplet=$triplet objectOffset=$objectOffset test=True headless=False checkpoint="'\
+/home/zbh/Desktop/zbh/robot/BiDexHD/rl_policy/runs-dagger/real_pour in some/dagger_avhuber/dagger_8500.pt\
+'"
 
 

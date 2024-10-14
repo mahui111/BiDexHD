@@ -21,6 +21,6 @@ fi
 
 # evaluate
 CUDA_VISIBLE_DEVICES=$device python main.py task=BiLeapHandGraspV6 train=LeapHandGraspMultiPPO algo=$algo num_envs=100 triplet="$triplet" train_ids="$train_ids" objectOffset=$objoffset test=True checkpoint="'\
-/home/zbh/Desktop/zbh/robot/BiDexHD/rl_policy/runs-multippo/real_ippo/(pour in some, cup, teapot)/ema0.1+ol2/1w/model_6500.pt\
+/home/zbh/Desktop/zbh/robot/BiDexHD/rl_policy/runs-multippo/real_ppo/(pour in some, cup, teapot)/ema0.1+ol2/2w/model_30500.pt\
 '"
 
