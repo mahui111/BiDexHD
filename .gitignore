@@ -13,3 +13,42 @@ rl_policy/taco_dataset/task_data/(scrape off, knife, plate).json
 assets/texture/
 rl_policy/taco_dataset/action_data/
 plotting/
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.out
+!plots/*.png
+assets/TACOobjects/
+rl_policy/taco_dataset/manopth/mano/models/
+logs/
+runs*/
+runs-multippo/
+
+# Local-only personal notes / reports
+molling readme.md
+复现进展汇报.md
+video_commands.md
+VIDEO_FIX_NOTES.md
+VIDEO_RECORDING.md
+check_job_*.sh
+check_video_job.sh
+
+# Local-only cluster / machine-specific scripts
+rl_policy/compare_videos.py
+rl_policy/record_eval_video.py
+scripts/monitor_training.py
+scripts/plot_results.sh
+scripts/plot_training_curves.py
+scripts/quick_test_render.sh
+scripts/record_eval_video.sh
+scripts/record_my_videos.sh
+scripts/record_videos_fixed.sh
+scripts/run_interactive_gpu.sh
+scripts/submit_dagger_distill.sh
+scripts/submit_eval_video.sh
+scripts/submit_my_videos.sh
+scripts/submit_student_dagger.sh
+scripts/submit_teacher_ippo.sh
+scripts/submit_videos_fixed.sh
+scripts/test_video_render.sh
