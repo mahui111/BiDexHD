@@ -697,6 +697,7 @@ class BiLeapHandGraspM3Dagger(VecTask):
         **kwargs,
     ):
         self.cfg = cfg
+        self.train_cfg = self.cfg.get('train_cfg', {})
         self.mode = self.cfg["mode"]
         self.frequency, self.horizon = self.cfg["task"]['frequency'], self.cfg["task"]['horizon']
         self.is_stage1_hand_object_rew = self.cfg["task"]["isStage1HOReward"]
@@ -1063,6 +1064,35 @@ class BiLeapHandGraspM3Dagger(VecTask):
             if self.aggregate_mode > 0:
                 self.gym.end_aggregate(env_ptr)
 
+            if self.cfg['env'].get('enableCameraSensors', False):
+                self.gym.set_rigid_body_color(env_ptr, table_actor, 0, gymapi.MESH_VISUAL, gymapi.Vec3(0.55, 0.55, 0.58))
+                self.gym.set_rigid_body_color(env_ptr, object_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(80/255, 150/255, 200/255))
+                self.gym.set_rigid_body_color(env_ptr, tool_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(180/255, 105/255, 105/255))
+                left_bodies = self.gym.get_actor_rigid_body_count(env_ptr, left_robot_actor)
+                right_bodies = self.gym.get_actor_rigid_body_count(env_ptr, right_robot_actor)
+                for body_idx in range(left_bodies):
+                    self.gym.set_rigid_body_color(env_ptr, left_robot_actor, body_idx, gymapi.MESH_VISUAL, gymapi.Vec3(0.15, 0.62, 0.72))
+                for body_idx in range(right_bodies):
+                    self.gym.set_rigid_body_color(env_ptr, right_robot_actor, body_idx, gymapi.MESH_VISUAL, gymapi.Vec3(0.86, 0.45, 0.18))
+                camera_props = gymapi.CameraProperties()
+                camera_props.width = int(self.cfg['env'].get('imageWidth', 640))
+                camera_props.height = int(self.cfg['env'].get('imageHeight', 480))
+                camera_props.horizontal_fov = 65.0
+                camera_props.enable_tensors = False
+                
+                # Camera 0: Isometric Angle View
+                cam_handle = self.gym.create_camera_sensor(env_ptr, camera_props)
+                cam_pos = self.cfg['env'].get('cameraPosition', [0.85, -1.25, 1.55])
+                cam_target = self.cfg['env'].get('cameraTarget', [0.0, -0.15, 0.95])
+                self.gym.set_camera_location(cam_handle, env_ptr, gymapi.Vec3(*cam_pos), gymapi.Vec3(*cam_target))
+                
+                # Camera 1: Frontal View
+                cam_handle_front = self.gym.create_camera_sensor(env_ptr, camera_props)
+                cam_pos_front = self.cfg['env'].get('cameraPositionFront', [0.0, -1.45, 1.45])
+                self.gym.set_camera_location(cam_handle_front, env_ptr, gymapi.Vec3(*cam_pos_front), gymapi.Vec3(*cam_target))
+                
+                self.cameras.append((cam_handle, cam_handle_front))
+
             self.envs.append(env_ptr)
 
             if self.arm_controller == "ik":
@@ -1115,6 +1145,8 @@ class BiLeapHandGraspM3Dagger(VecTask):
         asset_options.collapse_fixed_joints = True
         asset_options.thickness = 0.001
         asset_options.angular_damping = 0.01
+        if self.cfg['env'].get('enableCameraSensors', False):
+            asset_options.use_mesh_materials = True
 
         if vhacd_enabled:
             asset_options.vhacd_enabled = True
@@ -1189,6 +1221,8 @@ class BiLeapHandGraspM3Dagger(VecTask):
         asset_options.collapse_fixed_joints = True
         asset_options.thickness = 0.001
         asset_options.angular_damping = 0.01
+        if self.cfg['env'].get('enableCameraSensors', False):
+            asset_options.use_mesh_materials = True
         if vhacd_enabled:
             asset_options.vhacd_enabled = True
             asset_options.vhacd_params = gymapi.VhacdParams()
@@ -1253,7 +1287,7 @@ class BiLeapHandGraspM3Dagger(VecTask):
         self.train_task_ids, self.test_task_ids = [], []
         train_task_id_dict = self.train_cfg['train_task_id_dict']
         self.all_retargeting_datas = []
-        self.retargeting_path = '/home/zbh/Desktop/zbh/robot/BVDex/rl_policy/taco_dataset/sampled_data/'
+        self.retargeting_path = 'taco_dataset/sampled_data/'
         for itriplet, triplet in enumerate(self.all_triplet):
             retargeting_file = os.path.join(self.retargeting_path, f'{triplet}.json')
             if os.path.exists(retargeting_file):
@@ -2017,6 +2051,20 @@ class BiLeapHandGraspM3Dagger(VecTask):
         lmbda = torch.eye(6, device=self.device) * (damping**2)
         u = (j_eef_T @ torch.inverse(j_eef @ j_eef_T + lmbda) @ dpose).view(self.num_envs, 6)
         return u
+
+    def render_camera_frame(self, env_idx=0, camera_idx=0):
+        if not self.cameras or env_idx >= len(self.cameras):
+            return None
+        # IMPORTANT: with the GPU pipeline, physics state lives in GPU buffers and
+        # must be explicitly synced to the renderer before step_graphics, otherwise
+        # dynamic actors (robots, objects) render stale/uninitialized transforms
+        # while static actors (table, ground plane) still appear fine.
+        self.gym.fetch_results(self.sim, True)
+        self.gym.step_graphics(self.sim)
+        self.gym.render_all_camera_sensors(self.sim)
+        cam = self.cameras[env_idx][camera_idx]
+        image = self.gym.get_camera_image(self.sim, self.envs[env_idx], cam, gymapi.IMAGE_COLOR)
+        return image
 
     def visualize(self):
         BC_dataset=dict(obs=[], act=[])

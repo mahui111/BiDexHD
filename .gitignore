@@ -52,3 +52,5 @@ scripts/submit_student_dagger.sh
 scripts/submit_teacher_ippo.sh
 scripts/submit_videos_fixed.sh
 scripts/test_video_render.sh
+*.sh
+多任务训练Pipeline.md

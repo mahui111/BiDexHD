@@ -1642,7 +1642,14 @@ class BiLeapHandGraspV6(VecTask):
             table_asset, table_start_pose = self.table_assets[i_task], self.table_start_poses[i_task]
             self.table_heights.append(table_start_pose.p.z * 2)
             table_handle = self.gym.create_actor(env_ptr, table_asset, table_start_pose, "table", i, -1, 0)
-            # self.gym.set_rigid_body_color(env_ptr, table_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(130/255, 145/255, 170/255))
+            if self.cfg['env'].get('enableCameraSensors', False):
+                self.gym.set_rigid_body_color(env_ptr, table_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(0.55, 0.55, 0.58))
+                left_bodies = self.gym.get_actor_rigid_body_count(env_ptr, left_robot_actor)
+                right_bodies = self.gym.get_actor_rigid_body_count(env_ptr, right_robot_actor)
+                for body_idx in range(left_bodies):
+                    self.gym.set_rigid_body_color(env_ptr, left_robot_actor, body_idx, gymapi.MESH_VISUAL, gymapi.Vec3(0.15, 0.62, 0.72))
+                for body_idx in range(right_bodies):
+                    self.gym.set_rigid_body_color(env_ptr, right_robot_actor, body_idx, gymapi.MESH_VISUAL, gymapi.Vec3(0.86, 0.45, 0.18))
 
             # enable DOF force sensors, if needed
             if self.obs_type == "full_state" or self.asymmetric_obs:
@@ -1650,6 +1657,24 @@ class BiLeapHandGraspV6(VecTask):
 
             if self.aggregate_mode > 0:
                 self.gym.end_aggregate(env_ptr)
+
+            if self.cfg['env'].get('enableCameraSensors', False):
+                camera_props = gymapi.CameraProperties()
+                camera_props.width = int(self.cfg['env'].get('imageWidth', 640))
+                camera_props.height = int(self.cfg['env'].get('imageHeight', 480))
+                camera_props.horizontal_fov = 65.0
+                camera_props.enable_tensors = False
+
+                cam_handle = self.gym.create_camera_sensor(env_ptr, camera_props)
+                cam_pos = self.cfg['env'].get('cameraPosition', [0.85, -1.25, 1.55])
+                cam_target = self.cfg['env'].get('cameraTarget', [0.0, -0.15, 0.95])
+                self.gym.set_camera_location(cam_handle, env_ptr, gymapi.Vec3(*cam_pos), gymapi.Vec3(*cam_target))
+
+                cam_handle_front = self.gym.create_camera_sensor(env_ptr, camera_props)
+                cam_pos_front = self.cfg['env'].get('cameraPositionFront', [0.0, -1.45, 1.45])
+                self.gym.set_camera_location(cam_handle_front, env_ptr, gymapi.Vec3(*cam_pos_front), gymapi.Vec3(*cam_target))
+
+                self.cameras.append((cam_handle, cam_handle_front))
 
             self.envs.append(env_ptr)
 
@@ -1703,6 +1728,8 @@ class BiLeapHandGraspV6(VecTask):
         asset_options.collapse_fixed_joints = True
         asset_options.thickness = 0.001
         asset_options.angular_damping = 0.01
+        if self.cfg['env'].get('enableCameraSensors', False):
+            asset_options.use_mesh_materials = True
 
         if vhacd_enabled:
             asset_options.vhacd_enabled = True
@@ -1777,6 +1804,8 @@ class BiLeapHandGraspV6(VecTask):
         asset_options.collapse_fixed_joints = True
         asset_options.thickness = 0.001
         asset_options.angular_damping = 0.01
+        if self.cfg['env'].get('enableCameraSensors', False):
+            asset_options.use_mesh_materials = True
         if vhacd_enabled:
             asset_options.vhacd_enabled = True
             asset_options.vhacd_params = gymapi.VhacdParams()
@@ -2013,6 +2042,20 @@ class BiLeapHandGraspV6(VecTask):
             ref_timestep, end_timestep, \
             dataset_object_grasp_pos, dataset_tool_grasp_pos,\
             # dataset_left_palm_pose, dataset_right_palm_pose
+
+    def render_camera_frame(self, env_idx=0, camera_idx=0):
+        if not self.cameras or env_idx >= len(self.cameras):
+            return None
+        # IMPORTANT: with the GPU pipeline, physics state lives in GPU buffers and
+        # must be explicitly synced to the renderer before step_graphics, otherwise
+        # dynamic actors (robots, objects) render stale/uninitialized transforms
+        # while static actors (table, ground plane) still appear fine.
+        self.gym.fetch_results(self.sim, True)
+        self.gym.step_graphics(self.sim)
+        self.gym.render_all_camera_sensors(self.sim)
+        cam = self.cameras[env_idx][camera_idx]
+        image = self.gym.get_camera_image(self.sim, self.envs[env_idx], cam, gymapi.IMAGE_COLOR)
+        return image
 
     def _prepare_table_asset(self, table_dims):
         # create table asset
